@@ -15,42 +15,50 @@ dependencies = [
   "scikit-image",
   "scikit-learn",
   "scipy",
-  "SimpleITK",
-  "pydicom",
-  "pynrrd",
-  "ftfy",
-  "regex",
-  "pynvml",
   "future",
   "tensorboard",
-  "nibabel",
   "orjson",
   "tqdm",
   "colorama",
   "ml_collections",
-  "seaborn"
+  "seaborn",
+  "matplotlib",
+  "matplotlib-inline",
+  "jupyter",
+  "colored",
 ]
 
 [project.optional-dependencies]
-full = [
+dev = [
   "timm",
-  "monai",
   "deepspeed",
-  "tensorrt",
-  "mamba-ssm",
+  "h5py",
+  "pylint-django",
+  "HolisticTraceAnalysis",
+  "pynvml",
+]
+deploy = [
   "onnx",
   "onnxruntime",
   "onnxruntime-gpu",
   "onnx_graphsurgeon",
   "polygraphy",
-  "colored",
+  "tensorrt",
+]
+medical_vision = [
+  "monai",
   "opensdpc",
   "openslide-python",
   "openslide-bin",
-  "h5py",
-  "pylint-django",
-  "HolisticTraceAnalysis",
+  "SimpleITK",
+  "pydicom",
+  "pynrrd",
+  "nibabel",
 ]
+electrophysiology = [
+  "lightning",
+]
+
 
 [project.scripts]
 mmrun = "mgamdata.mm.run:main"
