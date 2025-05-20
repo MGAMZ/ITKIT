@@ -16,6 +16,7 @@ import math
 import numpy as np
 from torch import nn
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 
 class SelfAttention(nn.Module):
@@ -444,33 +445,59 @@ class SegFormer3D(nn.Module):
             dropout=decoder_dropout,
         )
 
-        # Initialize weights
-        self.apply(self._init_weights)
+        # 注入 Grad-CAM 用的属性和 hook
+        self.feature_maps = None
+        self.gradients = None
+        self.decoder.predict.register_forward_hook(self._forward_hook)
+        self.decoder.predict.register_full_backward_hook(self._backward_hook)
 
-    def _init_weights(self, m):
-        # Standard weight initialization
-        if isinstance(m, nn.Linear):
-            nn.init.trunc_normal_(m.weight, std=0.02)
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.BatchNorm3d):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv3d):
-            # Kaiming normal initialization for Conv3D
-            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.kernel_size[2] * m.out_channels
-            fan_out //= m.groups
-            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            if m.bias is not None:
-                m.bias.data.zero_()
+    # HACK For reviewers' requirements.
+    def _forward_hook(self, module, input, output):
+        self.feature_maps = output
+    # HACK For reviewers' requirements.
+    def _backward_hook(self, module, grad_in, grad_out):
+        self.gradients = grad_out[0]
 
-    def forward(self, x):
+    def forward(self, x, save_gradcam: bool = False, save_dir: str = 'tmp'):
         encoder_features = self.encoder(x)
-        # Pass the list of features [c1, c2, c3, c4] to the decoder
         segmentation_output = self.decoder(encoder_features)
+
+        if save_gradcam:
+            import os
+            os.makedirs(save_dir, exist_ok=True)
+            num_classes = segmentation_output.shape[1]
+            self.zero_grad()
+
+            # HACK only for KiTS23 dataset
+            class_id = ['Background', 'Kidney', 'Tumor', 'Cyst']
+            
+            plt.figure(figsize=(20, 5))
+            
+            for cls in range(num_classes):
+                # 针对每个类别做反向传播
+                self.zero_grad()
+                score = segmentation_output[:, cls].sum()
+                score.backward(retain_graph=True)
+
+                grads = self.gradients           # (B, C, D, W, H)
+                fmap = self.feature_maps         # (B, C, D, W, H)
+                weights = grads.mean(dim=(2,3,4), keepdim=True)
+                cam = F.relu((weights * fmap).sum(dim=1, keepdim=True))
+                cam = cam - cam.min()
+                cam = cam / (cam.max() + 1e-8)
+
+                cam_np = cam.detach().cpu().numpy()
+                cam_slice = cam_np[0, 0, cam_np.shape[2] // 2]
+                plt.subplot(1, num_classes, cls + 1)
+                plt.imshow(cam_slice, cmap='winter', alpha=0.6)
+                plt.title(f'{class_id[cls]}')
+                plt.axis('off')
+            
+            save_path = os.path.join(save_dir, 'KiTS23_GradCAM.png')
+            plt.savefig(save_path)
+            plt.close()
+            exit(1)
+
         return segmentation_output
 
 
