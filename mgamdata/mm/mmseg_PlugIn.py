@@ -418,8 +418,7 @@ class PackSegInputs(BaseTransform):
                     f'{results["gt_seg_map"].shape}'
                 )
                 data = to_tensor(results["gt_seg_map"])
-            gt_sem_seg_data = dict(data=data)
-            data_sample.gt_sem_seg = PixelData(**gt_sem_seg_data)
+            data_sample.gt_sem_seg = PixelData(data=data)
 
         img_meta = {}
         for key in self.meta_keys:
