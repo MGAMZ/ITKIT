@@ -75,15 +75,14 @@ class LoadAnnoFromOpenCV(BaseLoadBiomedicalData):
 
 class LoadFromMHA(BaseLoadBiomedicalData):
     def __init__(self, resample_spacing=None, resample_size=None):
-        assert not ((resample_spacing is not None) and (resample_size is not None))
         self.resample_spacing = resample_spacing
         self.resample_size = resample_size
 
-    def _process_mha(self, mha, field):
+    def _process_mha(self, mha, field:Literal["image", "label"]):
         if self.resample_spacing is not None:
-            mha = sitk_resample_to_spacing(mha, self.spacing, field)
+            mha = sitk_resample_to_spacing(mha, self.resample_spacing, field, interp_method=sitk.sitkLinear if field == "image" else None)
         if self.resample_size is not None:
-            mha = sitk_resample_to_size(mha, self.resample_size, field)
+            mha = sitk_resample_to_size(mha, self.resample_size, field, interp_method=sitk.sitkLinear if field == "image" else None)
         # mha.GetSize(): [X, Y, Z]
         mha_array = sitk.GetArrayFromImage(mha)  # [Z, Y, X]
         return mha_array
@@ -130,7 +129,7 @@ class LoadMaskFromMHA(LoadFromMHA):
             mask_path = results["seg_map_path"]
             mask_mha = sitk.ReadImage(mask_path)
             mask_mha = sitk.DICOMOrient(mask_mha, "LPI")
-            mask = self._process_mha(mask_mha, "mask")
+            mask = self._process_mha(mask_mha, "label")
             if results.get("label_map", None) is not None:
                 mask = self._label_remap(mask, results["label_map"])
             results["gt_seg_map"] = mask  # output: [X, Y, Z]

@@ -15,12 +15,13 @@ import SimpleITK as sitk
 STANDARD_DIRECTION = [1, 0, 0, 0, 1, 0, 0, 0, 1]
 STANDARD_ORIGIN = [0, 0, 0]
 PIXEL_TYPE = lambda field: sitk.sitkInt16 if field == "image" else sitk.sitkUInt8
-INTERPOLATOR = lambda field: sitk.sitkBSpline3 if field == "image" else sitk.sitkNearestNeighbor
+INTERPOLATOR = lambda field: sitk.sitkLinear if field == "image" else sitk.sitkNearestNeighbor
 
 
 def sitk_resample_to_spacing(mha:sitk.Image, 
                              spacing: list[float], 
-                             field: Literal["image", "label"]):
+                             field: Literal["image", "label"],
+                             interp_method=None):
     """改进后的重采样方法。
 
     Args:
@@ -57,7 +58,7 @@ def sitk_resample_to_spacing(mha:sitk.Image,
         return sitk.Resample(
             image1=mha,
             size=resampled_size,  # type:ignore
-            interpolator=INTERPOLATOR(field),
+            interpolator=interp_method or INTERPOLATOR(field),
             outputSpacing=spacing,
             outputPixelType=PIXEL_TYPE(field),
             outputOrigin=mha.GetOrigin(),
@@ -81,6 +82,7 @@ def sitk_resample_to_image(
     reference_image: sitk.Image,
     field: Literal["image", "label"],
     default_value=0.0,
+    interp_method=None
 ):
     """重采样一个sitk.Image，对齐到另一个sitk.Image。
 
@@ -97,7 +99,7 @@ def sitk_resample_to_image(
     return sitk.Resample(
         image1=image,
         size=reference_image.GetSize(),
-        interpolator=INTERPOLATOR(field),
+        interpolator=interp_method or INTERPOLATOR(field),
         outputSpacing=reference_image.GetSpacing(),
         outputPixelType=PIXEL_TYPE(field),
         outputOrigin=reference_image.GetOrigin(),
@@ -110,6 +112,7 @@ def sitk_resample_to_size(
     image,
     new_size: list[float],
     field: Literal["image", "label"],
+    interp_method=None
 ):
     """
     Args:
@@ -141,7 +144,7 @@ def sitk_resample_to_size(
     return sitk.Resample(
         image1=image,
         size=new_size,
-        interpolator=INTERPOLATOR(field),
+        interpolator=interp_method or INTERPOLATOR(field),
         outputSpacing=new_spacing,
         outputPixelType=PIXEL_TYPE(field),
         outputOrigin=image.GetOrigin(),

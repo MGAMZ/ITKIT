@@ -85,10 +85,6 @@ class VolumeData(BaseDataElement):
                 f"Can not set {type(value)}, only support" f" {(Tensor, np.ndarray)}"
             )
 
-            if self.shape:
-                assert tuple(value.shape[-3:]) == self.shape, (
-                    f"The Z, Y, and X dimensions of values {tuple(value.shape[-3:])} are "
-                    f"not consistent with the shape of this :obj:`VolumeData` {self.shape}")
             assert value.ndim in [3,4,], f"The dim of value must be 3 or 4, but got {value.ndim}"
             if value.ndim == 3:
                 value = value[None]
