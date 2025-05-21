@@ -132,7 +132,7 @@ class LoadMaskFromMHA(LoadFromMHA):
             mask = self._process_mha(mask_mha, "label")
             if results.get("label_map", None) is not None:
                 mask = self._label_remap(mask, results["label_map"])
-            results["gt_seg_map"] = mask  # output: [X, Y, Z]
+            results["gt_seg_map"] = mask # output: [Z, Y, X]
             results["seg_fields"].append("gt_seg_map")
         return results
 

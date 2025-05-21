@@ -975,3 +975,57 @@ class CenterCrop3D(BaseTransform):
             results["img_shape"] = self.size
         
         return results
+
+
+class RandomPatch3D(BaseTransform):
+    def __init__(
+        self,
+        patch_size: list[int],
+        keys: list[str] = ["img", "gt_seg_map"]
+    ):
+        self.patch_size = patch_size
+        self.keys = keys
+    
+    def transform(self, results:dict[str, np.ndarray]):
+        """Randomly crop a patch from the 3D volume
+        
+        Args:
+            results (dict): Result dict from loading pipeline.
+                - img: The image to be cropped, shape [Z, Y, X].
+                - gt_seg_map: The segmentation map to be cropped, shape[(Optional) C, Z, Y, X].
+                - img_shape: Original shape of the image.
+        
+        Returns:
+            results (dict): The cropped results.
+                - img: The cropped image, shape [pz, py, px].
+                - gt_seg_map: The cropped segmentation map, shape[(Optional) C, pz, py, px].
+                - img_shape: The shape of the cropped image.
+        """
+        # Obtain the source image
+        img = results.get("img")
+        if img is None:
+            raise KeyError("`img` key is required for RandomPatch3D")
+        # Original volume dimensions
+        z, y, x = img.shape[:3]
+        pz, py, px = self.patch_size
+        # Ensure patch fits within the volume
+        if any(dim < p for dim, p in zip((z, y, x), (pz, py, px))):
+            raise ValueError(f"Patch size {self.patch_size} exceeds image shape {(z, y, x)}")
+        # Random start indices for cropping
+        z1 = random.randint(0, z - pz)
+        y1 = random.randint(0, y - py)
+        x1 = random.randint(0, x - px)
+        # Crop each specified key
+        for key in self.keys:
+            arr = results.get(key)
+            if arr is None:
+                continue
+            if arr.ndim == 3:
+                results[key] = arr[z1:z1+pz, y1:y1+py, x1:x1+px]
+            elif arr.ndim == 4:
+                results[key] = arr[:, z1:z1+pz, y1:y1+py, x1:x1+px]
+            else:
+                raise ValueError(f"Unsupported array dimension {arr.ndim} for key `{key}`")
+        # Update the shape in results
+        results["img_shape"] = (pz, py, px)
+        return results

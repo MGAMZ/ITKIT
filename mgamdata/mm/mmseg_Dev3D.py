@@ -866,7 +866,6 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
 
         self.batch_augments = batch_augments
         self.test_cfg = test_cfg
-
     @staticmethod
     def stack_batch_3D(
         inputs: list[Tensor],
@@ -964,15 +963,17 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         return torch.stack(padded_inputs, dim=0), padded_samples
 
     def forward(self, data: dict, training: bool = False) -> dict[str, Any]:
-        """Perform normalization, padding based on ``BaseDataPreprocessor``.
-
+        """
         Args:
-            data (dict): data sampled from dataloader.
-            training (bool): Whether to enable training time augmentation.
+            data (dict or list[dict]): data sampled from dataloader.
+                - 'inputs' (obj:`torch.Tensor`): The forward data of models.
+                - 'data_samples' (list[:obj:`SegDataSample`]): The segmentation data samples.
+            training (bool)
 
         Returns:
             Dict: Data in the same format as the model input.
         """
+        
         data = self.cast_data(data)  # type: ignore
         inputs = data["inputs"]
         data_samples = data.get("data_samples", None)
