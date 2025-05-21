@@ -12,11 +12,12 @@ from matplotlib.patches import Patch
 from scipy.ndimage import zoom
 
 from mmcv.transforms import BaseTransform
-from mmengine.registry import MODELS
+from mmengine.registry import MODELS, FUNCTIONS
 from mmengine.model import BaseModel
 from mmengine.structures import BaseDataElement
 from mmengine.evaluator.metric import BaseMetric
 from mmengine.runner import Runner
+from mmengine.config import ConfigDict
 from ..mm.mmseg_PlugIn import IoUMetric_PerClass
 from ..mm.mmseg_Dev3D import (BaseDecodeHead_3D, Seg3DDataSample, Seg3DDataPreProcessor,
                               PixelShuffle3D, EncoderDecoder_3D, VolumeData)
@@ -95,6 +96,13 @@ class SeriesData(BaseDataElement):
 
 
 class SarcopeniaPreprocessor(Seg3DDataPreProcessor):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        if self.batch_augments is not None:
+            assert isinstance(self.batch_augments, ConfigDict), f"batch_augments should be ConfigDict, got {type(self.batch_augments)}."
+            self.batch_augments = FUNCTIONS.build(self.batch_augments)
+
     @staticmethod
     def stack_batch_3D(
         inputs: list[Tensor],
@@ -190,6 +198,57 @@ class SarcopeniaPreprocessor(Seg3DDataPreProcessor):
                 })
 
         return torch.stack(padded_inputs, dim=0), padded_samples
+
+
+class SarcopeniaBatchAugmentor:
+    def __init__(self, patch_size:tuple[int, int, int], num_patches_per_batch:int=2):
+        self.patch_size = patch_size
+        self.num_patches_per_batch = num_patches_per_batch
+
+    def __call__(self, inputs:Tensor, data_samples:list[Seg3DDataSample]) -> tuple[Tensor, list[Seg3DDataSample]]:
+        """Batch augmentation for 3D data.
+        
+        Args:
+            inputs (Tensor): Input data, shape (N, C, Z, Y, X).
+            data_samples (list[Seg3DDataSample]): List of data samples, num of elements is `N`.
+                - gt_sem_seg (data:SeriesData): tensor (Z, Y, X)
+        
+        Returns
+            inputs (Tensor): Augmented input data, shape(N * num_patches, C, patch_Z, patch_Y, patch_X).
+            data_samples (list[Seg3DDataSample]): List of data samples, num of elements is `N * num_patches`.
+                - gt_sem_seg (data:SeriesData): tensor (Z, Y, X)
+        """
+        import random, copy
+        # 获取原始尺寸
+        N, C, Z, Y, X = inputs.shape
+        pz, py, px = self.patch_size
+        assert pz <= Z and py <= Y and px <= X, \
+            f"patch_size {self.patch_size} invalid for input size {(Z, Y, X)}"
+        new_inputs = []
+        new_samples = []
+        # 对每个样本生成 num_patches_per_batch 个随机patch
+        for i in range(N):
+            vol = inputs[i]
+            sample = data_samples[i]
+            for _ in range(self.num_patches_per_batch):
+                z1 = random.randint(0, Z - pz)
+                y1 = random.randint(0, Y - py)
+                x1 = random.randint(0, X - px)
+                # 切取patch
+                patch_vol = vol[:, z1:z1+pz, y1:y1+py, x1:x1+px]
+                new_inputs.append(patch_vol)
+                # 克隆data_sample并切取对应标签
+                new_sample = copy.deepcopy(sample)
+                # 语义分割切片
+                if hasattr(new_sample, 'gt_sem_seg'):
+                    seg = new_sample.gt_sem_seg.data
+                    seg_patch = seg[:, z1:z1+pz, y1:y1+py, x1:x1+px] if seg.ndim == 4 else seg[z1:z1+pz, y1:y1+py, x1:x1+px]
+                    new_sample.gt_sem_seg.data = seg_patch
+                new_samples.append(new_sample)
+        # 合并并返回
+        new_inputs_tensor = torch.stack(new_inputs, dim=0)
+        del inputs, data_samples
+        return new_inputs_tensor, new_samples
 
 
 class L3_Evaluator(BaseMetric):
@@ -366,7 +425,7 @@ class L3_Visualizer(BaseViser):
         
         # 绘制gt_L3
         gt_l3 = l3_info['gt_L3']
-        if isinstance(gt_l3, torch.Tensor):
+        if isinstance(gt_l3, Tensor):
             gt_l3 = gt_l3.cpu().numpy()
         gt_l3_resize_to_img = zoom(gt_l3, zoom=scale_factor, order=0)
         gt_positions = np.where(gt_l3_resize_to_img == 1)[0]
@@ -381,7 +440,7 @@ class L3_Visualizer(BaseViser):
 
         # 绘制pred_L3
         pred_l3 = l3_info['pred_L3']
-        if isinstance(pred_l3, torch.Tensor):
+        if isinstance(pred_l3, Tensor):
             pred_l3 = pred_l3.cpu().numpy()
         pred_l3_resize_to_img = zoom(pred_l3, zoom=scale_factor, order=0)
         pred_positions = np.where(pred_l3_resize_to_img == 1)[0]
@@ -531,7 +590,7 @@ class ForegroundSlicesMetric(IoUMetric_PerClass):
 
 """ ----- Neural Models ----- """
 
-
+@deprecated("250521: L3Locating is now using seg-based model.")
 class L3LocationDecoder(BaseDecodeHead_3D):
     def __init__(self, 
                  embed_dims:list[int], 
@@ -663,7 +722,7 @@ class L3LocationDecoder(BaseDecodeHead_3D):
         z_logits = self.forward(inputs)
         return z_logits > self.threshold
 
-
+@deprecated("250521: L3Locating is now using seg-based model.")
 class L3Locator(BaseModel):
     def __init__(self, backbone:dict, locate_head:dict, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -764,7 +823,7 @@ class L3Locator(BaseModel):
         return seg_logits
 
     def forward(self,
-                inputs: torch.Tensor,
+                inputs: Tensor,
                 data_samples: list[BaseDataElement],
                 mode: str = 'tensor'):
         """
@@ -787,7 +846,7 @@ class L3Locator(BaseModel):
         else:
             raise NotImplementedError(f"Mode {mode} not implemented.")
 
-
+@deprecated("250521: L3Locating is now using seg-based model.")
 class SarcopeniaSegmentorWithL3Locating(EncoderDecoder_3D):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -889,7 +948,7 @@ class SarcopeniaSegmentorWithL3Locating(EncoderDecoder_3D):
         seg_logits = preds / count_mat
         return seg_logits
 
-
+@deprecated("250521: L3Locating is now using seg-based model.")
 class SarcopeniaL3Locating(EncoderDecoder_3D):
     """Encoder Decoder segmentors for 3D data, modified to output [B, Z] binary masks."""
 
@@ -972,7 +1031,7 @@ class SarcopeniaL3Locating(EncoderDecoder_3D):
 
         return data_samples
 
-
+@deprecated("250521: L3Locating is now using seg-based model.")
 class L3LocatingLite(mgam_Seg3D_Lite):
     def _forward(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
         return self.backbone(inputs).mean(dim=(1,3,4)) # [B, C, Z, Y, X] -> [B, Z]
@@ -1102,7 +1161,7 @@ class SarcopeniaL3Inferencer(Inferencer):
                          for p in Volume_arr])
 
     @torch.inference_mode()
-    def Inference_FromTensor(self, image_tensor:torch.Tensor):
+    def Inference_FromTensor(self, image_tensor:Tensor):
         assert image_tensor.ndim == 5, f"输入图像必须是5维的，但得到的是 {image_tensor.shape}。"
         if self.fp16:
             image_tensor = image_tensor.half()
@@ -1121,7 +1180,7 @@ class SarcopeniaL3Inferencer(Inferencer):
         L3_pred = self.Inference_FromTensor(image_tensor[None,None]) # [B, C, Z, Y, X]
         return L3_pred[0].cpu().numpy() # [Z]
 
-
+@deprecated("250521: L3Locating is now using seg-based model.")
 class SarcopeniaLocateInferencerLite(Inferencer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1138,7 +1197,7 @@ class SarcopeniaLocateInferencerLite(Inferencer):
         return Volume_arr
 
     @torch.inference_mode()
-    def Inference_FromTensor(self, image_tensor:torch.Tensor):
+    def Inference_FromTensor(self, image_tensor:Tensor):
         assert image_tensor.ndim == 5, f"输入图像必须是5维的，但得到的是 {image_tensor.shape}。"
         if self.fp16:
             image_tensor = image_tensor.half()

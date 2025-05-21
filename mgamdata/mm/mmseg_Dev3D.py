@@ -879,6 +879,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         size_divisor: int | None = None,
         pad_val: int | float = 0,
         seg_pad_val: int | float = 255,
+        training: bool = True,
     ):
         """Stack multiple 3D volume inputs to form a batch and pad the volumes and gt_sem_segs
         to the max shape using the right bottom padding mode.
