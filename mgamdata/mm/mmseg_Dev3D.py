@@ -841,7 +841,6 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         size_divisor: int | None = None,
         pad_val: int | float = 0,
         seg_pad_val: int | float = 255,
-        batch_augments: list[dict] | None = None,
         test_cfg: dict | None = None,
         non_blocking: bool = True,
     ):
@@ -864,7 +863,6 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         else:
             self._enable_normalize = False
 
-        self.batch_augments = batch_augments
         self.test_cfg = test_cfg
     @staticmethod
     def stack_batch_3D(
@@ -995,8 +993,6 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
                 pad_val=self.pad_val,
                 seg_pad_val=self.seg_pad_val,
             )
-            if self.batch_augments is not None:
-                inputs, data_samples = self.batch_augments(inputs, data_samples)
         
         else:
             vol_size = inputs[0].shape[1:]
