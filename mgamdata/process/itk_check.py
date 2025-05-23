@@ -5,6 +5,8 @@ import sys
 from multiprocessing import Pool
 from tqdm import tqdm
 import SimpleITK as sitk
+import json
+from mgamdata.process.meta_json import load_series_meta, compute_series_meta, save_series_meta
 
 # Map dimension letters to indices in ZYX order
 DIM_MAP = {'Z': 0, 'Y': 1, 'X': 2}
@@ -50,6 +52,65 @@ def check_sample(args):
         return (name, reasons)
     return None
 
+def fast_check(series_meta, cfg, img_dir, lbl_dir, delete):
+    invalid = []
+    for entry in series_meta:
+        name = entry.get('name')
+        size = entry.get('size', [])
+        spacing = entry.get('spacing', [])
+        reasons = []
+        # min/max size checks
+        for i, mn in enumerate(cfg['min_size']):
+            if mn != -1 and size[i] < mn: reasons.append(f"size[{i}]={size[i]} < min_size[{i}]={mn}")
+        for i, mx in enumerate(cfg['max_size']):
+            if mx != -1 and size[i] > mx: reasons.append(f"size[{i}]={size[i]} > max_size[{i}]={mx}")
+        # min/max spacing
+        for i, mn in enumerate(cfg['min_spacing']):
+            if mn != -1 and spacing[i] < mn: reasons.append(f"spacing[{i}]={spacing[i]:.3f} < min_spacing[{i}]={mn}")
+        for i, mx in enumerate(cfg['max_spacing']):
+            if mx != -1 and spacing[i] > mx: reasons.append(f"spacing[{i}]={spacing[i]:.3f} > max_spacing[{i}]={mx}")
+        # same-spacing
+        if cfg['same_spacing']:
+            i0, i1 = cfg['same_spacing']
+            if abs(spacing[i0]-spacing[i1])>EPS: reasons.append(f"spacing[{i0}] vs spacing[{i1}] differ")
+        # same-size
+        if cfg['same_size']:
+            i0, i1 = cfg['same_size']
+            if size[i0]!=size[i1]: reasons.append(f"size[{i0}] vs size[{i1}] differ")
+        if reasons:
+            invalid.append((name, reasons))
+            tqdm.write(f"{name}: {'; '.join(reasons)}")
+    # deletion or summary
+    if delete:
+        for name, reasons in invalid:
+            try:
+                os.remove(os.path.join(img_dir, name)); os.remove(os.path.join(lbl_dir, name))
+            except Exception as e:
+                print(f"Error deleting {name}: {e}")
+    else:
+        if not invalid:
+            print("All samples conform to the specified rules.")
+    return invalid
+
+def full_check(img_dir, lbl_dir, cfg, mp, delete):
+    # build tasks
+    files = [f for f in os.listdir(img_dir) if f.lower().endswith('.mha')]
+    tasks = [(os.path.join(img_dir,f), os.path.join(lbl_dir,f), cfg) for f in files]
+    invalid = []
+    if mp:
+        with Pool() as pool:
+            for res in tqdm(pool.imap_unordered(check_sample, tasks), total=len(tasks), desc="Checking", dynamic_ncols=True):
+                if res: invalid.append(res); tqdm.write(f"{res[0]}: {'; '.join(res[1])}")
+    else:
+        for res in tqdm((check_sample(t) for t in tasks), total=len(tasks), desc="Checking", dynamic_ncols=True):
+            if res: invalid.append(res); tqdm.write(f"{res[0]}: {'; '.join(res[1])}")
+    if delete:
+        for name, reasons in invalid:
+            try: os.remove(os.path.join(img_dir,name)); os.remove(os.path.join(lbl_dir,name))
+            except Exception as e: print(f"Error deleting {name}: {e}")
+    else:
+        if not invalid: print("All samples conform to the specified rules.")
+    return invalid
 
 def main():
     parser = argparse.ArgumentParser(description="Check itk dataset samples (mha) under image/label for size/spacing rules.")
@@ -83,56 +144,19 @@ def main():
     if not os.path.isdir(img_dir) or not os.path.isdir(lbl_dir):
         print(f"Missing 'image' or 'label' subfolders in {args.sample_folder}")
         sys.exit(1)
+    # 尝试加载已有 series_meta.json
+    series_meta = load_series_meta(args.sample_folder)
+    if series_meta is not None:
+        fast_check(series_meta, cfg, img_dir, lbl_dir, args.delete)
+        return
 
-    files = [f for f in os.listdir(img_dir) if f.lower().endswith('.mha')]
-    tasks = []
-    for f in files:
-        ip = os.path.join(img_dir, f)
-        lp = os.path.join(lbl_dir, f)
-        tasks.append((ip, lp, cfg))
-
-    invalid_samples = []
-    if args.mp:
-        with Pool() as pool:
-            for res in tqdm(pool.imap_unordered(check_sample, tasks),
-                            total=len(tasks),
-                            desc="Checking",
-                            dynamic_ncols=True):
-                if res:
-                    invalid_samples.append(res)
-                    name, reasons = res
-                    tqdm.write(f"{name}: " + "; ".join(reasons))
-    else:
-        for t in tqdm(tasks,
-                      desc="Checking",
-                      total=len(tasks),
-                      dynamic_ncols=True):
-            res = check_sample(t)
-            if res:
-                invalid_samples.append(res)
-                name, reasons = res
-                tqdm.write(f"{name}: " + "; ".join(reasons))
-
-    # 最后执行删除操作或结束提示
-    if args.delete:
-        deleted = []
-        for name, reasons in invalid_samples:
-            try:
-                os.remove(os.path.join(img_dir, name))
-                os.remove(os.path.join(lbl_dir, name))
-                deleted.append((name, reasons))
-            except Exception as e:
-                print(f"Error deleting {name}: {e}")
-        # 删除日志汇总
-        if deleted:
-            print("Deleted samples summary:")
-            for name, reasons in deleted:
-                print(f"- {name}: " + "; ".join(reasons))
-        else:
-            print("No samples were deleted.")
-    else:
-        if not invalid_samples:
-            print("All samples conform to the specified rules.")
+    # 全量扫描并检查
+    invalid = full_check(img_dir, lbl_dir, cfg, args.mp, args.delete)
+    # 生成并保存 series_meta.json 供下次加速
+    series_meta = compute_series_meta(args.sample_folder)
+    save_series_meta(series_meta, args.sample_folder)
+    print(f"series_meta.json generated with {len(series_meta)} entries.")
+    return
 
 if __name__ == '__main__':
     main()

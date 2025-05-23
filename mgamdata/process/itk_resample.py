@@ -13,7 +13,7 @@ from mgamdata.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_
 
 
 
-def resample_one_sample(args) -> tuple[sitk.Image, sitk.Image|None] | None:
+def resample_one_sample(args):
     """
     Resample a single sample image and its corresponding label image based on
     dimension-wise spacing and size rules.
@@ -108,7 +108,11 @@ def resample_one_sample(args) -> tuple[sitk.Image, sitk.Image|None] | None:
         tqdm.write(f"Error writing {target_image_path} or {target_label_path}: {e}")
         return None
 
-    return image_resampled, label_resampled if label_itk else None
+    # 获取实际spacing和size并返回元数据
+    final_spacing = image_resampled.GetSpacing()[::-1]
+    final_size = image_resampled.GetSize()[::-1]
+    return {"name": itk_name, "spacing": final_spacing, "size": final_size}
+
 
 
 def resample_standard_dataset(
@@ -171,6 +175,8 @@ def resample_standard_dataset(
         for i in range(len(image_itk_paths))
     ]
 
+    # 收集每个样本的meta信息
+    series_meta: list = []
     # 可选多进程执行
     if mp:
         with (
@@ -182,11 +188,10 @@ def resample_standard_dataset(
                 dynamic_ncols=True,
             ) as pbar,
         ):
-            result_fetcher = pool.imap_unordered(
-                func=resample_one_sample,
-                iterable=task_list,
-            )
-            for _ in result_fetcher:
+            result_fetcher = pool.imap_unordered(func=resample_one_sample, iterable=task_list)
+            for res in result_fetcher:
+                if res:
+                    series_meta.append(res)
                 pbar.update()
     else:
         with tqdm(
@@ -196,8 +201,17 @@ def resample_standard_dataset(
             dynamic_ncols=True,
         ) as pbar:
             for task_args in task_list:
-                resample_one_sample(task_args)
+                res = resample_one_sample(task_args)
+                if res:
+                    series_meta.append(res)
                 pbar.update()
+    # 保存每个样本的实际spacing和size到JSON
+    meta_path = os.path.join(dest_root, "series_meta.json")
+    try:
+        with open(meta_path, "w") as f:
+            json.dump(series_meta, f, indent=4)
+    except Exception as e:
+        tqdm.write(f"Warning: Could not save series meta file: {e}")
 
 
 def parse_args():
