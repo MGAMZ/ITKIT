@@ -4,9 +4,9 @@ import argparse
 import sys
 from multiprocessing import Pool
 from tqdm import tqdm
-import SimpleITK as sitk
 import json
-from mgamdata.process.meta_json import load_series_meta, compute_series_meta, save_series_meta
+from mgamdata.process.meta_json import load_series_meta, get_series_meta_path
+import SimpleITK as sitk
 
 # Map dimension letters to indices in ZYX order
 DIM_MAP = {'Z': 0, 'Y': 1, 'X': 2}
@@ -93,24 +93,45 @@ def fast_check(series_meta, cfg, img_dir, lbl_dir, delete):
     return invalid
 
 def full_check(img_dir, lbl_dir, cfg, mp, delete):
-    # build tasks
+    # collect metadata for each sample
     files = [f for f in os.listdir(img_dir) if f.lower().endswith('.mha')]
+    series_meta: list[dict] = []
+    for f in files:
+        path = os.path.join(img_dir, f)
+        try:
+            img = sitk.ReadImage(path)
+            size = list(img.GetSize()[::-1])
+            spacing = list(img.GetSpacing()[::-1])
+            series_meta.append({'name': f, 'size': size, 'spacing': spacing})
+        except Exception:
+            continue
+    # perform checks
     tasks = [(os.path.join(img_dir,f), os.path.join(lbl_dir,f), cfg) for f in files]
-    invalid = []
+    invalid: list[tuple[str, list[str]]] = []
     if mp:
         with Pool() as pool:
             for res in tqdm(pool.imap_unordered(check_sample, tasks), total=len(tasks), desc="Checking", dynamic_ncols=True):
-                if res: invalid.append(res); tqdm.write(f"{res[0]}: {'; '.join(res[1])}")
+                if res:
+                    invalid.append(res)
+                    tqdm.write(f"{res[0]}: {'; '.join(res[1])}")
     else:
-        for res in tqdm((check_sample(t) for t in tasks), total=len(tasks), desc="Checking", dynamic_ncols=True):
-            if res: invalid.append(res); tqdm.write(f"{res[0]}: {'; '.join(res[1])}")
+        for t in tqdm(tasks, total=len(tasks), desc="Checking", dynamic_ncols=True):
+            res = check_sample(t)
+            if res:
+                invalid.append(res)
+                tqdm.write(f"{res[0]}: {'; '.join(res[1])}")
+    # deletion or summary
     if delete:
         for name, reasons in invalid:
-            try: os.remove(os.path.join(img_dir,name)); os.remove(os.path.join(lbl_dir,name))
-            except Exception as e: print(f"Error deleting {name}: {e}")
+            try:
+                os.remove(os.path.join(img_dir, name))
+                os.remove(os.path.join(lbl_dir, name))
+            except Exception as e:
+                print(f"Error deleting {name}: {e}")
     else:
-        if not invalid: print("All samples conform to the specified rules.")
-    return invalid
+        if not invalid:
+            print("All samples conform to the specified rules.")
+    return invalid, series_meta
 
 def main():
     parser = argparse.ArgumentParser(description="Check itk dataset samples (mha) under image/label for size/spacing rules.")
@@ -149,13 +170,16 @@ def main():
     if series_meta is not None:
         fast_check(series_meta, cfg, img_dir, lbl_dir, args.delete)
         return
-
-    # 全量扫描并检查
-    invalid = full_check(img_dir, lbl_dir, cfg, args.mp, args.delete)
-    # 生成并保存 series_meta.json 供下次加速
-    series_meta = compute_series_meta(args.sample_folder)
-    save_series_meta(series_meta, args.sample_folder)
-    print(f"series_meta.json generated with {len(series_meta)} entries.")
+    # 全量扫描并检查，同时生成 metadata
+    invalid, series_meta = full_check(img_dir, lbl_dir, cfg, args.mp, args.delete)
+    # 保存 series_meta.json
+    meta_path = get_series_meta_path(args.sample_folder)
+    try:
+        with open(meta_path, 'w') as f:
+            json.dump(series_meta, f, indent=4)
+        print(f"series_meta.json generated with {len(series_meta)} entries.")
+    except Exception as e:
+        print(f"Warning: Could not save series_meta.json: {e}")
     return
 
 if __name__ == '__main__':
