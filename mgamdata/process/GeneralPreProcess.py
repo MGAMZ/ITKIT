@@ -1017,15 +1017,7 @@ class RandomPatch3D(BaseTransform):
         x1 = random.randint(0, x - px)
         # Crop each specified key
         for key in self.keys:
-            arr = results.get(key)
-            if arr is None:
-                continue
-            if arr.ndim == 3:
-                results[key] = arr[z1:z1+pz, y1:y1+py, x1:x1+px]
-            elif arr.ndim == 4:
-                results[key] = arr[:, z1:z1+pz, y1:y1+py, x1:x1+px]
-            else:
-                raise ValueError(f"Unsupported array dimension {arr.ndim} for key `{key}`")
+            results[key] = results[key][z1:z1+pz, y1:y1+py, x1:x1+px, ...]
         # Update the shape in results
         results["img_shape"] = (pz, py, px)
         return results
