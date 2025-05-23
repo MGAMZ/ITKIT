@@ -111,7 +111,9 @@ def resample_one_sample(args):
     # 获取实际spacing和size并返回元数据
     final_spacing = image_resampled.GetSpacing()[::-1]
     final_size = image_resampled.GetSize()[::-1]
-    return {"name": itk_name, "spacing": final_spacing, "size": final_size}
+    # 获取实际origin
+    final_origin = image_resampled.GetOrigin()[::-1]
+    return {"name": itk_name, "spacing": final_spacing, "size": final_size, "origin": final_origin}
 
 
 
