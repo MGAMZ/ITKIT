@@ -91,7 +91,7 @@ def main():
         lp = os.path.join(lbl_dir, f)
         tasks.append((ip, lp, cfg))
 
-    results = []
+    invalid_samples = []
     if args.mp:
         with Pool() as pool:
             for res in tqdm(pool.imap_unordered(check_sample, tasks),
@@ -99,7 +99,9 @@ def main():
                             desc="Checking",
                             dynamic_ncols=True):
                 if res:
-                    results.append(res)
+                    invalid_samples.append(res)
+                    name, reasons = res
+                    tqdm.write(f"{name}: " + "; ".join(reasons))
     else:
         for t in tqdm(tasks,
                       desc="Checking",
@@ -107,23 +109,30 @@ def main():
                       dynamic_ncols=True):
             res = check_sample(t)
             if res:
-                results.append(res)
+                invalid_samples.append(res)
+                name, reasons = res
+                tqdm.write(f"{name}: " + "; ".join(reasons))
 
-    # report or delete
-    for name, reasons in results:
-        msg = f"{name}: " + "; ".join(reasons)
-        if args.delete:
+    # 最后执行删除操作或结束提示
+    if args.delete:
+        deleted = []
+        for name, reasons in invalid_samples:
             try:
                 os.remove(os.path.join(img_dir, name))
                 os.remove(os.path.join(lbl_dir, name))
-                print(f"Deleted {name} due to: {', '.join(reasons)}")
+                deleted.append((name, reasons))
             except Exception as e:
                 print(f"Error deleting {name}: {e}")
+        # 删除日志汇总
+        if deleted:
+            print("Deleted samples summary:")
+            for name, reasons in deleted:
+                print(f"- {name}: " + "; ".join(reasons))
         else:
-            print(msg)
-
-    if not results:
-        print("All samples conform to the specified rules.")
+            print("No samples were deleted.")
+    else:
+        if not invalid_samples:
+            print("All samples conform to the specified rules.")
 
 if __name__ == '__main__':
     main()
