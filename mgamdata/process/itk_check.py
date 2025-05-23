@@ -48,9 +48,8 @@ def check_sample(args):
         i0, i1 = cfg['same_size']
         if size[i0] != size[i1]:
             reasons.append(f"size[{i0}]={size[i0]} vs size[{i1}]={size[i1]} differ")
-    if reasons:
-        return (name, reasons)
-    return None
+    # Always return metadata and reasons (empty list if no issues)
+    return name, size, spacing, reasons
 
 def fast_check(series_meta, cfg, img_dir, lbl_dir, delete):
     invalid = []
@@ -93,33 +92,24 @@ def fast_check(series_meta, cfg, img_dir, lbl_dir, delete):
     return invalid
 
 def full_check(img_dir, lbl_dir, cfg, mp, delete):
-    # collect metadata for each sample
+    # Perform checks and collect metadata in one pass
     files = [f for f in os.listdir(img_dir) if f.lower().endswith('.mha')]
-    series_meta: list[dict] = []
-    for f in files:
-        path = os.path.join(img_dir, f)
-        try:
-            img = sitk.ReadImage(path)
-            size = list(img.GetSize()[::-1])
-            spacing = list(img.GetSpacing()[::-1])
-            series_meta.append({'name': f, 'size': size, 'spacing': spacing})
-        except Exception:
-            continue
-    # perform checks
-    tasks = [(os.path.join(img_dir,f), os.path.join(lbl_dir,f), cfg) for f in files]
+    tasks = [(os.path.join(img_dir, f), os.path.join(lbl_dir, f), cfg) for f in files]
     invalid: list[tuple[str, list[str]]] = []
+    series_meta: list[dict] = []
     if mp:
         with Pool() as pool:
-            for res in tqdm(pool.imap_unordered(check_sample, tasks), total=len(tasks), desc="Checking", dynamic_ncols=True):
-                if res:
-                    invalid.append(res)
-                    tqdm.write(f"{res[0]}: {'; '.join(res[1])}")
+            for name, size, spacing, reasons in tqdm(pool.imap_unordered(check_sample, tasks), total=len(tasks), desc="Checking", dynamic_ncols=True):
+                series_meta.append({'name': name, 'size': size, 'spacing': spacing})
+                if reasons:
+                    invalid.append((name, reasons))
+                    tqdm.write(f"{name}: {'; '.join(reasons)}")
     else:
-        for t in tqdm(tasks, total=len(tasks), desc="Checking", dynamic_ncols=True):
-            res = check_sample(t)
-            if res:
-                invalid.append(res)
-                tqdm.write(f"{res[0]}: {'; '.join(res[1])}")
+        for name, size, spacing, reasons in tqdm((check_sample(t) for t in tasks), total=len(tasks), desc="Checking", dynamic_ncols=True):
+            series_meta.append({'name': name, 'size': size, 'spacing': spacing})
+            if reasons:
+                invalid.append((name, reasons))
+                tqdm.write(f"{name}: {'; '.join(reasons)}")
     # deletion or summary
     if delete:
         for name, reasons in invalid:
