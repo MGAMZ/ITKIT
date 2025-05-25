@@ -6,45 +6,7 @@ import orjson
 import pandas as pd
 
 from ..base import mgam_BaseSegDataset
-from .meta import CLASS_INDEX_MAP
-
-
-def generate_reduced_class_map_and_label_map(reduction):
-    """
-    根据原始CLASS_INDEX_MAP和REDUCTION，生成合并后的CLASS_MAP和label_map。
-
-    Args:
-        class_index_map (dict): 原始类别名到id的映射，如 {"cat": 0, "dog": 1, ...}
-        reduction (dict): 合并后的类组名及其包含的源类名，如 {"animal": ["cat", "dog"], ...}
-
-    Returns:
-        reduced_class_map (dict): 合并后类别名到新id的映射，如 {"animal": 0, ...}
-        label_map (dict): 旧id到新id的映射，如 {0: 0, 1: 0, ...}
-    """
-    # 1. 构建源类名到合并后类名的映射
-    source_to_group = {}
-    for group, sources in reduction.items():
-        for src in sources:
-            source_to_group[src] = group
-
-    # 2. 新类别名集合（保留未被合并的类别）
-    all_group_names = set(reduction.keys())
-    for name in CLASS_INDEX_MAP:
-        if name not in source_to_group:
-            all_group_names.add(name)
-    reduced_class_names = sorted(list(all_group_names))
-    reduced_class_names.remove('background')
-    reduced_class_names.insert(0, 'background')
-    reduced_class_map = {name: idx for idx, name in enumerate(reduced_class_names)}
-
-    # 3. 构建label_map
-    label_map = {}
-    for name, old_id in CLASS_INDEX_MAP.items():
-        group_name = source_to_group.get(name, name)
-        new_id = reduced_class_map[group_name]
-        label_map[old_id] = new_id
-
-    return reduced_class_map, label_map
+from .meta import CLASS_INDEX_MAP, generate_subset_class_map_and_label_map, generate_reduced_class_map_and_label_map
 
 
 class TotalsegmentatorIndexer:
@@ -89,17 +51,24 @@ class TotalsegmentatorIndexer:
 class Tsd_base(mgam_BaseSegDataset):
     METAINFO = dict(classes=list(CLASS_INDEX_MAP.keys()))
 
-    def __init__(self, meta_csv:str, class_reduction: dict|None=None, **kwargs) -> None:
+    def __init__(self, meta_csv:str, class_reduction: dict|None=None, subset:str|None=None, **kwargs) -> None:
         self.meta_table = pd.read_csv(meta_csv)
+
+        if class_reduction is not None and subset is not None:
+            raise ValueError("Cannot specify both class_reduction and subset. Please use only one.")
 
         if class_reduction is not None:
             new_class_index_map, label_map = generate_reduced_class_map_and_label_map(class_reduction)
             Tsd_base.METAINFO = dict(classes=list(new_class_index_map.keys()))
+            self.label_map = label_map
+        elif subset is not None:
+            subset_class_map, label_map = generate_subset_class_map_and_label_map(subset)
+            Tsd_base.METAINFO = dict(classes=list(subset_class_map.keys()))
+            self.label_map = label_map
+        else:
+            self.label_map = None
 
         super().__init__(lazy_init=True, **kwargs)
-
-        if class_reduction is not None:
-            self.label_map = label_map
 
     def _split(self):
         activate_series = self.meta_table[self.meta_table['split']==self.split]

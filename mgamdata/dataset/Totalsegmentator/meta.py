@@ -120,6 +120,27 @@ CLASS_INDEX_MAP = {
     'vertebrae_T9': 118,
 }
 
+SUBSETS = {
+    'vertebral': [
+        'background',
+        'rib_left_1', 'rib_left_2', 'rib_left_3', 'rib_left_4', 'rib_left_5',
+        'rib_left_6', 'rib_left_7', 'rib_left_8', 'rib_left_9', 
+        'rib_left_10', 'rib_left_11', 'rib_left_12',
+        'rib_right_1', 'rib_right_2', 'rib_right_3', 'rib_right_4', 'rib_right_5',
+        'rib_right_6', 'rib_right_7', 'rib_right_8', 'rib_right_9',
+        'rib_right_10', 'rib_right_11', 'rib_right_12',
+        'sacrum', 
+        'vertebrae_C1', 'vertebrae_C2', 'vertebrae_C3', 'vertebrae_C4',
+        'vertebrae_C5', 'vertebrae_C6', 'vertebrae_C7', 
+        'vertebrae_T1', 'vertebrae_T2', 'vertebrae_T3', 'vertebrae_T4',
+        'vertebrae_T5', 'vertebrae_T6', 'vertebrae_T7', 'vertebrae_T8',
+        'vertebrae_T9', 'vertebrae_T10', 'vertebrae_T11',
+        'vertebrae_T12', 
+        'vertebrae_L1', 'vertebrae_L2', 'vertebrae_L3', 'vertebrae_L4', 'vertebrae_L5',
+        'vertebrae_S1', 
+    ]
+}
+
 GENERAL_REDUCTION = {
     'adrenal_gland': [
         'adrenal_gland_left', 'adrenal_gland_right'
@@ -191,3 +212,75 @@ GENERAL_REDUCTION = {
         'vertebrae_T9'
     ]
 }
+
+def generate_subset_class_map_and_label_map(subset_name: str):
+    """
+    生成从原始类定义到子集类定义的映射字典
+    
+    Args:
+        subset_name: 子集名称，在SUBSETS字典中定义
+        
+    Returns:
+        tuple: (subset_class_map, label_map)
+            - subset_class_map: 子集类名到新索引的映射 {class_name: new_index}
+            - label_map: 原始类索引到新索引的映射 {old_index: new_index}
+    """
+    if subset_name not in SUBSETS:
+        raise ValueError(f"Subset '{subset_name}' not found in SUBSETS. Available subsets: {list(SUBSETS.keys())}")
+    
+    subset_classes = SUBSETS[subset_name]
+    if not subset_classes:
+        # 如果子集为空，返回原始映射
+        return CLASS_INDEX_MAP.copy(), {v: v for v in CLASS_INDEX_MAP.values()}
+    
+    # 创建子集类名到新索引的映射
+    subset_class_map = {class_name: idx for idx, class_name in enumerate(subset_classes)}
+    
+    # 创建原始类索引到新索引的映射
+    label_map = {}
+    for class_name, old_index in CLASS_INDEX_MAP.items():
+        if class_name in subset_class_map:
+            # 如果类在子集中，映射到新索引
+            label_map[old_index] = subset_class_map[class_name]
+        else:
+            # 如果类不在子集中，映射到background (0)
+            label_map[old_index] = 0
+    
+    return subset_class_map, label_map
+
+def generate_reduced_class_map_and_label_map(reduction):
+    """
+    根据原始CLASS_INDEX_MAP和REDUCTION，生成合并后的CLASS_MAP和label_map。
+
+    Args:
+        class_index_map (dict): 原始类别名到id的映射，如 {"cat": 0, "dog": 1, ...}
+        reduction (dict): 合并后的类组名及其包含的源类名，如 {"animal": ["cat", "dog"], ...}
+
+    Returns:
+        reduced_class_map (dict): 合并后类别名到新id的映射，如 {"animal": 0, ...}
+        label_map (dict): 旧id到新id的映射，如 {0: 0, 1: 0, ...}
+    """
+    # 1. 构建源类名到合并后类名的映射
+    source_to_group = {}
+    for group, sources in reduction.items():
+        for src in sources:
+            source_to_group[src] = group
+
+    # 2. 新类别名集合（保留未被合并的类别）
+    all_group_names = set(reduction.keys())
+    for name in CLASS_INDEX_MAP:
+        if name not in source_to_group:
+            all_group_names.add(name)
+    reduced_class_names = sorted(list(all_group_names))
+    reduced_class_names.remove('background')
+    reduced_class_names.insert(0, 'background')
+    reduced_class_map = {name: idx for idx, name in enumerate(reduced_class_names)}
+
+    # 3. 构建label_map
+    label_map = {}
+    for name, old_id in CLASS_INDEX_MAP.items():
+        group_name = source_to_group.get(name, name)
+        new_id = reduced_class_map[group_name]
+        label_map[old_id] = new_id
+
+    return reduced_class_map, label_map
