@@ -5,7 +5,7 @@ from tqdm import tqdm
 import orjson
 import pandas as pd
 
-from ..base import mgam_BaseSegDataset
+from ..base import mgam_SeriesVolume, mgam_SemiSup_3D_Mha, mgam_SemiSup_Precropped_Npz
 from .meta import CLASS_INDEX_MAP, generate_subset_class_map_and_label_map, generate_reduced_class_map_and_label_map
 
 
@@ -48,11 +48,11 @@ class TotalsegmentatorIndexer:
                 for image_path in selected_split_image_paths]
 
 
-class Tsd_base(mgam_BaseSegDataset):
+class Tsd_base:
     METAINFO = dict(classes=list(CLASS_INDEX_MAP.keys()))
 
-    def __init__(self, meta_csv:str, class_reduction: dict|None=None, subset:str|None=None, **kwargs) -> None:
-        self.meta_table = pd.read_csv(meta_csv)
+    def __init__(self, meta_csv:str|None, class_reduction: dict|None=None, subset:str|None=None, **kwargs) -> None:
+        self.meta_table = pd.read_csv(meta_csv) if meta_csv is not None else None
 
         if class_reduction is not None and subset is not None:
             raise ValueError("Cannot specify both class_reduction and subset. Please use only one.")
@@ -71,25 +71,16 @@ class Tsd_base(mgam_BaseSegDataset):
         super().__init__(lazy_init=True, **kwargs)
 
     def _split(self):
-        activate_series = self.meta_table[self.meta_table['split']==self.split]
-        return activate_series['image_id'].tolist()
+        if self.meta_table is None:
+            return super()._split()
+        else:
+            activate_series = self.meta_table[self.meta_table['split']==self.split]
+            return activate_series['image_id'].tolist()
 
 
-class Tsd_Mha(Tsd_base):
-    def sample_iterator(self):
-        for series in self._split():
-            img_mha_path = os.path.join(self.data_root, 'image', f'{series}.mha')
-            lbl_mha_path = os.path.join(self.data_root, 'label', f'{series}.mha')
-            if os.path.exists(img_mha_path) and os.path.exists(lbl_mha_path):
-                yield (img_mha_path, lbl_mha_path)
+class Tsd_Mha(Tsd_base, mgam_SemiSup_3D_Mha):
+    ...
 
 
-class Tsd3D_PreCrop_Npz(Tsd_Mha):
-    def sample_iterator(self):
-        for series in self._split():
-            samples = os.path.join(self.data_root, series)
-            if os.path.exists(samples):
-                for cropped_sample in os.listdir(samples):
-                    if cropped_sample.endswith('.npz'):
-                        yield (os.path.join(samples, cropped_sample),
-                            os.path.join(samples, cropped_sample))
+class Tsd3D_PreCrop_Npz(Tsd_base, mgam_SemiSup_Precropped_Npz):
+    ...
