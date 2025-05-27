@@ -9,37 +9,38 @@ from ..base import mgam_BaseSegDataset
 from .meta import CLASS_INDEX_MAP
 
 
-class RoseThyroidCount_base:
-    METAINFO = dict(classes=list(CLASS_INDEX_MAP.keys()))
-
-
-class RoseThyroidCount_Precrop_Npz(RoseThyroidCount_base, mgam_BaseSegDataset):
+class RoseThyroidCount_Precrop_Npz(mgam_BaseSegDataset):
     SPLIT_RATIO = [0.7, 0.3]
+    METAINFO = dict(classes=list(CLASS_INDEX_MAP.keys()))
+    
+    def __init__(self, data_root:str, include_clustered:bool=True, *args, **kwargs):
+        self.include_clustered = include_clustered
+        with open(os.path.join(data_root, "slide_processing_log.json"), 'r') as f:
+            self.meta = json.load(f)
+        self.slide_uids = list(self.meta.keys())
+        super().__init__(data_root=data_root, *args, **kwargs)
+        
 
     def _split(self):
-        with open(os.path.join(self.data_root, "slide_stats.json"), 'r') as f:
-            slide_meta = json.load(f)['slide_details']
-        slide_ids = [slide_id for slide_id in list(slide_meta.keys()) 
-                     if os.path.exists(os.path.join(self.data_root, slide_id))]
-        
         if self.split == 'train':
-            return slide_ids[:int(len(slide_ids) * self.SPLIT_RATIO[0])]
+            return self.slide_uids[:int(len(self.slide_uids) * self.SPLIT_RATIO[0])]
         elif self.split == 'val' or self.split == 'test':
-            return slide_ids[int(len(slide_ids) * self.SPLIT_RATIO[0]):]
+            return self.slide_uids[int(len(self.slide_uids) * self.SPLIT_RATIO[0]):]
         elif self.split == 'all':
-            return slide_ids
+            return self.slide_uids
         else:
             raise ValueError(f"Invalid split: {self.split}. Expected one of ['train', 'val', 'test']")
     
     def sample_iterator(self):
-        for series in self._split():
-            series_folder: str = os.path.join(self.data_root, series)
-            for sample in os.listdir(series_folder):
-                if sample.endswith(".npz"):
-                    yield (
-                        os.path.join(series_folder, sample),
-                        os.path.join(series_folder, sample),
-                    )
+        for slide_uid in self._split():
+            slide_meta:dict = self.meta[slide_uid]
+            for patch_seriesUID, patch_meta in slide_meta.items():
+                if patch_meta['info'] != 'success':
+                    continue
+                # NOTE 0 代表成团， 1 代表不成团，是倒过来的
+                if self.include_clustered or patch_meta["clustered_cls"] == 1:
+                    yield (os.path.join(self.data_root, slide_uid, patch_seriesUID+'.npz'),
+                           os.path.join(self.data_root, slide_uid, patch_seriesUID+'.npz'))
 
 
 class LoadRoseThyroidSampleFromNpz(BaseTransform):
@@ -91,7 +92,7 @@ class GenPointMap(BaseTransform):
         point_mask = np.zeros(self.size, dtype=np.uint8)
         if len(points) > 0:
             for point in points:
-                x, y, z = point
+                x, y = point
                 x = np.clip(np.round(x, 0), 0, self.size[1]-1).astype(int)
                 y = np.clip(np.round(y, 0), 0, self.size[0]-1).astype(int)
                 point_mask[y, x] += 1

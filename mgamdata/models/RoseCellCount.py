@@ -89,17 +89,20 @@ class AccuCount(BaseMetric):
         total_count = np.sum([res["gt_count"] for res in results])
         if total_count <= 1:
             print_log(f"GT Count too low ({total_count}), there may be some error?", logger=MMLogger.get_current_instance(), level=logging.WARN)
+        
+        ape = []
+        for res in results:
+            if res["gt_count"] > 0:
+                ape.append(np.abs(res["pred_count"] - res["gt_count"]) / res["gt_count"])
+        if len(ape) == 0:
+            mape = -1
+        else:
+            mape = np.mean(ape)
+            
         return {
-            "mae": np.mean(
-                [np.abs(res["pred_count"] - res["gt_count"]) for res in results]
-            ),
-            "mape": np.mean(
-                [
-                    np.abs(res["pred_count"] - res["gt_count"]) / res["gt_count"]
-                    for res in results
-                ]
-            ),
-            "product_met": np.mean([res["product_met"] for res in results]),
+            "mae": np.mean([np.abs(res["pred_count"] - res["gt_count"]) for res in results]),
+            "mape": mape,
+            "product_met": np.mean([res["product_met"] for res in results])
         }
 
 

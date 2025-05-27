@@ -127,36 +127,12 @@ class ClusterReader:
             self.ann = self.ann.drop_duplicates(subset=["序列编号"], keep="last")
 
     def is_clustered(self, SeriesUID: str) -> bool | None:
-        """
-        查询指定序列是否成团
-        Args:
-            SeriesID: 序列编号
-        Returns:
-            bool: 成团状态
-            None: 未找到记录
-        """
-         # 确保比较时类型一致
+        # 确保比较时类型一致
         found = self.ann[self.ann["序列编号"] == str(SeriesUID)]["是否成团"]
         if found.empty:
             return None
-        # 处理可能的非布尔值或NaN
-        val = found.values[0]
-        if pd.isna(val):
-            return None
-        # 尝试将常见表示（如1/0, '是'/'否', 'True'/'False'）转换为布尔值
-        if isinstance(val, (bool, np.bool_)):
-            return bool(val)
-        if isinstance(val, (int, float, np.number)):
-            return bool(val)
-        if isinstance(val, str):
-            val_lower = val.lower()
-            if val_lower in ['true', '是', '1', 'yes']:
-                return True
-            if val_lower in ['false', '否', '0', 'no']:
-                return False
-        # 如果无法明确转换，返回None或打印警告
-        print(Fore.YELLOW + f"警告: 无法将分类标注值 '{val}' 转换为布尔值 (SeriesUID: {SeriesUID})" + Style.RESET_ALL)
-        return None
+        return found.values[0]
+        
 
     def check_has_anno(self, SeriesUID:str):
         return not self.ann[self.ann["序列编号"] == str(SeriesUID)].empty
