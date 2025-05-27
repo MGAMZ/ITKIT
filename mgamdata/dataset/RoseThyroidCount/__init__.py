@@ -9,8 +9,11 @@ import pandas as pd
 
 # 读取Slide-Patch映射
 class FileID_Map:
-    def __init__(self, file_id_map_paths: list[str]):
+    def __init__(self, file_id_map_paths: list[str]|str):
         self.ann = []
+        if isinstance(file_id_map_paths, str):
+            file_id_map_paths = [file_id_map_paths]
+        
         # 读取并合并所有映射文件
         for path in tqdm(file_id_map_paths, desc="加载映射文件", dynamic_ncols=True, leave=False):
             try:
@@ -54,8 +57,11 @@ class FileID_Map:
 
 # 读取细胞位置的标注
 class PointReader:
-    def __init__(self, anno_files: list[str]):
+    def __init__(self, anno_files: list[str]|str):
         self.ann = []
+        if isinstance(anno_files, str):
+            anno_files = [anno_files]
+        
         # 读取并合并所有位置标注文件
         # 使用tqdm包装，提供加载进度
         for anno_file in tqdm(anno_files, desc="加载位置标注文件", dynamic_ncols=True, leave=False):
@@ -93,8 +99,11 @@ class PointReader:
 
 # 读取slide是否成团的标注
 class ClusterReader:
-    def __init__(self, anno_files: list[str]):
+    def __init__(self, anno_files: list[str]|str):
         self.ann = []
+        if isinstance(anno_files, str):
+            anno_files = [anno_files]
+        
         for anno_file in anno_files:
             try:
                 df = pd.read_excel(anno_file) if anno_file.endswith('.xlsx') else pd.read_csv(anno_file)
