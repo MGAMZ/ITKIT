@@ -93,7 +93,7 @@ class mgam_BaseSegDataset(BaseSegDataset):
 
 class mgam_SeriesVolume(mgam_BaseSegDataset):
     def __init__(self,
-                 data_root_mha:str,
+                 data_root_mha:str|None=None,
                  mode:Literal["semi", "sup"]="sup",
                  *args, **kwargs):
         # `Semi` mode will still include those samples without labels
@@ -102,6 +102,13 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
         self.data_root_mha = data_root_mha
         super().__init__(*args, **kwargs)
         self.data_root: str
+        if self.data_root_mha is None:
+            self.data_root_mha = self.data_root
+            print_log(
+                f"data_root_mha is not specified, using `data_root`: {self.data_root_mha}",
+                MMLogger.get_current_instance(),
+                logging.WARNING
+            )
     
     def _split(self):
         split_at = "label" if self.mode == "sup" else "image"
