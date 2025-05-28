@@ -13,6 +13,7 @@ from mgamdata.process.meta_json import load_series_meta, get_series_meta_path
 DIM_MAP = {'Z': 0, 'Y': 1, 'X': 2}
 EPS = 1e-3
 
+
 def check_sample(args):
     image_path, label_path, cfg = args
     name = os.path.basename(image_path)
@@ -26,6 +27,7 @@ def check_sample(args):
     spacing = list(img.GetSpacing()[::-1])
     reasons = validate_sample_metadata(size, spacing, cfg)
     return name, size, spacing, reasons
+
 
 def validate_sample_metadata(size, spacing, cfg):
     """Validate sample metadata against configuration rules"""
@@ -61,6 +63,7 @@ def validate_sample_metadata(size, spacing, cfg):
     
     return reasons
 
+
 def handle_mode_operations(mode, invalid, valid_names, img_dir, lbl_dir, output_dir=None):
     """Handle operations based on mode (delete/copy/symlink/check)"""
     if mode == 'delete':
@@ -85,8 +88,8 @@ def handle_mode_operations(mode, invalid, valid_names, img_dir, lbl_dir, output_
         success_count = 0
         for name in valid_names:
             try:
-                src_img = os.path.join(img_dir, name)
-                src_lbl = os.path.join(lbl_dir, name)
+                src_img = os.path.abspath(os.path.join(img_dir, name))
+                src_lbl = os.path.abspath(os.path.join(lbl_dir, name))
                 dst_img = os.path.join(out_img_dir, name)
                 dst_lbl = os.path.join(out_lbl_dir, name)
                 os.symlink(src_img, dst_img)
@@ -127,12 +130,12 @@ def handle_mode_operations(mode, invalid, valid_names, img_dir, lbl_dir, output_
         else:
             print(f"Found {len(invalid)} invalid samples")
 
-def fast_check(series_meta, cfg, img_dir, lbl_dir, mode, output_dir=None):
+
+def fast_check(series_meta:dict[str, dict], cfg, img_dir, lbl_dir, mode, output_dir=None):
     invalid = []
     valid_names = []
     
-    for entry in series_meta:
-        name = entry.get('name')
+    for name, entry in series_meta.items():
         size = entry.get('size', [])
         spacing = entry.get('spacing', [])
         
@@ -147,13 +150,14 @@ def fast_check(series_meta, cfg, img_dir, lbl_dir, mode, output_dir=None):
     handle_mode_operations(mode, invalid, valid_names, img_dir, lbl_dir, output_dir)
     return invalid
 
+
 def full_check(img_dir, lbl_dir, cfg, mp, mode, output_dir=None):
     # Perform checks and collect metadata in one pass
     files = [f for f in os.listdir(img_dir) if Path(f).suffix.lower() in ['.mha', '.mhd', '.nii', '.gz']]
     tasks = [(os.path.join(img_dir, f), os.path.join(lbl_dir, f), cfg) for f in files]
     invalid = []
     valid_names = []
-    series_meta = []
+    series_meta = {}
     
     # Process all samples
     if mp:
@@ -166,7 +170,7 @@ def full_check(img_dir, lbl_dir, cfg, mp, mode, output_dir=None):
     
     # Collect results
     for name, size, spacing, reasons in results:
-        series_meta.append({'name': name, 'size': size, 'spacing': spacing})
+        series_meta[name] = {'size': size, 'spacing': spacing}
         if reasons:
             invalid.append((name, reasons))
             tqdm.write(f"{name}: {'; '.join(reasons)}")
@@ -175,6 +179,7 @@ def full_check(img_dir, lbl_dir, cfg, mp, mode, output_dir=None):
     
     handle_mode_operations(mode, invalid, valid_names, img_dir, lbl_dir, output_dir)
     return invalid, series_meta
+
 
 def main():
     parser = argparse.ArgumentParser(description="Check itk dataset samples (mha) under image/label for size/spacing rules.")
@@ -232,6 +237,7 @@ def main():
         print(f"series_meta.json generated with {len(series_meta)} entries.")
     except Exception as e:
         print(f"Warning: Could not save series_meta.json: {e}")
+
 
 if __name__ == '__main__':
     main()
