@@ -113,8 +113,7 @@ def resample_one_sample(args):
     final_size = image_resampled.GetSize()[::-1]
     # 获取实际origin
     final_origin = image_resampled.GetOrigin()[::-1]
-    return {"name": itk_name, "spacing": final_spacing, "size": final_size, "origin": final_origin}
-
+    return {itk_name: {"spacing": final_spacing, "size": final_size, "origin": final_origin}}
 
 
 def resample_standard_dataset(
@@ -178,7 +177,7 @@ def resample_standard_dataset(
     ]
 
     # 收集每个样本的meta信息
-    series_meta: list = []
+    series_meta = dict()
     # 可选多进程执行
     if mp:
         with (
@@ -193,7 +192,7 @@ def resample_standard_dataset(
             result_fetcher = pool.imap_unordered(func=resample_one_sample, iterable=task_list)
             for res in result_fetcher:
                 if res:
-                    series_meta.append(res)
+                    series_meta.update(res)
                 pbar.update()
     else:
         with tqdm(
@@ -205,7 +204,7 @@ def resample_standard_dataset(
             for task_args in task_list:
                 res = resample_one_sample(task_args)
                 if res:
-                    series_meta.append(res)
+                    series_meta.update(res)
                 pbar.update()
     # 保存每个样本的实际spacing和size到JSON
     meta_path = os.path.join(dest_root, "series_meta.json")
