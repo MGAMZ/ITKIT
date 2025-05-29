@@ -38,7 +38,7 @@ class RoseThyroidCount_Precrop_Npz(mgam_BaseSegDataset):
                 if patch_meta['info'] != 'success':
                     continue
                 # NOTE 0 代表成团， 1 代表不成团，是倒过来的
-                if self.include_clustered or patch_meta["clustered_cls"] == 1:
+                if self.include_clustered or patch_meta["clustered"] == 1:
                     yield (os.path.join(self.data_root, slide_uid, patch_seriesUID+'.npz'),
                            os.path.join(self.data_root, slide_uid, patch_seriesUID+'.npz'))
 
