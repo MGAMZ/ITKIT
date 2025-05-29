@@ -250,7 +250,7 @@ class HeatMapViser(BaseViser):
     @master_only
     def add_datasample(self,
                        name,
-                       image: np.ndarray,
+                       image: Tensor,
                        data_sample: BaseDataElement,
                        draw_gt: bool = True,
                        draw_pred: bool = True,
@@ -258,8 +258,13 @@ class HeatMapViser(BaseViser):
                        wait_time: int = 0,
                        step: int = 0) -> None:
         try:
-            drown_array = self._draw_heatmap(image, data_sample.gt_sem_seg, data_sample.seg_logits)
+            image_arr = image.cpu().numpy().transpose(1,2,0)
+            image_arr = image_arr - image_arr.min()
+            image_arr = image_arr / (image_arr.max() + 1e-4)
+            drown_array = self._draw_heatmap(image_arr, data_sample.gt_sem_seg, data_sample.seg_logits)
             self.add_image(name, drown_array, step)
+        except KeyboardInterrupt:
+            raise KeyboardInterrupt
         except Exception as e:
             import traceback
             print("在执行HeatMap可视化时发生错误: ", e)

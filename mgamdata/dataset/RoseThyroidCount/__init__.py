@@ -130,7 +130,6 @@ class ClusterReader:
         if found.empty:
             return None
         return found.values[0]
-        
 
     def check_has_anno(self, SeriesUID:str):
         return not self.ann[self.ann["序列编号"] == str(SeriesUID)].empty
