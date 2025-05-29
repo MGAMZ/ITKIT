@@ -258,9 +258,7 @@ class HeatMapViser(BaseViser):
                        wait_time: int = 0,
                        step: int = 0) -> None:
         try:
-            sample_file = data_sample.get('img_path')
-            image_arr = np.load(sample_file)['img']
-            drown_array = self._draw_heatmap(image_arr, data_sample.gt_sem_seg, data_sample.seg_logits)
+            drown_array = self._draw_heatmap(image, data_sample.gt_sem_seg, data_sample.seg_logits)
             self.add_image(name, drown_array, step)
         except Exception as e:
             import traceback
