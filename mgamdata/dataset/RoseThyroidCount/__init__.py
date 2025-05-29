@@ -33,17 +33,15 @@ class FileID_Map:
             # 删除重复项
             self.ann = self.ann.drop_duplicates(subset=["originPath"], keep="last")
 
-        print("[FileID_Map] HINT: Replacing slashes `/` in originPath with underscores '_' to align with the newest file name format.")
         # 确保在应用replace之前，列是字符串类型
-        self.ann['originPath'] = self.ann['originPath'].astype(str).str.replace('/', '_')
+        self.ann['originPath'] = self.ann['originPath'].astype(str).str.replace('/', '_').str.rstrip('.png')
 
     def search_from_file_path(self, file_path: str):
-        # 确保比较时类型一致
+        file_path = file_path.replace('/', '_').rstrip('.png')
         found_patch = self.ann[self.ann["originPath"] == str(file_path)]
         if found_patch.empty:
             return None
         else:
-            # 确保返回的是字符串
             return str(found_patch["seriesinstanceUID"].values[0])
 
     def search_from_seriesUID(self, seriesUID:str):
