@@ -5,7 +5,7 @@ from tqdm import tqdm
 import orjson
 import pandas as pd
 
-from ..base import mgam_SeriesVolume, mgam_SemiSup_3D_Mha, mgam_SemiSup_Precropped_Npz
+from ..base import mgam_SemiSup_3D_Mha, mgam_SemiSup_Precropped_Npz
 from .meta import CLASS_INDEX_MAP, generate_subset_class_map_and_label_map, generate_reduced_class_map_and_label_map
 
 
@@ -52,10 +52,9 @@ class Tsd_base:
     METAINFO = dict(classes=list(CLASS_INDEX_MAP.keys()))
 
     def __init__(self, meta_csv:str|None, class_reduction: dict|None=None, subset:str|None=None, **kwargs) -> None:
-        self.meta_table = pd.read_csv(meta_csv) if meta_csv is not None else None
-
         if class_reduction is not None and subset is not None:
             raise ValueError("Cannot specify both class_reduction and subset. Please use only one.")
+        self.meta_table = pd.read_csv(meta_csv) if meta_csv is not None else None
 
         if class_reduction is not None:
             new_class_index_map, label_map = generate_reduced_class_map_and_label_map(class_reduction)
