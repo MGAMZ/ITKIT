@@ -70,7 +70,7 @@ class LoadRoseThyroidSampleFromNpz(BaseTransform):
 
         try:
             if "img" in self.load_type:
-                results["img"] = sample["img"]
+                results["img"] = sample["img"] # shape: (Y, X, C)
                 results["img_shape"] = results["img"].shape[:-1]
                 results["ori_shape"] = results["img"].shape[:-1]
 
@@ -85,20 +85,18 @@ class LoadRoseThyroidSampleFromNpz(BaseTransform):
 
 
 class GenPointMap(BaseTransform):
-    def __init__(self, size:Sequence[int]):
-        self.size = size
-
-    def _gen_point_mask(self, points:list[list[int]]):
-        point_mask = np.zeros(self.size, dtype=np.uint8)
+    def transform(self, results:dict):
+        size = results["img_shape"]
+        points = results.get("points", [])
+        point_mask = np.zeros(size, dtype=np.uint8)
+        
         if len(points) > 0:
             for point in points:
                 x, y = point
-                x = np.clip(np.round(x, 0), 0, self.size[1]-1).astype(int)
-                y = np.clip(np.round(y, 0), 0, self.size[0]-1).astype(int)
+                x = np.clip(np.round(x, 0), 0, size[1]-1).astype(int)
+                y = np.clip(np.round(y, 0), 0, size[0]-1).astype(int)
                 point_mask[y, x] += 1
-        return point_mask
-
-    def transform(self, results:dict):
-        results["gt_seg_map"] = self._gen_point_mask(results["points"])
+        
+        results["gt_seg_map"] = point_mask # shape: (Y, X)
         results["seg_fields"].append("gt_seg_map")
         return results
