@@ -16,12 +16,19 @@ class RoseThyroidCount_Precrop_Npz(mgam_BaseSegDataset):
     def __init__(self, data_root:str, include_clustered:bool=True, *args, **kwargs):
         self.include_clustered = include_clustered
         with open(os.path.join(data_root, "slide_processing_log.json"), 'r') as f:
-            self.meta = json.load(f)
+            self.meta:dict = json.load(f)
         self.slide_uids = list(self.meta.keys())
         super().__init__(data_root=data_root, *args, **kwargs)
-        
 
     def _split(self):
+        # delete slides that have no valid patches
+        for slide_uid in self.meta.keys():
+            slide_meta = self.meta[slide_uid]
+            if not any(patch_meta['info'] == 'success' and
+                       (self.include_clustered or patch_meta["clustered"] == 1)
+                       for patch_meta in slide_meta.values()):
+                self.slide_uids.remove(slide_uid)
+        
         if self.split == 'train':
             return self.slide_uids[:int(len(self.slide_uids) * self.SPLIT_RATIO[0])]
         elif self.split == 'val' or self.split == 'test':
