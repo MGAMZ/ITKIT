@@ -127,6 +127,8 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
             return all_series[train_end:val_end]
         elif self.split == "test":
             return all_series[val_end:]
+        elif self.split == "all":
+            return all_series
         else:
             raise RuntimeError(f"Unsupported split: {self.split}")
 
