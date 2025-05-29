@@ -1,123 +1,123 @@
 CLASS_INDEX_MAP = {
-    'background': 0,
-    'adrenal_gland_left': 1,
-    'adrenal_gland_right': 2,
-    'aorta': 3,
-    'atrial_appendage_left': 4,
-    'autochthon_left': 5,
-    'autochthon_right': 6,
-    'brachiocephalic_trunk': 7,
-    'brachiocephalic_vein_left': 8,
-    'brachiocephalic_vein_right': 9,
-    'brain': 10,
-    'clavicula_left': 11,
-    'clavicula_right': 12,
-    'colon': 13,
-    'common_carotid_artery_left': 14,
-    'common_carotid_artery_right': 15,
-    'costal_cartilages': 16,
-    'ct': 17,
-    'duodenum': 18,
-    'esophagus': 19,
-    'femur_left': 20,
-    'femur_right': 21,
-    'gallbladder': 22,
-    'gluteus_maximus_left': 23,
-    'gluteus_maximus_right': 24,
-    'gluteus_medius_left': 25,
-    'gluteus_medius_right': 26,
-    'gluteus_minimus_left': 27,
-    'gluteus_minimus_right': 28,
-    'heart': 29,
-    'hip_left': 30,
-    'hip_right': 31,
-    'humerus_left': 32,
-    'humerus_right': 33,
-    'iliac_artery_left': 34,
-    'iliac_artery_right': 35,
-    'iliac_vena_left': 36,
-    'iliac_vena_right': 37,
-    'iliopsoas_left': 38,
-    'iliopsoas_right': 39,
-    'inferior_vena_cava': 40,
-    'kidney_cyst_left': 41,
-    'kidney_cyst_right': 42,
-    'kidney_left': 43,
-    'kidney_right': 44,
-    'liver': 45,
-    'lung_lower_lobe_left': 46,
-    'lung_lower_lobe_right': 47,
-    'lung_middle_lobe_right': 48,
-    'lung_upper_lobe_left': 49,
-    'lung_upper_lobe_right': 50,
-    'pancreas': 51,
-    'portal_vein_and_splenic_vein': 52,
-    'prostate': 53,
-    'pulmonary_vein': 54,
-    'rib_left_1': 55,
-    'rib_left_10': 56,
-    'rib_left_11': 57,
-    'rib_left_12': 58,
-    'rib_left_2': 59,
-    'rib_left_3': 60,
-    'rib_left_4': 61,
-    'rib_left_5': 62,
-    'rib_left_6': 63,
-    'rib_left_7': 64,
-    'rib_left_8': 65,
-    'rib_left_9': 66,
-    'rib_right_1': 67,
-    'rib_right_10': 68,
-    'rib_right_11': 69,
-    'rib_right_12': 70,
-    'rib_right_2': 71,
-    'rib_right_3': 72,
-    'rib_right_4': 73,
-    'rib_right_5': 74,
-    'rib_right_6': 75,
-    'rib_right_7': 76,
-    'rib_right_8': 77,
-    'rib_right_9': 78,
-    'sacrum': 79,
-    'scapula_left': 80,
-    'scapula_right': 81,
-    'skull': 82,
-    'small_bowel': 83,
-    'spinal_cord': 84,
-    'spleen': 85,
-    'sternum': 86,
-    'stomach': 87,
-    'subclavian_artery_left': 88,
-    'subclavian_artery_right': 89,
-    'superior_vena_cava': 90,
-    'thyroid_gland': 91,
-    'trachea': 92,
-    'urinary_bladder': 93,
-    'vertebrae_C1': 94,
-    'vertebrae_C2': 95,
-    'vertebrae_C3': 96,
-    'vertebrae_C4': 97,
-    'vertebrae_C5': 98,
-    'vertebrae_C6': 99,
-    'vertebrae_C7': 100,
-    'vertebrae_L1': 101,
-    'vertebrae_L2': 102,
-    'vertebrae_L3': 103,
-    'vertebrae_L4': 104,
-    'vertebrae_L5': 105,
-    'vertebrae_S1': 106,
-    'vertebrae_T1': 107,
-    'vertebrae_T10': 108,
-    'vertebrae_T11': 109,
-    'vertebrae_T12': 110,
-    'vertebrae_T2': 111,
-    'vertebrae_T3': 112,
-    'vertebrae_T4': 113,
-    'vertebrae_T5': 114,
-    'vertebrae_T6': 115,
-    'vertebrae_T7': 116,
-    'vertebrae_T8': 117,
-    'vertebrae_T9': 118,
+    'background': 0, # 背景
+    'adrenal_gland_left': 1, # 左肾上腺
+    'adrenal_gland_right': 2, # 右肾上腺
+    'aorta': 3, # 主动脉
+    'atrial_appendage_left': 4, # 左心耳
+    'autochthon_left': 5, # 左自体骨
+    'autochthon_right': 6, # 右自体骨
+    'brachiocephalic_trunk': 7, # 头臂干
+    'brachiocephalic_vein_left': 8, # 左头臂静脉
+    'brachiocephalic_vein_right': 9, # 右头臂静脉
+    'brain': 10, # 脑
+    'clavicula_left': 11, # 左锁骨
+    'clavicula_right': 12, # 右锁骨
+    'colon': 13, # 结肠
+    'common_carotid_artery_left': 14, # 左颈总动脉
+    'common_carotid_artery_right': 15, # 右颈总动脉
+    'costal_cartilages': 16, # 肋软骨
+    'ct': 17, # 计算机断层扫描（此项似乎为缩写，通常意指影像类型而非解剖结构）
+    'duodenum': 18, # 十二指肠
+    'esophagus': 19, # 食管
+    'femur_left': 20, # 左股骨
+    'femur_right': 21, # 右股骨
+    'gallbladder': 22, # 胆囊
+    'gluteus_maximus_left': 23, # 左臀大肌
+    'gluteus_maximus_right': 24, # 右臀大肌
+    'gluteus_medius_left': 25, # 左臀中肌
+    'gluteus_medius_right': 26, # 右臀中肌
+    'gluteus_minimus_left': 27, # 左臀小肌
+    'gluteus_minimus_right': 28, # 右臀小肌
+    'heart': 29, # 心脏
+    'hip_left': 30, # 左髋
+    'hip_right': 31, # 右髋
+    'humerus_left': 32, # 左肱骨
+    'humerus_right': 33, # 右肱骨
+    'iliac_artery_left': 34, # 左髂动脉
+    'iliac_artery_right': 35, # 右髂动脉
+    'iliac_vena_left': 36, # 左髂静脉
+    'iliac_vena_right': 37, # 右髂静脉
+    'iliopsoas_left': 38, # 左髂腰肌
+    'iliopsoas_right': 39, # 右髂腰肌
+    'inferior_vena_cava': 40, # 下腔静脉
+    'kidney_cyst_left': 41, # 左肾囊肿
+    'kidney_cyst_right': 42, # 右肾囊肿
+    'kidney_left': 43, # 左肾
+    'kidney_right': 44, # 右肾
+    'liver': 45, # 肝
+    'lung_lower_lobe_left': 46, # 左肺下叶
+    'lung_lower_lobe_right': 47, # 右肺下叶
+    'lung_middle_lobe_right': 48, # 右肺中叶
+    'lung_upper_lobe_left': 49, # 左肺上叶
+    'lung_upper_lobe_right': 50, # 右肺上叶
+    'pancreas': 51, # 胰腺
+    'portal_vein_and_splenic_vein': 52, # 门静脉和脾静脉
+    'prostate': 53, # 前列腺
+    'pulmonary_vein': 54, # 肺静脉
+    'rib_left_1': 55, # 左第1肋骨
+    'rib_left_10': 56, # 左第10肋骨
+    'rib_left_11': 57, # 左第11肋骨
+    'rib_left_12': 58, # 左第12肋骨
+    'rib_left_2': 59, # 左第2肋骨
+    'rib_left_3': 60, # 左第3肋骨
+    'rib_left_4': 61, # 左第4肋骨
+    'rib_left_5': 62, # 左第5肋骨
+    'rib_left_6': 63, # 左第6肋骨
+    'rib_left_7': 64, # 左第7肋骨
+    'rib_left_8': 65, # 左第8肋骨
+    'rib_left_9': 66, # 左第9肋骨
+    'rib_right_1': 67, # 右第1肋骨
+    'rib_right_10': 68, # 右第10肋骨
+    'rib_right_11': 69, # 右第11肋骨
+    'rib_right_12': 70, # 右第12肋骨
+    'rib_right_2': 71, # 右第2肋骨
+    'rib_right_3': 72, # 右第3肋骨
+    'rib_right_4': 73, # 右第4肋骨
+    'rib_right_5': 74, # 右第5肋骨
+    'rib_right_6': 75, # 右第6肋骨
+    'rib_right_7': 76, # 右第7肋骨
+    'rib_right_8': 77, # 右第8肋骨
+    'rib_right_9': 78, # 右第9肋骨
+    'sacrum': 79, # 骶骨
+    'scapula_left': 80, # 左肩胛骨
+    'scapula_right': 81, # 右肩胛骨
+    'skull': 82, # 颅骨
+    'small_bowel': 83, # 小肠
+    'spinal_cord': 84, # 脊髓
+    'spleen': 85, # 脾
+    'sternum': 86, # 胸骨
+    'stomach': 87, # 胃
+    'subclavian_artery_left': 88, # 左锁骨下动脉
+    'subclavian_artery_right': 89, # 右锁骨下动脉
+    'superior_vena_cava': 90, # 上腔静脉
+    'thyroid_gland': 91, # 甲状腺
+    'trachea': 92, # 气管
+    'urinary_bladder': 93, # 膀胱
+    'vertebrae_C1': 94, # 第1颈椎
+    'vertebrae_C2': 95, # 第2颈椎
+    'vertebrae_C3': 96, # 第3颈椎
+    'vertebrae_C4': 97, # 第4颈椎
+    'vertebrae_C5': 98, # 第5颈椎
+    'vertebrae_C6': 99, # 第6颈椎
+    'vertebrae_C7': 100, # 第7颈椎
+    'vertebrae_L1': 101, # 第1腰椎
+    'vertebrae_L2': 102, # 第2腰椎
+    'vertebrae_L3': 103, # 第3腰椎
+    'vertebrae_L4': 104, # 第4腰椎
+    'vertebrae_L5': 105, # 第5腰椎
+    'vertebrae_S1': 106, # 第1骶椎
+    'vertebrae_T1': 107, # 第1胸椎
+    'vertebrae_T10': 108, # 第10胸椎
+    'vertebrae_T11': 109, # 第11胸椎
+    'vertebrae_T12': 110, # 第12胸椎
+    'vertebrae_T2': 111, # 第2胸椎
+    'vertebrae_T3': 112, # 第3胸椎
+    'vertebrae_T4': 113, # 第4胸椎
+    'vertebrae_T5': 114, # 第5胸椎
+    'vertebrae_T6': 115, # 第6胸椎
+    'vertebrae_T7': 116, # 第7胸椎
+    'vertebrae_T8': 117, # 第8胸椎
+    'vertebrae_T9': 118, # 第9胸椎
 }
 
 SUBSETS = {
@@ -141,77 +141,80 @@ SUBSETS = {
     ]
 }
 
-GENERAL_REDUCTION = {
-    'adrenal_gland': [
-        'adrenal_gland_left', 'adrenal_gland_right'
-    ],
-    'autochthon': [
-        'autochthon_left', 'autochthon_right'
-    ],
-    'brachiocephalic': [
-        'brachiocephalic_trunk', 'brachiocephalic_vein_left',
-        'brachiocephalic_vein_right'
-    ],
-    'clavicula': [
-        'clavicula_left', 'clavicula_right'
-    ],
-    'common_carotid_artery': [
-        'common_carotid_artery_left', 'common_carotid_artery_right'
-    ],
-    'femur': [
-        'femur_left', 'femur_right'
-    ],
-    'gluteus': [
-        'gluteus_maximus_left', 'gluteus_maximus_right',
-        'gluteus_medius_left', 'gluteus_medius_right',
-        'gluteus_minimus_left', 'gluteus_minimus_right'
-    ],
-    'hip': [
-        'hip_left', 'hip_right'
-    ],
-    'humerus': [
-        'humerus_left', 'humerus_right'
-    ],
-    'iliac': [
-        'iliac_artery_left', 'iliac_artery_right', 'iliac_vena_left',
-        'iliac_vena_right'
-    ],
-    'iliopsoas': [
-        'iliopsoas_left', 'iliopsoas_right'
-    ],
-    'kidney': [
-        'kidney_cyst_left', 'kidney_cyst_right', 'kidney_left',
-        'kidney_right'
-    ],
-    'lung': [
-        'lung_lower_lobe_left', 'lung_lower_lobe_right',
-        'lung_middle_lobe_right', 'lung_upper_lobe_left',
-        'lung_upper_lobe_right'
-    ],
-    'rib': [
-        'rib_left_1', 'rib_left_10', 'rib_left_11', 'rib_left_12',
-        'rib_left_2', 'rib_left_3', 'rib_left_4', 'rib_left_5',
-        'rib_left_6', 'rib_left_7', 'rib_left_8', 'rib_left_9',
-        'rib_right_1', 'rib_right_10', 'rib_right_11', 'rib_right_12',
-        'rib_right_2', 'rib_right_3', 'rib_right_4', 'rib_right_5',
-        'rib_right_6', 'rib_right_7', 'rib_right_8', 'rib_right_9'
-    ],
-    'scapula': [
-        'scapula_left', 'scapula_right'
-    ],
-    'subclavian_artery': [
-        'subclavian_artery_left', 'subclavian_artery_right'
-    ],
-    'vertebrae': [
-        'vertebrae_C1', 'vertebrae_C2', 'vertebrae_C3', 'vertebrae_C4',
-        'vertebrae_C5', 'vertebrae_C6', 'vertebrae_C7', 'vertebrae_L1',
-        'vertebrae_L2', 'vertebrae_L3', 'vertebrae_L4', 'vertebrae_L5',
-        'vertebrae_S1', 'vertebrae_T1', 'vertebrae_T10', 'vertebrae_T11',
-        'vertebrae_T12', 'vertebrae_T2', 'vertebrae_T3', 'vertebrae_T4',
-        'vertebrae_T5', 'vertebrae_T6', 'vertebrae_T7', 'vertebrae_T8',
-        'vertebrae_T9'
-    ]
+CLASS_MERGE = {
+    'general': {
+        'adrenal_gland': [
+            'adrenal_gland_left', 'adrenal_gland_right'
+        ],
+        'autochthon': [
+            'autochthon_left', 'autochthon_right'
+        ],
+        'brachiocephalic': [
+            'brachiocephalic_trunk', 'brachiocephalic_vein_left',
+            'brachiocephalic_vein_right'
+        ],
+        'clavicula': [
+            'clavicula_left', 'clavicula_right'
+        ],
+        'common_carotid_artery': [
+            'common_carotid_artery_left', 'common_carotid_artery_right'
+        ],
+        'femur': [
+            'femur_left', 'femur_right'
+        ],
+        'gluteus': [
+            'gluteus_maximus_left', 'gluteus_maximus_right',
+            'gluteus_medius_left', 'gluteus_medius_right',
+            'gluteus_minimus_left', 'gluteus_minimus_right'
+        ],
+        'hip': [
+            'hip_left', 'hip_right'
+        ],
+        'humerus': [
+            'humerus_left', 'humerus_right'
+        ],
+        'iliac': [
+            'iliac_artery_left', 'iliac_artery_right', 'iliac_vena_left',
+            'iliac_vena_right'
+        ],
+        'iliopsoas': [
+            'iliopsoas_left', 'iliopsoas_right'
+        ],
+        'kidney': [
+            'kidney_cyst_left', 'kidney_cyst_right', 'kidney_left',
+            'kidney_right'
+        ],
+        'lung': [
+            'lung_lower_lobe_left', 'lung_lower_lobe_right',
+            'lung_middle_lobe_right', 'lung_upper_lobe_left',
+            'lung_upper_lobe_right'
+        ],
+        'rib': [
+            'rib_left_1', 'rib_left_10', 'rib_left_11', 'rib_left_12',
+            'rib_left_2', 'rib_left_3', 'rib_left_4', 'rib_left_5',
+            'rib_left_6', 'rib_left_7', 'rib_left_8', 'rib_left_9',
+            'rib_right_1', 'rib_right_10', 'rib_right_11', 'rib_right_12',
+            'rib_right_2', 'rib_right_3', 'rib_right_4', 'rib_right_5',
+            'rib_right_6', 'rib_right_7', 'rib_right_8', 'rib_right_9'
+        ],
+        'scapula': [
+            'scapula_left', 'scapula_right'
+        ],
+        'subclavian_artery': [
+            'subclavian_artery_left', 'subclavian_artery_right'
+        ],
+        'vertebrae': [
+            'vertebrae_C1', 'vertebrae_C2', 'vertebrae_C3', 'vertebrae_C4',
+            'vertebrae_C5', 'vertebrae_C6', 'vertebrae_C7', 'vertebrae_L1',
+            'vertebrae_L2', 'vertebrae_L3', 'vertebrae_L4', 'vertebrae_L5',
+            'vertebrae_S1', 'vertebrae_T1', 'vertebrae_T10', 'vertebrae_T11',
+            'vertebrae_T12', 'vertebrae_T2', 'vertebrae_T3', 'vertebrae_T4',
+            'vertebrae_T5', 'vertebrae_T6', 'vertebrae_T7', 'vertebrae_T8',
+            'vertebrae_T9'
+        ]
+    }
 }
+
 
 def generate_subset_class_map_and_label_map(subset_name: str):
     """
@@ -247,6 +250,7 @@ def generate_subset_class_map_and_label_map(subset_name: str):
             label_map[old_index] = 0
     
     return subset_class_map, label_map
+
 
 def generate_reduced_class_map_and_label_map(reduction):
     """
