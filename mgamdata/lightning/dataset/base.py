@@ -1,12 +1,14 @@
 from abc import abstractmethod
 from collections.abc import Generator
-from typing import Any
+from typing import Any, Callable
 from pathlib import Path
 
 import torch
 from torch.utils.data import Dataset
 import pytorch_lightning as pl
 from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS
+
+from ..pipeline import LightningCompose
 
 
 class LightningBaseDataset(Dataset):
@@ -26,6 +28,7 @@ class LightningBaseDataset(Dataset):
         debug: bool = False,
         dataset_name: str | None = None,
         transform: Any | None = None,
+        pipeline: list[dict[str, Any]] | None = None,
         **kwargs
     ) -> None:
         """
@@ -36,13 +39,20 @@ class LightningBaseDataset(Dataset):
             split: Dataset split ('train', 'val', 'test', 'all', or None)
             debug: If True, only use 16 samples for debugging
             dataset_name: Name of the dataset (defaults to class name)
-            transform: Data transforms to apply
+            transform: Data transforms to apply (standard PyTorch transform)
+            pipeline: List of transform configurations for preprocessing pipeline
+                Format: [{"type": "TransformName", "param1": value1, ...}, ...]
         """
         self.data_root = Path(data_root)
         self.split = split
         self.debug = debug
         self.dataset_name = dataset_name or self.__class__.__name__
-        self.transform = transform
+        
+        # Setup transforms - prioritize pipeline over legacy transform
+        if pipeline is not None:
+            self.transform = LightningCompose(transforms=pipeline)
+        else:
+            self.transform = transform
         
         # Load data list
         self.data_list = self.load_data_list()
@@ -117,6 +127,9 @@ class LightningDataModule(pl.LightningDataModule):
         train_transform: Any | None = None,
         val_transform: Any | None = None,
         test_transform: Any | None = None,
+        train_pipeline: list[dict[str, Any]] | None = None,
+        val_pipeline: list[dict[str, Any]] | None = None,
+        test_pipeline: list[dict[str, Any]] | None = None,
         **dataset_kwargs
     ) -> None:
         """
@@ -127,21 +140,33 @@ class LightningDataModule(pl.LightningDataModule):
             data_root: Root directory of the dataset
             batch_size: Batch size for data loaders
             num_workers: Number of workers for data loading
-            train_transform: Transform for training data
-            val_transform: Transform for validation data
-            test_transform: Transform for test data
+            train_transform: Transform for training data (legacy)
+            val_transform: Transform for validation data (legacy)
+            test_transform: Transform for test data (legacy)
+            train_pipeline: Pipeline configuration for training data
+            val_pipeline: Pipeline configuration for validation data  
+            test_pipeline: Pipeline configuration for test data
             **dataset_kwargs: Additional arguments for dataset initialization
         """
         super().__init__()
-        self.save_hyperparameters(ignore=['dataset_class', 'train_transform', 'val_transform', 'test_transform'])
+        self.save_hyperparameters(ignore=[
+            'dataset_class', 'train_transform', 'val_transform', 'test_transform',
+            'train_pipeline', 'val_pipeline', 'test_pipeline'
+        ])
         
         self.dataset_class = dataset_class
         self.data_root = data_root
         self.batch_size = batch_size
         self.num_workers = num_workers
+        
+        # Store both legacy and new pipeline configurations
         self.train_transform = train_transform
         self.val_transform = val_transform
         self.test_transform = test_transform
+        self.train_pipeline = train_pipeline
+        self.val_pipeline = val_pipeline
+        self.test_pipeline = test_pipeline
+        
         self.dataset_kwargs = dataset_kwargs
         
         self.train_dataset = None
@@ -160,12 +185,14 @@ class LightningDataModule(pl.LightningDataModule):
                 data_root=self.data_root,
                 split="train",
                 transform=self.train_transform,
+                pipeline=self.train_pipeline,
                 **self.dataset_kwargs
             )
             self.val_dataset = self.dataset_class(
                 data_root=self.data_root,
                 split="val",
                 transform=self.val_transform,
+                pipeline=self.val_pipeline,
                 **self.dataset_kwargs
             )
         
@@ -174,6 +201,7 @@ class LightningDataModule(pl.LightningDataModule):
                 data_root=self.data_root,
                 split="test",
                 transform=self.test_transform,
+                pipeline=self.test_pipeline,
                 **self.dataset_kwargs
             )
     
@@ -206,4 +234,3 @@ class LightningDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             pin_memory=True
         )
-

@@ -467,7 +467,7 @@ class MixVisionTransformer(nn.Module):
         self.patch_embeds = nn.ModuleList()
         self.pos_embeds = nn.ParameterList()
         self.pos_drops = nn.ModuleList()
-        self.blocks = nn.ModuleList()
+        self.blocks:list[list[nn.Module]] = nn.ModuleList()
         self.norms = nn.ModuleList()
         
         for i in range(len(depths)):
