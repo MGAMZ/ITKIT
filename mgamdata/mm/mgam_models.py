@@ -239,11 +239,6 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         h_crop, w_crop = self.inference_PatchSize
         batch_size, _, h_img, w_img = inputs.size()
         
-        # 获取输出通道数（类别数）
-        with torch.no_grad():
-            temp_output = self._forward(inputs[:, :, :min(h_crop, h_img), 
-                                               :min(w_crop, w_img)])
-            out_channels = temp_output.size(1)
         
         # 计算网格数
         h_grids = max(h_img - h_crop + h_stride - 1, 0) // h_stride + 1
@@ -252,7 +247,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         accumulate_device = torch.device(self.inference_PatchAccumulateDevice)
         
         preds = torch.zeros(
-            size=(batch_size, out_channels, h_img, w_img),
+            size=(batch_size, self.num_classes, h_img, w_img),
             dtype=torch.float16,
             device=accumulate_device
         )
@@ -283,7 +278,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
                 preds[:, :, h1:h2, w1:w2] += crop_seg_logit_on_device
                 count_mat[:, :, h1:h2, w1:w2] += 1
         
-        assert torch.all(count_mat > 0), "存在未被滑动窗口覆盖的区域"
+        assert torch.min(count_mat).item() > 0, "存在未被滑动窗口覆盖的区域"
         seg_logits = preds / count_mat
         
         return seg_logits
@@ -413,6 +408,11 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         z_crop, y_crop, x_crop = self.inference_PatchSize
         batch_size, _, z_img, y_img, x_img = inputs.size()
         
+        # 将尺寸转换为Python整数，避免tensor到boolean的转换
+        z_img = int(z_img)
+        y_img = int(y_img)
+        x_img = int(x_img)
+        
         # 计算网格数
         z_grids = max(z_img - z_crop + z_stride - 1, 0) // z_stride + 1
         y_grids = max(y_img - y_crop + y_stride - 1, 0) // y_stride + 1
@@ -453,8 +453,9 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                     preds[:, :, z1:z2, y1:y2, x1:x2] += crop_seg_logit.to(accumulate_device)
                     count_mat[:, :, z1:z2, y1:y2, x1:x2] += 1
         
-        # 确保没有未覆盖区域
-        assert torch.all(count_mat > 0), "存在未被滑动窗口覆盖的区域"
+        # 使用tensor操作进行断言检查，避免tensor到boolean转换
+        min_count = torch.min(count_mat)
+        assert min_count.item() > 0, "存在未被滑动窗口覆盖的区域"
         # 计算平均值
         seg_logits = (preds / count_mat).to(dtype=torch.float16)
         
