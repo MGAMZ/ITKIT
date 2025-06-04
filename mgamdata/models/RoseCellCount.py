@@ -151,9 +151,7 @@ class CellCounterLite(mgam_Seg2D_Lite):
     
     @torch.inference_mode()
     def inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
-        seg_logits = super().inference(inputs, data_samples)
-        seg_logits /= self.amplify
-        return seg_logits
+        return super().inference(inputs, data_samples) / self.amplify
 
 
 class CellCounterClassifier(CellCounter):
