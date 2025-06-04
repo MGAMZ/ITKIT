@@ -25,9 +25,9 @@ class EfficientNetV2(torch.nn.Module):
         # 其余解码器块（包含跳跃连接）
         for i in range(1, 5):
             in_channels = decoder_channels[i-1] + encoder_channels[4-i]  # 上采样特征 + 跳跃连接特征
-            out_channels = decoder_channels[i]
+            layer_out_channels = decoder_channels[i]
             self.decoder_blocks.append(
-                self._make_decoder_block(in_channels, out_channels)
+                self._make_decoder_block(in_channels, layer_out_channels)
             )
         
         # 最终输出层
