@@ -1,17 +1,14 @@
 from abc import abstractmethod
 from collections.abc import Generator
-from typing import Any, Callable
+from typing import Any
 from pathlib import Path
+from typing_extensions import Literal
 
-import torch
-from torch.utils.data import Dataset
-import pytorch_lightning as pl
-from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS
-
-from ..pipeline import LightningCompose
+from torch.utils.data import DataLoader
+from pytorch_lightning import LightningDataModule
 
 
-class LightningBaseDataset(Dataset):
+class BaseDataset(LightningDataModule):
     """
     PyTorch Lightning compatible base dataset class for medical imaging.
     
@@ -26,10 +23,6 @@ class LightningBaseDataset(Dataset):
         data_root: str | Path,
         split: str | None = None,
         debug: bool = False,
-        dataset_name: str | None = None,
-        transform: Any | None = None,
-        pipeline: list[dict[str, Any]] | None = None,
-        **kwargs
     ) -> None:
         """
         Initialize the base dataset.
@@ -39,31 +32,13 @@ class LightningBaseDataset(Dataset):
             split: Dataset split ('train', 'val', 'test', 'all', or None)
             debug: If True, only use 16 samples for debugging
             dataset_name: Name of the dataset (defaults to class name)
-            transform: Data transforms to apply (standard PyTorch transform)
-            pipeline: List of transform configurations for preprocessing pipeline
-                Format: [{"type": "TransformName", "param1": value1, ...}, ...]
+            pipeline: Data processing pipeline (default is identity function)
         """
         self.data_root = Path(data_root)
         self.split = split
         self.debug = debug
-        self.dataset_name = dataset_name or self.__class__.__name__
-        
-        # Setup transforms - prioritize pipeline over legacy transform
-        if pipeline is not None:
-            self.transform = LightningCompose(transforms=pipeline)
-        else:
-            self.transform = transform
-        
-        # Load data list
         self.data_list = self.load_data_list()
-        
-        if self.debug:
-            print(f"{self.dataset_name} dataset {self.split} split loaded {len(self.data_list)} samples, "
-                  f"DEBUG MODE ENABLED, ONLY 16 SAMPLES ARE USED")
-            self.data_list = self.data_list[:16]
-        else:
-            print(f"{self.dataset_name} dataset {self.split} split loaded {len(self.data_list)} samples.")
-    
+
     @abstractmethod
     def sample_iterator(self) -> Generator[tuple[str, str], None, None]:
         """
@@ -87,150 +62,42 @@ class LightningBaseDataset(Dataset):
                 'label_path': label_path,
             })
         return data_list
-    
-    def __len__(self) -> int:
-        """Return the number of samples in the dataset."""
-        return len(self.data_list)
-    
-    def __getitem__(self, idx: int) -> dict[str, Any]:
+
+    def prepare_data(self):
         """
-        Get a sample from the dataset.
-        
-        Args:
-            idx: Sample index
-            
-        Returns:
-            Dictionary containing sample data
+        download, IO, etc. Useful with shared filesystems
+        only called on 1 GPU/TPU in distributed
         """
-        sample = self.data_list[idx].copy()
+
+    def setup(self, stage: Literal['fit', 'validate', 'test', 'predict']):
+        """
+        make assignments here (val/train/test split)
+        called on every process in DDP
         
-        if self.transform:
-            sample = self.transform(sample)
-            
-        return sample
+        EXAMPLE:
+        
+        dataset = RandomDataset(1, 100)
+        self.train, self.val, self.test = data.random_split(
+            dataset, [80, 10, 10], generator=torch.Generator().manual_seed(42)
+        )
+        """
+
+    def teardown(self, stage: Literal['fit', 'validate', 'test', 'predict']) -> None:
+        """
+        clean up state after the trainer stops, delete files...
+        called on every process in DDP
+        """
+
+    def on_exception(self, exception):
+        """ clean up state after the trainer faced an exception """
+
+    def train_dataloader(self) -> DataLoader:
+        return DataLoader(self.train)
+
+    def val_dataloader(self) -> DataLoader:
+        return DataLoader(self.val)
+
+    def test_dataloader(self) -> DataLoader:
+        return DataLoader(self.test)
 
 
-class LightningDataModule(pl.LightningDataModule):
-    """
-    PyTorch Lightning DataModule for medical imaging datasets.
-    
-    This DataModule provides a standardized way to handle data loading,
-    splitting, and transformation for medical imaging tasks.
-    """
-    
-    def __init__(
-        self,
-        dataset_class: type,
-        data_root: str | Path,
-        batch_size: int = 1,
-        num_workers: int = 4,
-        train_transform: Any | None = None,
-        val_transform: Any | None = None,
-        test_transform: Any | None = None,
-        train_pipeline: list[dict[str, Any]] | None = None,
-        val_pipeline: list[dict[str, Any]] | None = None,
-        test_pipeline: list[dict[str, Any]] | None = None,
-        **dataset_kwargs
-    ) -> None:
-        """
-        Initialize the DataModule.
-        
-        Args:
-            dataset_class: The dataset class to use
-            data_root: Root directory of the dataset
-            batch_size: Batch size for data loaders
-            num_workers: Number of workers for data loading
-            train_transform: Transform for training data (legacy)
-            val_transform: Transform for validation data (legacy)
-            test_transform: Transform for test data (legacy)
-            train_pipeline: Pipeline configuration for training data
-            val_pipeline: Pipeline configuration for validation data  
-            test_pipeline: Pipeline configuration for test data
-            **dataset_kwargs: Additional arguments for dataset initialization
-        """
-        super().__init__()
-        self.save_hyperparameters(ignore=[
-            'dataset_class', 'train_transform', 'val_transform', 'test_transform',
-            'train_pipeline', 'val_pipeline', 'test_pipeline'
-        ])
-        
-        self.dataset_class = dataset_class
-        self.data_root = data_root
-        self.batch_size = batch_size
-        self.num_workers = num_workers
-        
-        # Store both legacy and new pipeline configurations
-        self.train_transform = train_transform
-        self.val_transform = val_transform
-        self.test_transform = test_transform
-        self.train_pipeline = train_pipeline
-        self.val_pipeline = val_pipeline
-        self.test_pipeline = test_pipeline
-        
-        self.dataset_kwargs = dataset_kwargs
-        
-        self.train_dataset = None
-        self.val_dataset = None
-        self.test_dataset = None
-    
-    def setup(self, stage: str | None = None) -> None:
-        """
-        Setup datasets for different stages.
-        
-        Args:
-            stage: Current stage ('fit', 'validate', 'test', or 'predict')
-        """
-        if stage == "fit" or stage is None:
-            self.train_dataset = self.dataset_class(
-                data_root=self.data_root,
-                split="train",
-                transform=self.train_transform,
-                pipeline=self.train_pipeline,
-                **self.dataset_kwargs
-            )
-            self.val_dataset = self.dataset_class(
-                data_root=self.data_root,
-                split="val",
-                transform=self.val_transform,
-                pipeline=self.val_pipeline,
-                **self.dataset_kwargs
-            )
-        
-        if stage == "test" or stage is None:
-            self.test_dataset = self.dataset_class(
-                data_root=self.data_root,
-                split="test",
-                transform=self.test_transform,
-                pipeline=self.test_pipeline,
-                **self.dataset_kwargs
-            )
-    
-    def train_dataloader(self) -> TRAIN_DATALOADERS:
-        """Return the training data loader."""
-        return torch.utils.data.DataLoader(
-            self.train_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-            pin_memory=True
-        )
-    
-    def val_dataloader(self) -> EVAL_DATALOADERS:
-        """Return the validation data loader."""
-        return torch.utils.data.DataLoader(
-            self.val_dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            pin_memory=True
-        )
-    
-    def test_dataloader(self) -> EVAL_DATALOADERS:
-        """Return the test data loader."""
-        return torch.utils.data.DataLoader(
-            self.test_dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            pin_memory=True
-        )

@@ -1,13 +1,7 @@
-from .base import (
-    LightningBaseDataset, 
-    LightningSeriesVolume,
-    LightningSemiSup3DMha, 
-    LightningDataModule
-)
+from .base import BaseDataset
+from .radiology import SemiSup3DMha
 
 __all__ = [
-    'LightningBaseDataset', 
-    'LightningSeriesVolume',
-    'LightningSemiSup3DMha', 
-    'LightningDataModule'
+    'BaseDataset',
+    'SemiSup3DMha',
 ]

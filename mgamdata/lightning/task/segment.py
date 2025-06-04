@@ -146,72 +146,6 @@ class PixelData:
     def __repr__(self) -> str:
         return f"PixelData(shape={self.shape}, dtype={self.dtype}, device={self.device})"
 
-
-class SegmentationDataModule(pl.LightningDataModule):
-    """Lightning DataModule for segmentation tasks.
-    
-    This class leverages Lightning's built-in patterns and factory methods
-    for simplified and consistent data handling.
-    """
-    
-    def __init__(
-        self,
-        dataloader_kwargs: dict[str, Any] | None,
-        train_dataset: Any | None = None,
-        val_dataset: Any | None = None,
-        test_dataset: Any | None = None,
-        predict_dataset: Any | None = None,
-        **kwargs
-    ):
-        """Initialize the segmentation data module.
-        
-        Args:
-            train_dataset: Training dataset
-            val_dataset: Validation dataset  
-            test_dataset: Test dataset
-            predict_dataset: Prediction dataset
-            batch_size: Batch size for data loaders
-            num_workers: Number of workers for data loading
-            pin_memory: Whether to pin memory in data loaders
-            persistent_workers: Whether to keep workers persistent
-            shuffle_train: Whether to shuffle training data
-            drop_last_train: Whether to drop last incomplete batch in training
-            **kwargs: Additional keyword arguments
-        """
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=['train_dataset', 'val_dataset', 'test_dataset', 'predict_dataset'])
-        
-        # Store datasets
-        self.train_dataset = train_dataset
-        self.val_dataset = val_dataset
-        self.test_dataset = test_dataset
-        self.predict_dataset = predict_dataset
-        self.dataloader_kwargs = dataloader_kwargs or {}
-    
-    def _create_dataloader(self, dataset: Any) -> DataLoader:
-        return DataLoader(dataset, **self.dataloader_kwargs)
-    
-    def train_dataloader(self) -> DataLoader | None:
-        if self.train_dataset is None:
-            return None
-        return DataLoader(self.train_dataset, **self.dataloader_kwargs)
-    
-    def val_dataloader(self) -> DataLoader | None:
-        if self.val_dataset is None:
-            return None
-        return DataLoader(self.val_dataset, **self.dataloader_kwargs)
-    
-    def test_dataloader(self) -> DataLoader | None:
-        if self.test_dataset is None:
-            return None
-        return DataLoader(self.test_dataset, **self.dataloader_kwargs)
-    
-    def predict_dataloader(self) -> DataLoader | None:
-        if self.predict_dataset is None:
-            return None
-        return DataLoader(self.predict_dataset, **self.dataloader_kwargs)
-
-
 @dataclass
 class SegmentationDataElement:
     """Simplified data element for segmentation tasks.
@@ -241,7 +175,7 @@ class SegmentationDataElement:
         setattr(self, key, value)
 
 
-class LightningSegmentationBase(pl.LightningModule):
+class SegmentationBase(pl.LightningModule):
     """Base Lightning module for segmentation tasks.
     
     This class provides a Lightning-native implementation that maintains compatibility
@@ -336,13 +270,8 @@ class LightningSegmentationBase(pl.LightningModule):
         inputs = batch['inputs']
         data_samples = batch['data_samples']
         
-        # Forward pass
         logits = self(inputs)
-        
-        # Extract ground truth using mm-compatible method
         gt_segs = self._extract_ground_truth(data_samples)
-        
-        # Compute losses using mm-style loss computation
         losses = self._compute_losses(logits, gt_segs)
         total_loss = sum(losses.values())
         
@@ -604,7 +533,7 @@ class LightningSegmentationBase(pl.LightningModule):
         return metrics
 
 
-class LightningSegmentation2D(LightningSegmentationBase):
+class Segmentation2D(SegmentationBase):
     """Lightning module for 2D segmentation tasks."""
     
     def slide_inference(self, inputs: Tensor) -> Tensor:
@@ -745,7 +674,7 @@ class LightningSegmentation2D(LightningSegmentationBase):
         return data_sample
 
 
-class LightningSegmentation3D(LightningSegmentationBase):
+class Segmentation3D(SegmentationBase):
     """Lightning module for 3D segmentation tasks."""
     
     def slide_inference(self, inputs: Tensor) -> Tensor:
