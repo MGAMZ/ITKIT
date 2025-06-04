@@ -7,7 +7,6 @@ class timm_base_model(torch.nn.Module):
     def __init__(self, timm_create_model_args:dict, output_linear_args:dict|None=None):
         super(timm_base_model, self).__init__()
         self.model = timm.create_model(**timm_create_model_args)
-        pdb.set_trace()
         if output_linear_args is not None:
             self.out_proj = torch.nn.Linear(
                 in_features=self.model.num_features,
@@ -15,5 +14,4 @@ class timm_base_model(torch.nn.Module):
             )
     
     def forward(self, x:torch.Tensor):
-        pdb.set_trace()
         return self.model(x)
