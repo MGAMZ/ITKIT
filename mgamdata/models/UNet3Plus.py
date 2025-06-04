@@ -272,7 +272,7 @@ class UNet3Plus(nn.Module):
             outputs = [dot_product(out, cls) for out in outputs]
 
         if self.deep_supervision:
-            return [F.sigmoid(out) for out in outputs]
+            return F.sigmoid(outputs)
         else:
             return F.sigmoid(outputs[0])
 
