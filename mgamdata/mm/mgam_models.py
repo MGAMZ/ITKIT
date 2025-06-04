@@ -238,6 +238,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         h_stride, w_stride = self.inference_PatchStride
         h_crop, w_crop = self.inference_PatchSize
         batch_size, _, h_img, w_img = inputs.size()
+        h_img, w_img = int(h_img), int(w_img)
         
         # 计算网格数
         h_grids = max(h_img - h_crop + h_stride - 1, 0) // h_stride + 1
