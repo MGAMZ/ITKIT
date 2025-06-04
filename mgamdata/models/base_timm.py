@@ -11,5 +11,4 @@ class timm_base_model(torch.nn.Module):
             self.out_proj = torch.nn.Linear(**output_linear_args)
     
     def forward(self, x:torch.Tensor):
-        pdb.set_trace()
         return self.model(x)
