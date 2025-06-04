@@ -253,7 +253,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         
         preds = torch.zeros(
             size=(batch_size, out_channels, h_img, w_img),
-            dtype=torch.float32,
+            dtype=torch.float16,
             device=accumulate_device
         )
         count_mat = torch.zeros(
