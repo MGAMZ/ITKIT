@@ -6,17 +6,19 @@ import torch.nn.functional as F
 
 
 class EfficientFormerV2(torch.nn.Module):
-    def __init__(self, out_channels:int=1, *args, **kwargs):
+    def __init__(self,
+                 out_channels:int=1,
+                 embed_dims:list[int]=[32, 64, 144, 288],
+                 *args, **kwargs):
         super(EfficientFormerV2, self).__init__()
 
         self.encoder = timm.create_model(
             model_name='efficientformerv2_s2.snap_dist_in1k',
             pretrained=False,
             features_only=True,
-            in_chans=3,
             *args, **kwargs)
-        encoder_channels = [32, 64, 144, 288]
-        decoder_channels = [288, 144, 64, 32]
+        encoder_channels = embed_dims
+        decoder_channels = embed_dims[::-1]
         self.decoder_blocks = nn.ModuleList()
         self.decoder_blocks.append(
             self._make_decoder_block(encoder_channels[3], decoder_channels[0])
