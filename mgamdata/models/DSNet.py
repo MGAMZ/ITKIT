@@ -128,3 +128,34 @@ class DSNet(BaseDecodeHead):
 
     def predict_by_feat(self, seg_logits: torch.Tensor, batch_img_metas: list[dict]) -> torch.Tensor:
         return seg_logits
+
+
+class VGG16_DSNet(torch.nn.Module):
+    def __init__(self, logits_resize:int|None=None, *args, **kwargs):
+        super().__init__(in_channels=512, channels=512, num_classes=1, *args, **kwargs)
+        self.base_model = vgg16(torchvision_pretrained).features[:23]  # type:ignore
+        self.ddcb1 = DDCB(512, 512)
+        self.ddcb2 = DDCB(512, 512)
+        self.ddcb3 = DDCB(512, 512)
+        self.layer_last = nn.Sequential(
+            nn.Conv2d(512, 128, kernel_size=3, padding=1, dilation=1),
+            nn.ReLU())
+        self.post1 = nn.Conv2d(128, 64, kernel_size=3, padding=1, stride=1)
+        self.post2 = nn.Conv2d(64, 1, kernel_size=1, stride=1)
+        self.logits_resize = logits_resize
+
+    def forward(self, input):
+        x1 = self.base_model(input)
+        x2 = self.ddcb1(x1)
+        x3 = self.ddcb2(x1 + x2)
+        x4 = self.ddcb3(x1 + x2 + x3)
+        x5 = self.layer_last(x1 + x2 + x3 + x4)
+        x6 = self.post1(x5)
+        x7 = self.post2(x6)
+        if self.logits_resize is not None:
+            x7 = nn.functional.interpolate(
+                x7, 
+                size=self.logits_resize,
+                mode='bilinear',
+                align_corners=False)
+        return x7
