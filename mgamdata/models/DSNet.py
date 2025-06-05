@@ -4,6 +4,7 @@ Implemented by Yiqin Zhang ~ MGAM.
 Used for Rose Thyroid Cell Count project.
 """
 
+import pdb
 from functools import partial
 
 import torch
@@ -67,7 +68,7 @@ class VGG16(BaseModule):
 
 
 class DSNet(BaseDecodeHead):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, logits_resize:int|None=None, *args, **kwargs):
         super().__init__(in_channels=512, channels=512, num_classes=1, *args, **kwargs)
         self.ddcb1 = DDCB(512, 512)
         self.ddcb2 = DDCB(512, 512)
@@ -77,6 +78,7 @@ class DSNet(BaseDecodeHead):
             nn.ReLU())
         self.post1 = nn.Conv2d(128, 64, kernel_size=3, padding=1, stride=1)
         self.post2 = nn.Conv2d(64, 1, kernel_size=1, stride=1)
+        self.logits_resize = logits_resize
 
     def forward(self, input):
         x1 = input[0]
@@ -86,6 +88,12 @@ class DSNet(BaseDecodeHead):
         x5 = self.layer_last(x1 + x2 + x3 + x4)
         x6 = self.post1(x5)
         x7 = self.post2(x6)
+        if self.logits_resize is not None:
+            x7 = nn.functional.interpolate(
+                x7, 
+                size=self.logits_resize,
+                mode='bilinear',
+                align_corners=False)
         return x7
 
     def loss_by_feat(self, seg_logits: torch.Tensor, batch_data_samples: SampleList) -> dict:
