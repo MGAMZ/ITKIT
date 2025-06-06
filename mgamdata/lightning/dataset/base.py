@@ -1,67 +1,33 @@
-from abc import abstractmethod
-from collections.abc import Generator
-from typing import Any
-from pathlib import Path
 from typing_extensions import Literal
-
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset, Subset
 from pytorch_lightning import LightningDataModule
 
 
-class BaseDataset(LightningDataModule):
-    """
-    PyTorch Lightning compatible base dataset class for medical imaging.
-    
-    This class provides the basic structure for medical imaging datasets,
-    including data splitting and sample iteration functionality.
-    """
-    
-    SPLIT_RATIO = [0.8, 0.05, 0.15]  # train, val, test
+class BaseDataModule(LightningDataModule):
+    TRAIN_LOADER_ARGS = {
+        "shuffle": True,
+        "num_workers": 1,
+        "pin_memory": True,
+        "persistent_workers": True,
+    }
+    VAL_TEST_LOADER_ARGS = {
+        "batch_size": 1,
+        "shuffle": False,
+        "num_workers": 1,
+        "pin_memory": True,
+        "persistent_workers": True,
+    }
     
     def __init__(
         self,
-        data_root: str | Path,
-        split: str | None = None,
-        debug: bool = False,
-    ) -> None:
-        """
-        Initialize the base dataset.
-        
-        Args:
-            data_root: Root directory of the dataset
-            split: Dataset split ('train', 'val', 'test', 'all', or None)
-            debug: If True, only use 16 samples for debugging
-            dataset_name: Name of the dataset (defaults to class name)
-            pipeline: Data processing pipeline (default is identity function)
-        """
-        self.data_root = Path(data_root)
-        self.split = split
-        self.debug = debug
-        self.data_list = self.load_data_list()
-
-    @abstractmethod
-    def sample_iterator(self) -> Generator[tuple[str, str], None, None]:
-        """
-        Abstract method to iterate over dataset samples.
-        
-        Yields:
-            Tuple of (image_path, label_path)
-        """
-    
-    def load_data_list(self) -> list[dict[str, Any]]:
-        """
-        Load data list from sample iterator.
-        
-        Returns:
-            List of dictionaries containing sample information
-        """
-        data_list = []
-        for image_path, label_path in self.sample_iterator():
-            data_list.append({
-                'img_path': image_path,
-                'label_path': label_path,
-            })
-        return data_list
+        dataset: Dataset,
+        train_loader_args = {},
+        val_test_loader_args = {},
+    ):
+        super().__init__()
+        self.dataset = dataset
+        self.train_loader_args = {**self.TRAIN_LOADER_ARGS, **train_loader_args}
+        self.val_test_loader_args = {**self.VAL_TEST_LOADER_ARGS, **val_test_loader_args}
 
     def prepare_data(self):
         """
@@ -70,17 +36,12 @@ class BaseDataset(LightningDataModule):
         """
 
     def setup(self, stage: Literal['fit', 'validate', 'test', 'predict']):
-        """
-        make assignments here (val/train/test split)
-        called on every process in DDP
-        
-        EXAMPLE:
-        
-        dataset = RandomDataset(1, 100)
-        self.train, self.val, self.test = data.random_split(
-            dataset, [80, 10, 10], generator=torch.Generator().manual_seed(42)
-        )
-        """
+        train_end_idx = int(len(self.dataset) * self.dataset.SPLIT_RATIO[0])
+        val_end_idx = train_end_idx + max(1, int(len(self.dataset) * self.dataset.SPLIT_RATIO[1]))
+        test_end_idx = len(self.dataset)
+        self.train = Subset(self.dataset, range(train_end_idx))
+        self.val = Subset(self.dataset, range(train_end_idx, val_end_idx))
+        self.test = Subset(self.dataset, range(val_end_idx, test_end_idx))
 
     def teardown(self, stage: Literal['fit', 'validate', 'test', 'predict']) -> None:
         """
@@ -92,12 +53,12 @@ class BaseDataset(LightningDataModule):
         """ clean up state after the trainer faced an exception """
 
     def train_dataloader(self) -> DataLoader:
-        return DataLoader(self.train)
+        return DataLoader(self.train, **self.train_loader_args)
 
     def val_dataloader(self) -> DataLoader:
-        return DataLoader(self.val)
+        return DataLoader(self.val, **self.val_test_loader_args)
 
     def test_dataloader(self) -> DataLoader:
-        return DataLoader(self.test)
+        return DataLoader(self.test, **self.val_test_loader_args)
 
 

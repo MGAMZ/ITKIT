@@ -1,7 +1,7 @@
-from .base import BaseDataset
-from .radiology import SemiSup3DMha
+from .base import BaseDataModule
+from .radiology import MhaDataset
 
 __all__ = [
-    'BaseDataset',
-    'SemiSup3DMha',
+    'BaseDataModule',
+    'MhaDataset',
 ]

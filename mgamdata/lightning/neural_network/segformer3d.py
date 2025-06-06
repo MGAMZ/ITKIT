@@ -699,7 +699,7 @@ class SegFormer3D(nn.Module):
         drop_rate: float = 0.0,
         attn_drop_rate: float = 0.0,
         drop_path_rate: float = 0.1,
-        depths: tuple[int, ...] = (3, 4, 6, 3),
+        depths: tuple[int, ...] = (1,1,1,1),
         sr_ratios: tuple[int, ...] = (8, 4, 2, 1),
         decoder_embed_dim: int = 256,
         decoder_dropout: float = 0.1,

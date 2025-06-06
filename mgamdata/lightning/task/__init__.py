@@ -1,7 +1,5 @@
-from .segment import Segmentation2D, Segmentation3D, SegmentationDataElement
+from .segment import Segmentation3D
 
 __all__ = [
-    "Segmentation2D",
     "Segmentation3D",
-    "SegmentationDataElement",
 ]
