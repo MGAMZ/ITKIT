@@ -132,8 +132,8 @@ class DSNet(BaseDecodeHead):
 
 class VGG16_DSNet(torch.nn.Module):
     def __init__(self, logits_resize:int|None=None, *args, **kwargs):
-        super().__init__(in_channels=512, channels=512, num_classes=1, *args, **kwargs)
-        self.base_model = vgg16(torchvision_pretrained).features[:23]  # type:ignore
+        super().__init__(*args, **kwargs)
+        self.base_model = vgg16().features[:23]  # type:ignore
         self.ddcb1 = DDCB(512, 512)
         self.ddcb2 = DDCB(512, 512)
         self.ddcb3 = DDCB(512, 512)

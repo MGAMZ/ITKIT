@@ -160,6 +160,28 @@ class CellCounterClassifier(CellCounter):
         self.claster_classifier = MODELS.build(ClasterClassifier)
 
 
+class PixelWiseLoss(torch.nn.Module):
+    def __init__(
+        self,
+        criterion="L2",
+        *args, **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self._loss_name = f"loss_{criterion}"
+        self.criterion = (
+            torch.nn.L1Loss(reduction='none')
+            if criterion == "L1"
+            else torch.nn.MSELoss(reduction='none')
+        )
+
+    def forward(self, pred: Tensor, target: Tensor, *args, **kwargs):
+        return self.criterion(pred.squeeze(), target.to(pred.dtype)).mean(dim=[1,2]).mean()
+
+    @property
+    def loss_name(self):
+        return self._loss_name
+
+
 class Normalizer_cell2(BaseTransform):
     # RGB order
     def __init__(self, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
