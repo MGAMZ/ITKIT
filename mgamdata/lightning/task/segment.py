@@ -86,7 +86,6 @@ class SegmentationBase(pl.LightningModule):
     def _parse_batch(self, batch: dict[str, Any]) -> tuple[Tensor, Tensor]:
         image = batch['image'].to(device=torch.device(self.device), non_blocking=True)
         label = batch[self.gt_sem_seg_key].to(device=torch.device(self.device), non_blocking=True)
-        label = torch.nn.functional.one_hot(label.long(), num_classes=self.num_classes).permute(0, 4, 1, 2, 3).to(torch.uint8)
         return image, label
 
     def training_step(self, batch: dict[str, Any], batch_idx: int) -> Tensor:

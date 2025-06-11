@@ -1,3 +1,6 @@
+import pdb
+from abc import abstractmethod
+from collections.abc import Callable
 from typing_extensions import Literal
 from torch.utils.data import DataLoader, Dataset, Subset
 from pytorch_lightning import LightningDataModule
@@ -6,14 +9,14 @@ from pytorch_lightning import LightningDataModule
 class BaseDataModule(LightningDataModule):
     TRAIN_LOADER_ARGS = {
         "shuffle": True,
-        "num_workers": 1,
+        "num_workers": 4,
         "pin_memory": True,
         "persistent_workers": True,
     }
     VAL_TEST_LOADER_ARGS = {
         "batch_size": 1,
         "shuffle": False,
-        "num_workers": 1,
+        "num_workers": 4,
         "pin_memory": True,
         "persistent_workers": True,
     }
@@ -62,3 +65,23 @@ class BaseDataModule(LightningDataModule):
         return DataLoader(self.test, **self.val_test_loader_args)
 
 
+class BaseDataset(Dataset):
+    SPLIT_RATIO = (0.7, 0.05, 0.25)  # train, val, test
+
+    def __init__(self, pipeline:list[Callable]=[], debug:bool=False, **kwargs):
+        super().__init__(**kwargs)
+        self.pipeline = pipeline
+        self.debug = debug
+
+    def _preprocess(self, sample:dict):
+        for transform in self.pipeline:
+            sample = transform(sample)
+        return sample
+    
+    @abstractmethod
+    def __getitem__(self, index) -> dict:
+        ...
+    
+    @abstractmethod
+    def __len__(self) -> int:
+        ...

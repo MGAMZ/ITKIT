@@ -14,6 +14,7 @@ This is a standalone PyTorch implementation that can be used with any training f
 Modified to support arbitrary DWH input, optimized using SDPA, and follows modern Python 3.12 conventions.
 """
 
+from collections.abc import Sequence
 import torch
 import math
 import numpy as np
@@ -689,7 +690,7 @@ class SegFormer3D(nn.Module):
     
     def __init__(
         self,
-        img_size: tuple[int, int, int] = (224, 224, 224),
+        img_size: Sequence[int] = (224, 224, 224),
         in_chans: int = 1,
         num_classes: int = 2,
         embed_dims: tuple[int, ...] = (64, 128, 256, 512),
