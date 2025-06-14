@@ -1,4 +1,4 @@
-from .augment import BatchAugment, RandomPatch3D
+from .augment import BatchAugment, RandomPatch3D, AutoPad
 from .load import LoadMHAFile
 from .radiology import WindowNorm
 from .utils import TypeConvert
@@ -8,5 +8,6 @@ __all__ = [
     'WindowNorm',
     'BatchAugment',
     'RandomPatch3D',
-    'TypeConvert'
+    'TypeConvert',
+    'AutoPad'
 ]

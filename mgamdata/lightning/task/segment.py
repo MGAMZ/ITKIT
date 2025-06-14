@@ -29,24 +29,9 @@ class SegmentationBase(pl.LightningModule):
         inference_patch_size: tuple[int, ...] | None = None,
         inference_patch_stride: tuple[int, ...] | None = None,
         inference_patch_accumulate_device: str = 'cuda',
-        **kwargs
+        class_names: list[str] | None = None,
+        eps = 1e-5,
     ):
-        """Initialize the Lightning segmentation module.
-        
-        Args:
-            model: Neural network model (should output logits directly)
-            criterion: Loss function(s) module(s)
-            num_classes: Number of segmentation classes
-            optimizer_config: Optimizer configuration dict with 'type' key
-            scheduler_config: Learning rate scheduler configuration dict with 'type' key
-            gt_sem_seg_key: Key for ground truth segmentation in data samples
-            binary_segment_threshold: Threshold for binary segmentation (required for single-class output)
-            inference_patch_size: Patch size for sliding window inference
-            inference_patch_stride: Patch stride for sliding window inference
-            inference_patch_accumulate_device: Device for accumulating patch results ('cuda' or 'cpu')
-            log_predictions: Whether to log prediction samples during validation
-            **kwargs: Additional keyword arguments
-        """
         super().__init__()
         self.save_hyperparameters(ignore=['model', 'criterion'])
         self.model = model
@@ -55,7 +40,6 @@ class SegmentationBase(pl.LightningModule):
         else:
             self.criteria = [criterion]
         
-        # Configuration
         self.num_classes = num_classes
         self.optimizer_config = optimizer_config
         self.scheduler_config = scheduler_config
@@ -64,6 +48,8 @@ class SegmentationBase(pl.LightningModule):
         self.inference_patch_size = inference_patch_size
         self.inference_patch_stride = inference_patch_stride
         self.inference_patch_accumulate_device = inference_patch_accumulate_device
+        self.class_names = class_names
+        self.eps = eps
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass through the model.
@@ -94,26 +80,27 @@ class SegmentationBase(pl.LightningModule):
         losses = self._compute_losses(logits, gt_segs)
         total_loss = sum(losses.values())
         for loss_name, loss_value in losses.items():
-            self.log(f'train/{loss_name}', loss_value, on_step=True, on_epoch=True, prog_bar=True)
-        self.log('train/total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True)
+            self.log(f'train/{loss_name}', loss_value, on_step=True, on_epoch=True, logger=True)
+        self.log('train/total_loss', total_loss, on_step=True, on_epoch=True, logger=True)
         return total_loss
 
     def validation_step(self, batch: dict[str, Any], batch_idx: int) -> dict[str, Any]:
         image, gt_segs = self._parse_batch(batch)
         logits:Tensor = self(image)
         losses = self._compute_losses(logits, gt_segs)
-        total_loss = sum(losses.values())
         for loss_name, loss_value in losses.items():
             self.log(f'val/{loss_name}', loss_value, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('val/total_loss', total_loss, on_step=False, on_epoch=True, prog_bar=True)
         
         predictions = self._logits_to_predictions(logits)
         
         metrics = self._compute_metrics(predictions, gt_segs)
         for metric_name, metric_value in metrics.items():
-            self.log(f'val/{metric_name}', metric_value, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'val/{metric_name}', metric_value, on_step=False, on_epoch=True, logger=True)
         
-        return {'val_loss': total_loss, 'predictions': predictions, 'targets': gt_segs}
+        return {'val_loss': sum(losses.values()), 
+                'logits': logits, 
+                'predictions': predictions, 
+                'targets': gt_segs}
 
     def test_step(self, batch: dict[str, Any], batch_idx: int) -> dict[str, Any]:
         return self.validation_step(batch, batch_idx)
@@ -161,53 +148,41 @@ class SegmentationBase(pl.LightningModule):
         return losses
 
     def _compute_metrics(self, predictions: Tensor, targets: Tensor) -> dict[str, Tensor]:
-        """Compute evaluation metrics.
-        
-        Args:
-            predictions: Model predictions
-            targets: Ground truth targets
-            
-        Returns:
-            Dictionary of computed metrics
-        """
         metrics = {}
         
-        # Compute accuracy
-        if predictions.dim() == targets.dim():
-            accuracy = (predictions == targets).float().mean()
-            metrics['accuracy'] = accuracy
-        
-        # Compute IoU for each class (excluding background if multi-class)
         if self.num_classes > 1:
-            ious = []
             for class_idx in range(self.num_classes):
-                if class_idx == 0:  # Skip background for IoU calculation
-                    continue
+                class_name = self.class_names[class_idx] if self.class_names is not None else f'class_{class_idx}'
+                
                 pred_mask = (predictions == class_idx)
                 target_mask = (targets == class_idx)
                 intersection = (pred_mask & target_mask).float().sum()
                 union = (pred_mask | target_mask).float().sum()
-                iou = intersection / (union + 1e-8)
-                ious.append(iou)
+                
+                metrics[f'IoU_{class_name}'] = intersection / (union + self.eps)
+                metrics[f'Dice_{class_name}'] = 2 * intersection / (pred_mask.float().sum() + target_mask.float().sum() + self.eps)
+                metrics[f'Recall_{class_name}'] = intersection / (target_mask.float().sum() + self.eps)
+                metrics[f'precision_{class_name}'] = intersection / (pred_mask.float().sum() + self.eps)
+        
+        else:
+            assert self.binary_segment_threshold is not None, "Binary segmentation requires a threshold"
+            class_name = self.class_names[0] if self.class_names is not None else 'binary'
             
-            if ious:
-                metrics['mean_iou'] = torch.stack(ious).mean()
+            pred_mask = (predictions > self.binary_segment_threshold)
+            target_mask = (targets > self.binary_segment_threshold)
+            intersection = (pred_mask & target_mask).float().sum()
+            union = (pred_mask | target_mask).float().sum()
+            
+            metrics[f'IoU'] = intersection / (union + self.eps)
+            metrics[f'Dice'] = 2 * intersection / (pred_mask.float().sum() + target_mask.float().sum() + self.eps)
+            metrics[f'Recall'] = intersection / (target_mask.float().sum() + self.eps)
+            metrics[f'precision'] = intersection / (pred_mask.float().sum() + self.eps)
         
         return metrics
 
 
 class Segmentation3D(SegmentationBase):
-    """Lightning module for 3D segmentation tasks."""
-    
     def slide_inference(self, inputs: Tensor) -> Tensor:
-        """3D sliding window inference.
-        
-        Args:
-            inputs: Input tensor with shape (N, C, Z, Y, X)
-            
-        Returns:
-            Output logits with shape (N, num_classes, Z, Y, X)
-        """
         if (self.inference_patch_size is None or self.inference_patch_stride is None or 
             len(self.inference_patch_size) != 3 or len(self.inference_patch_stride) != 3):
             raise ValueError("3D inference requires 3D patch size and stride")

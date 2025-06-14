@@ -2,6 +2,7 @@ import os
 import pdb
 import argparse
 import json
+import traceback
 from tqdm import tqdm
 from collections.abc import Sequence
 from multiprocessing import Pool
@@ -36,13 +37,16 @@ def resample_one_sample(args):
     # 路径
     itk_name = os.path.basename(image_itk_path)
     target_image_path = os.path.join(out_image_folder, itk_name)
-    target_label_path = os.path.join(out_label_folder, itk_name)
+    target_label_path = os.path.join(out_label_folder, itk_name) if out_label_folder else ''
     # 检查目标文件是否已存在（考虑 .mha 后缀）
     potential_target_image_path = target_image_path.replace(".nii.gz", ".mha").replace(".nii", ".mha")
     potential_target_label_path = target_label_path.replace(".nii.gz", ".mha").replace(".nii", ".mha")
-    if os.path.exists(potential_target_image_path) and (not os.path.exists(label_itk_path) or os.path.exists(potential_target_label_path)):
-         tqdm.write(f"Skipping {itk_name}, output exists.")
-         return None
+    if os.path.exists(potential_target_image_path) \
+    and (not os.path.exists(label_itk_path) 
+         or os.path.exists(potential_target_label_path)
+        ):
+        tqdm.write(f"Skipping {itk_name}, output exists.")
+        return None
 
     # 读取
     try:
@@ -53,6 +57,7 @@ def resample_one_sample(args):
         else:
             tqdm.write(f"Warning: Label file not found for {image_itk_path}, skipping label resampling.")
     except Exception as e:
+        traceback.print_exc()
         tqdm.write(f"Error reading {image_itk_path} or {label_itk_path}: {e}")
         return None
 
@@ -105,6 +110,7 @@ def resample_one_sample(args):
         if label_itk and label_resampled:
             sitk.WriteImage(label_resampled, target_label_path, useCompression=True)
     except Exception as e:
+        traceback.print_exc()
         tqdm.write(f"Error writing {target_image_path} or {target_label_path}: {e}")
         return None
 
@@ -135,35 +141,53 @@ def resample_standard_dataset(
         mp (bool): Whether to use multiprocessing.
         workers (int | None): Number of workers for multiprocessing.
     """
-    # 路径定义
+    # 任务准备
     source_image_folder = os.path.join(source_root, "image")
     source_label_folder = os.path.join(source_root, "label")
-    dest_image_folder = os.path.join(dest_root, "image")
-    dest_label_folder = os.path.join(dest_root, "label")
-    os.makedirs(dest_image_folder, exist_ok=True)
-    os.makedirs(dest_label_folder, exist_ok=True)
-
-    # 任务准备
     image_itk_paths = []
     label_itk_paths = []
+    
+    '''
+    支持两种存储结构：
+    1. image 和 label 分别存储在 image 和 label 文件夹中
+    2. 目录下source_root直接存储mha文件，并且只有image。
+    '''
+    
+    # 第一种情况
     if os.path.exists(source_image_folder):
+        dest_image_folder = os.path.join(dest_root, "image")
+        dest_label_folder = os.path.join(dest_root, "label")
+        os.makedirs(dest_image_folder, exist_ok=True)
+        os.makedirs(dest_label_folder, exist_ok=True)
         image_itk_paths = [
             os.path.join(source_image_folder, f)
             for f in os.listdir(source_image_folder)
             if f.endswith((".mha", ".nii", ".nii.gz", "mhd"))
         ]
+        if not image_itk_paths:
+            tqdm.write("No image files found to process.")
+            return
         label_itk_paths = [
             os.path.join(source_label_folder, os.path.basename(p))
             for p in image_itk_paths
         ]
+    
+    # 第二种情况
     else:
-        tqdm.write(f"Warning: Source image folder not found: {source_image_folder}")
-        return
-
-    if not image_itk_paths:
-        tqdm.write("No image files found to process.")
-        return
-
+        source_image_folder = source_root
+        dest_image_folder = dest_root
+        dest_label_folder = ''
+        image_itk_paths = [
+            os.path.join(source_image_folder, f)
+            for f in os.listdir(source_image_folder)
+            if f.endswith((".mha", ".nii", ".nii.gz", "mhd"))
+        ]
+        if not image_itk_paths:
+            tqdm.write("No image files found to process.")
+            return
+        label_itk_paths = [''] * len(image_itk_paths)
+    
+    # 生成任务列表
     task_list = [
         (
             image_itk_paths[i],
@@ -178,7 +202,6 @@ def resample_standard_dataset(
 
     # 收集每个样本的meta信息
     series_meta = dict()
-    # 可选多进程执行
     if mp:
         with (
             Pool(processes=workers) as pool,

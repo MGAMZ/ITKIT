@@ -1,3 +1,4 @@
+from typing_extensions import Literal
 from collections.abc import Callable, Sequence
 import random
 import numpy as np
@@ -30,6 +31,71 @@ class RandomPatch3D(BaseTransform):
             sample[key] = sample[key][..., z1:z1+pz, y1:y1+py, x1:x1+px]
         
         return sample
+
+
+class AutoPad(BaseTransform):
+    def __init__(
+        self, 
+        size: Sequence[int],
+        dim: Literal["1d", "2d", "3d"],
+        pad_val: int = 0,
+        pad_label_val: int = 0,
+    ):
+        self.dim = dim
+        self.dim_map = {"1d": 1, "2d": 2, "3d": 3}
+        if len(size) != self.dim_map[dim]:
+            raise ValueError(f"Size tuple length {len(size)} does not match dim {dim}")
+        self.size = size
+        self.pad_val = pad_val
+        self.pad_label_val = pad_label_val
+
+    def _get_pad_params(self, current_shape: tuple) -> tuple[tuple[int, int], ...]:
+        pad_params = []
+        # 只处理最后n个维度，n由dim决定
+        dims_to_pad = self.dim_map[self.dim]
+        
+        # 确保current_shape维度足够
+        if len(current_shape) < dims_to_pad:
+            raise ValueError(f"Input shape {current_shape} has fewer dimensions than required {dims_to_pad}")
+            
+        # 处理不需要padding的前置维度
+        for _ in range(len(current_shape) - dims_to_pad):
+            pad_params.append((0, 0))
+            
+        # 处理需要padding的维度
+        for target_size, curr_size in zip(self.size, current_shape[-dims_to_pad:]):
+            if curr_size >= target_size:
+                pad_params.append((0, 0))
+            else:
+                pad = target_size - curr_size
+                pad_1 = pad // 2
+                pad_2 = pad - pad_1
+                pad_params.append((pad_1, pad_2))
+                
+        return tuple(pad_params)
+
+    def __call__(self, sample: dict):
+        img = sample["image"]
+        pad_params = self._get_pad_params(img.shape)
+        
+        if any(p[0] > 0 or p[1] > 0 for p in pad_params):
+            sample["image"] = np.pad(
+                img,
+                pad_params,
+                mode="constant",
+                constant_values=self.pad_val,
+            )
+            
+            if "label" in sample:
+                sample["label"] = np.pad(
+                    sample["label"],
+                    pad_params,
+                    mode="constant",
+                    constant_values=self.pad_label_val,
+                )
+
+        return sample
+
 
 
 class BatchAugment(BaseTransform):
