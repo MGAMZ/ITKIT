@@ -12,26 +12,27 @@ class MhaDataset(BaseDataset):
 
     def __init__(
         self,
-        data_root: str | Path,
-        split_accordance: str | Path | None = None,
+        image_root: str | Path,
+        label_root: str | Path,
+        split_accordance: str | Path,
         **kwargs
     ) -> None:
         super().__init__(**kwargs)
-        self.data_root = Path(data_root)
-        self.split_accordance = Path(split_accordance) if split_accordance else Path(data_root)
+        self.image_root = Path(image_root)
+        self.label_root = Path(label_root)
+        self.split_accordance = Path(split_accordance)
         self.all_series_uids = self._search_series()
 
     def _search_series(self) -> list[str]:
-        mha_dir = self.split_accordance / "label"
-        if not mha_dir.exists():
-            raise FileNotFoundError(f"MHA directory not found: {mha_dir}")
-        all_series = [file.stem for file in mha_dir.glob("*.mha")]
+        if not self.split_accordance.exists():
+            raise FileNotFoundError(f"Split accordance directory not found: {self.split_accordance}")
+        all_series = [file.stem for file in self.split_accordance.glob("*.mha")]
         return sorted(all_series, key=lambda x: abs(int(re.search(r"\d+", x).group())))
 
     def sample_iterator(self, subset: Literal['train', 'val', 'test', 'all']):
         for series in self.all_series_uids:
-            image_mha_path = str(self.data_root / "image" / f"{series}.mha")
-            label_mha_path = str(self.data_root / "label" / f"{series}.mha")
+            image_mha_path = str(self.image_root / f"{series}.mha")
+            label_mha_path = str(self.label_root / f"{series}.mha")
             if not os.path.exists(image_mha_path):
                 print(f"Warning: {series} image mha file not found. Full path: {image_mha_path}")
                 continue
@@ -41,8 +42,8 @@ class MhaDataset(BaseDataset):
         series_uid = self.all_series_uids[index]
         sample = {
             "series_uid": series_uid,
-            "image_mha_path": str(self.data_root / "image" / f"{series_uid}.mha"),
-            "label_mha_path": str(self.data_root / "label" / f"{series_uid}.mha")
+            "image_mha_path": str(self.image_root / f"{series_uid}.mha"),
+            "label_mha_path": str(self.label_root / f"{series_uid}.mha")
         }
         return self._preprocess(sample)
 
