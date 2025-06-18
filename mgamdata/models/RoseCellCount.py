@@ -175,7 +175,7 @@ class PixelWiseLoss(torch.nn.Module):
         )
 
     def forward(self, pred: Tensor, target: Tensor, *args, **kwargs):
-        return self.criterion(pred.squeeze(), target.to(pred.dtype)).mean(dim=[1,2]).mean()
+        return self.criterion(pred.squeeze(), target.to(pred.dtype)).sum(dim=[1,2]).mean()
 
     @property
     def loss_name(self):
@@ -248,7 +248,7 @@ class HeatMapViser(BaseViser):
         
         # draw pred
         axes[1].set_title("Prediction")
-        axes[1].imshow(image)
+        axes[1].imshow(image, cmap='gray')
         p2 = axes[1].imshow(seg_logit_array, alpha=self.alpha, cmap="hot")
         axes[1].text(
             0.1,
