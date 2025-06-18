@@ -8,7 +8,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from mmcv.transforms import BaseTransform
 from mmengine.logging import print_log, MMLogger
-from mmpretrain.datasets.base_dataset import BaseDataset
+from mmengine.dataset import BaseDataset
 from mmpretrain.structures import DataSample
 
 # 有两列是中文标注，映射到数字索引
