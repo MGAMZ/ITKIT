@@ -1,7 +1,5 @@
-import os
 import pdb
 import math
-from collections.abc import Callable
 from typing_extensions import Literal
 
 import numpy as np
@@ -9,14 +7,10 @@ import torch
 from torch import nn
 from torch import Tensor
 
-from mmcv.transforms import BaseTransform
-from mmengine.model import BaseModule
-from mmengine.model.base_model import BaseDataPreprocessor
+from mmengine.dataset.utils import BaseDataElement
+from mmengine.model import BaseModule, BaseDataPreprocessor, BaseModel
 from mmengine.evaluator.metric import BaseMetric
-from mmpretrain.registry import MODELS
-from mmpretrain.datasets.transforms.formatting import PackInputs, DataSample
-from mmpretrain.models.backbones.base_backbone import BaseBackbone
-from mmpretrain.models.classifiers import ImageClassifier, BaseClassifier
+from mmengine.registry import MODELS
 
 
 NUM_CSV_FEAT = 68
@@ -67,11 +61,54 @@ class PathologyPreprocessor(BaseDataPreprocessor):
         return {"inputs": inputs, "data_samples": data_samples}
 
 
-class Classifier(ImageClassifier):
+class Classifier(BaseModel):
+    def __init__(self,
+                 backbone: dict,
+                 neck: dict|None = None,
+                 head: dict|None = None,
+                 pretrained: str|None = None,
+                 train_cfg: dict|None = None,
+                 data_preprocessor: dict|None = None,
+                 init_cfg: dict|None = None):
+        if pretrained is not None:
+            init_cfg = dict(type='Pretrained', checkpoint=pretrained)
+
+        data_preprocessor = data_preprocessor or {}
+
+        if isinstance(data_preprocessor, dict):
+            data_preprocessor.setdefault('type', 'ClsDataPreprocessor')
+            data_preprocessor.setdefault('batch_augments', train_cfg)
+            data_preprocessor = MODELS.build(data_preprocessor)
+        elif not isinstance(data_preprocessor, nn.Module):
+            raise TypeError('data_preprocessor should be a `dict` or '
+                            f'`nn.Module` instance, but got '
+                            f'{type(data_preprocessor)}')
+
+        super(BaseModel, self).__init__(
+            init_cfg=init_cfg, data_preprocessor=data_preprocessor)
+
+        if not isinstance(backbone, nn.Module):
+            backbone = MODELS.build(backbone)
+        if neck is not None and not isinstance(neck, nn.Module):
+            neck = MODELS.build(neck)
+        if head is not None and not isinstance(head, nn.Module):
+            head = MODELS.build(head)
+
+        self.backbone = backbone
+        self.neck = neck
+        self.head = head
+
+        # If the model needs to load pretrain weights from a third party,
+        # the key can be modified with this hook
+        if hasattr(self.backbone, '_checkpoint_filter'):
+            self._register_load_state_dict_pre_hook(
+                self.backbone._checkpoint_filter)
+
+
     def forward(
         self,
         inputs: Tensor,
-        data_samples: list[DataSample] | None = None,
+        data_samples: list[BaseDataElement] | None = None,
         mode: str = "tensor",
     ):
         if mode == "tensor":
@@ -104,21 +141,21 @@ class Classifier(ImageClassifier):
         ), "No head or the head doesn't implement `pre_logits` method."
         return self.head.pre_logits(x)
 
-    def loss(self, inputs: Tensor, data_samples: list[DataSample]) -> dict:
+    def loss(self, inputs: Tensor, data_samples: list[BaseDataElement]) -> dict:
         feats = self.extract_feat(inputs, data_samples)
         return self.head.loss(feats, data_samples)
 
     def predict(
         self,
         inputs: Tensor,
-        data_samples: list[DataSample] | None = None,
+        data_samples: list[BaseDataElement] | None = None,
         **kwargs,
-    ) -> list[DataSample]:
+    ) -> list[BaseDataElement]:
         feats = self.extract_feat(inputs, data_samples)
         return self.head.predict(feats, data_samples, **kwargs)
 
 # 第一版模型，用于跑通程序以及简单观察可拟合性
-class MLP(BaseBackbone):
+class MLP(BaseModule):
     def __init__(self, in_channels: int, hidden_channels: list[int], *args, **kwargs):
         super(MLP, self).__init__(*args, **kwargs)
         self.in_channels = in_channels
@@ -138,7 +175,7 @@ class MLP(BaseBackbone):
         return (self.layers(x),)
 
 
-class YuTing_RFSS(BaseBackbone):
+class YuTing_RFSS(BaseModule):
     def __init__(
         self,
         in_channels: int,
@@ -185,7 +222,7 @@ class YuTing_RFSS_svp(nn.Module):
         return (x,)
 
 
-class YiQin_WeightedPatch(BaseBackbone):
+class YiQin_WeightedPatch(BaseModule):
     def __init__(
         self,
         num_CLAM_feats,
@@ -252,7 +289,7 @@ class YiQin_WeightedPatch(BaseBackbone):
         )
 
     def forward(
-        self, inputs: Tensor, data_samples: list[DataSample]
+        self, inputs: Tensor, data_samples: list[BaseDataElement]
     ) -> Tensor:
         """
         Args:
@@ -289,14 +326,14 @@ class YiQin_WeightedPatch(BaseBackbone):
         return (fused_feat,)
 
 
-class SVM(BaseBackbone):
+class SVM(BaseModule):
     def __init__(self, use_CLAM_feat: bool, use_CSV_feat: bool):
         super().__init__()
         self.use_CLAM_feat = use_CLAM_feat
         self.use_CSV_feat = use_CSV_feat
 
     def forward(
-        self, inputs: Tensor, data_samples: list[DataSample]
+        self, inputs: Tensor, data_samples: list[BaseDataElement]
     ) -> Tensor:
         """
         Identify projection, the svm's Linear is implemented in head module,
@@ -314,7 +351,7 @@ class SVM(BaseBackbone):
         return (feat,)
 
 
-class GrouppedClser(BaseClassifier):
+class GrouppedClser(BaseModel):
     def __init__(
         self, 
         enable_clam_feat:bool,
@@ -338,7 +375,7 @@ class GrouppedClser(BaseClassifier):
     
     def forward(self,
                 inputs: Tensor,
-                data_samples: list[DataSample],
+                data_samples: list[BaseDataElement],
                 mode: str = 'tensor'
     ):
         if self.enable_clam_feat:
@@ -380,11 +417,11 @@ class GrouppedClser(BaseClassifier):
     
     def loss(self, 
              feat, 
-             data_samples: list[DataSample]):
+             data_samples: list[BaseDataElement]):
         """
         Args:
             feat: [N, C]
-            data_samples (list[DataSample]): [N]
+            data_samples (list[BaseDataElement]): [N]
                 - gt_label (dict):
                     - Immunization (Tensor): [num_targets]
                     - Histological (Tensor): [num_targets]
@@ -433,11 +470,11 @@ class GrouppedClser(BaseClassifier):
     
     def predict(self, 
                 feat: Literal["loss", "predict"], 
-                data_samples: list[DataSample]):
+                data_samples: list[BaseDataElement]):
         """
         Args:
             feat (Tensor): [N, C]
-            data_samples (list[DataSample]): [N]
+            data_samples (list[BaseDataElement]): [N]
                 - gt_label (dict):
                     - Immunization (Tensor): [num_targets]
                     - Histological (Tensor): [num_targets]
@@ -482,7 +519,7 @@ class GrouppedClser(BaseClassifier):
         return results
 
 
-class SharedExtractor1D(BaseBackbone):
+class SharedExtractor1D(BaseModule):
     def __init__(self, in_channels: int, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.in_channels = in_channels
@@ -501,7 +538,7 @@ class SharedExtractor1D(BaseBackbone):
         return i
 
 
-class SharedExtractor2D(BaseBackbone):
+class SharedExtractor2D(BaseModule):
     def __init__(self, 
                  in_n_feats:int, 
                  hidden_channels:list[int], 
@@ -707,4 +744,3 @@ class SubGroupMetric(BaseMetric):
                 avg_loss[f"ClassWiseAcc/{sg}_{class_idx}"] = cnts[0] / total
 
         return avg_loss
-
