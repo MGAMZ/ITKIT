@@ -9,7 +9,7 @@ from sklearn.preprocessing import MinMaxScaler
 from mmcv.transforms import BaseTransform
 from mmengine.logging import print_log, MMLogger
 from mmengine.dataset import BaseDataset
-from mmpretrain.structures import DataSample
+from mmengine.dataset.utils import BaseDataElement
 
 # 有两列是中文标注，映射到数字索引
 TISSUE_CLASS_INDEX = {
@@ -262,7 +262,7 @@ class LoadPt(BaseTransform):
         return results
 
 
-class FudanDoubleBlindSample(DataSample):
+class FudanDoubleBlindSample(BaseDataElement):
     def to(self, *args, **kwargs):
         new_data = self.new()
         for k, v in self.items():
