@@ -123,7 +123,8 @@ def resample_one_sample(args):
 
 
 def resample_standard_dataset(
-    source_root: str,
+    source_image_folder: str,
+    source_label_folder: str|None,
     target_spacing: Sequence[float],
     target_size: Sequence[int],
     dest_root: str,
@@ -142,8 +143,6 @@ def resample_standard_dataset(
         workers (int | None): Number of workers for multiprocessing.
     """
     # 任务准备
-    source_image_folder = os.path.join(source_root, "image")
-    source_label_folder = os.path.join(source_root, "label")
     image_itk_paths = []
     label_itk_paths = []
     
@@ -152,9 +151,9 @@ def resample_standard_dataset(
     1. image 和 label 分别存储在 image 和 label 文件夹中
     2. 目录下source_root直接存储mha文件，并且只有image。
     '''
-    
+
     # 第一种情况
-    if os.path.exists(source_image_folder):
+    if source_label_folder is not None:
         dest_image_folder = os.path.join(dest_root, "image")
         dest_label_folder = os.path.join(dest_root, "label")
         os.makedirs(dest_image_folder, exist_ok=True)
@@ -174,7 +173,6 @@ def resample_standard_dataset(
     
     # 第二种情况
     else:
-        source_image_folder = source_root
         dest_image_folder = dest_root
         dest_label_folder = ''
         image_itk_paths = [
@@ -240,7 +238,8 @@ def resample_standard_dataset(
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Resample a standard dataset with dimension-wise spacing/size rules.")
-    parser.add_argument("source_root", type=str, help="The root folder of the source dataset.")
+    parser.add_argument("img_source", type=str)
+    parser.add_argument("lbl_source", type=str, default=None)
     parser.add_argument("dest_root", type=str, help="The root folder of the destination dataset.")
     parser.add_argument("--mp", action="store_true", help="Whether to use multiprocessing.")
     parser.add_argument("--workers", type=int, default=None, help="The number of workers for multiprocessing.")
@@ -302,7 +301,8 @@ def main():
 
     # 执行
     resample_standard_dataset(
-        args.source_root,
+        args.img_source,
+        args.lbl_source,
         target_spacing,
         target_size,
         args.dest_root,
