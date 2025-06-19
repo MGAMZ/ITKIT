@@ -1,4 +1,5 @@
 import re
+import pdb
 import torch
 from typing import Any
 from pathlib import Path
@@ -20,7 +21,8 @@ class SarcopeniaBIARegressionTask(pl.LightningModule):
         optimizer_config: dict = {'lr': 1e-4, 'weight_decay': 1e-5},
         scheduler_config: dict | None = None,
         gt_key: str = 'bia',
-    ):
+        num_semantic_classes: int = 7,
+    ) -> None:
         """
         Args:
             model (torch.nn.Module): The neural network model for regression. It should accept
@@ -36,14 +38,24 @@ class SarcopeniaBIARegressionTask(pl.LightningModule):
         self.model = model
         self.criterion = criterion
         self.gt_key = gt_key
+        self.num_semantic_classes = num_semantic_classes
 
     def forward(self, x: Tensor) -> Tensor:
         return self.model(x).flatten(1).mean(dim=1)
 
     def _parse_batch(self, batch: dict[str, Any]) -> tuple[Tensor, Tensor]:
-        """Extracts image and ground truth BIA from a batch."""
+        """Extracts image and ground truth BIA from a batch.
+        
+        Including two steps:
+        1. Converts the label to one-hot encoding
+        2. Concatenates it with the image.
+        """
+        
         image = batch['image'].to(device=self.device, non_blocking=True)
+        label = batch['label'].to(device=self.device, non_blocking=True)
         gt_bia = batch[self.gt_key].to(device=self.device, non_blocking=True)
+        label = torch.nn.functional.one_hot(label[:, 0, ...].long(), num_classes=self.num_semantic_classes).permute(0, 4, 1, 2, 3).to(dtype=image.dtype)
+        image = torch.cat([image, label], dim=1)  # Concatenate image and semantic channel
         return image, gt_bia
 
     def training_step(self, batch: dict[str, Any], batch_idx: int) -> Tensor:
