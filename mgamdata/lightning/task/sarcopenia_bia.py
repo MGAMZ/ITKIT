@@ -1,16 +1,15 @@
-import torch
-from torch import Tensor
-import pytorch_lightning as pl
-from typing import Any
-
-import os
 import re
-import pandas as pd
-import numpy as np
-import SimpleITK as sitk
+import torch
+from typing import Any
 from pathlib import Path
-from collections.abc import Callable
-from mgamdata.lightning.dataset.base import BaseDataModule, BaseDataset
+
+import numpy as np
+import pandas as pd
+import pytorch_lightning as pl
+from torch import Tensor
+
+from ..dataset.base import BaseDataset
+from ..pipeline.base import BaseTransform
 
 
 class SarcopeniaBIARegressionTask(pl.LightningModule):
@@ -203,70 +202,21 @@ class SarcopeniaBIADataset(BaseDataset):
         sample = {
             "series_uid": series_uid,
             "image_mha_path": str(self.image_root / f"{series_uid}.mha"),
-            "bia": bia_value
+            "bia": np.array(bia_value)
         }
 
         if self.segmentation_root:
-            sample['segmentation_mha_path'] = str(self.segmentation_root / f"{series_uid}.mha")
+            sample['label_mha_path'] = str(self.segmentation_root / f"{series_uid}.mha")
         
         # Apply the processing pipeline (e.g., loading, transformations)
         return self._preprocess(sample)
 
 
-class LoadAndConcatSegmentation:
-    """
-    A pipeline transform that loads a segmentation mask, converts it to one-hot encoding,
-    and concatenates it with the main image along the channel axis.
-
-    Args:
-        num_classes (int): The number of classes for one-hot encoding. Must be > 1.
-        seg_path_key (str): The key in the sample dictionary for the segmentation file path.
-        img_key (str): The key in the sample dictionary for the image data.
-    """
-    def __init__(self, num_classes: int, seg_path_key: str = 'segmentation_mha_path', img_key: str = 'image'):
-        if num_classes <= 1:
-            raise ValueError("num_classes for one-hot encoding must be greater than 1.")
-        self.num_classes = num_classes
-        self.seg_path_key = seg_path_key
-        self.img_key = img_key
-
-    def __call__(self, sample: dict) -> dict:
-        if self.seg_path_key not in sample:
-            return sample
-
-        # Load the segmentation mask
-        seg_path = sample[self.seg_path_key]
-        if not os.path.exists(seg_path):
-            # This should ideally not happen if the dataset constructor filters correctly
-            raise FileNotFoundError(f"Segmentation file not found during pipeline processing: {seg_path}")
-        
-        sitk_seg = sitk.ReadImage(seg_path)
-        seg_array = sitk.GetArrayFromImage(sitk_seg)  # Shape: (D, H, W)
-
-        # Convert to one-hot encoding
-        seg_array = seg_array.astype(np.int64)
-        # Create one-hot array: shape (D, H, W, num_classes)
-        one_hot = np.eye(self.num_classes, dtype=np.float32)[seg_array]
-        # Move channel axis to the front: shape (num_classes, D, H, W)
-        one_hot = np.moveaxis(one_hot, -1, 0)
-
-        # Concatenate with the main image
-        image_array = sample[self.img_key]
-        if isinstance(image_array, torch.Tensor):
-            image_array = image_array.cpu().numpy()
-
-        if image_array.ndim == 3:  # Add channel dim if missing, assuming (D, H, W)
-            image_array = np.expand_dims(image_array, axis=0)
-
-        if image_array.ndim != 4:
-            raise ValueError(f"Image array must be 4D (C, D, H, W), but got shape {image_array.shape}")
-
-        # Ensure spatial dimensions match before concatenation
-        if image_array.shape[1:] != one_hot.shape[1:]:
-             raise ValueError(f"Spatial dimensions of image {image_array.shape[1:]} and "
-                              f"segmentation {one_hot.shape[1:]} do not match.")
-
-        concatenated_image = np.concatenate([image_array, one_hot], axis=0)
-        sample[self.img_key] = concatenated_image
-        
+class ConcatImageAndSemanticChannel(BaseTransform):
+    def __call__(self, sample:dict):
+        sample['image'] = np.concatenate(
+            [sample['image'], sample['label']],
+            axis=0
+        )
+        del sample['label']
         return sample

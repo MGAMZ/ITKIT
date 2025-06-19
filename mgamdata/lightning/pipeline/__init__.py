@@ -1,7 +1,7 @@
 from .augment import BatchAugment, RandomPatch3D, AutoPad
 from .load import LoadMHAFile
 from .radiology import WindowNorm
-from .utils import TypeConvert
+from .utils import TypeConvert, ToOneHot, ToTensor
 
 __all__ = [
     'LoadMHAFile',
@@ -9,5 +9,7 @@ __all__ = [
     'BatchAugment',
     'RandomPatch3D',
     'TypeConvert',
-    'AutoPad'
+    'AutoPad',
+    'ToOneHot',
+    'ToTensor'
 ]
