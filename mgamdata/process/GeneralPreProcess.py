@@ -63,7 +63,7 @@ class AutoPad(BaseTransform):
         # 确保current_shape维度足够
         if len(current_shape) < dims_to_pad:
             raise ValueError(f"Input shape {current_shape} has fewer dimensions than required {dims_to_pad}")
-            
+        
         # 处理不需要padding的前置维度
         for _ in range(len(current_shape) - dims_to_pad):
             pad_params.append((0, 0))
@@ -77,7 +77,7 @@ class AutoPad(BaseTransform):
                 pad_1 = pad // 2
                 pad_2 = pad - pad_1
                 pad_params.append((pad_1, pad_2))
-                
+        
         return tuple(pad_params)
 
     def transform(self, results: dict):
@@ -92,9 +92,9 @@ class AutoPad(BaseTransform):
                 constant_values=self.pad_val,
             )
             
-            if "gt_seg_map" in results:
-                results["gt_seg_map"] = np.pad(
-                    results["gt_seg_map"],
+            for seg_field in results['seg_fields']:
+                results[seg_field] = np.pad(
+                    results[seg_field],
                     pad_params,
                     mode="constant",
                     constant_values=self.pad_label_val,

@@ -10,25 +10,18 @@ from multiprocessing import Pool
 import numpy as np
 import SimpleITK as sitk
 
-from mgamdata.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size
+from mgamdata.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size, sitk_resample_to_image
 
 
 
 def resample_one_sample(args):
     """
-    Resample a single sample image based on dimension-wise spacing and size rules.
-
-    Args:
-        args (tuple): A tuple containing:
-            image_itk_path (str): The file path of the input image.
-            target_spacing (Sequence[float]): Target spacing per dimension (-1 to ignore).
-            target_size (Sequence[int]): Target size per dimension (-1 to ignore).
-            output_path (str): The output file path for the resampled image.
-
-    Returns:
-        A dict containing metadata about the resampled image, or None if the output file already exists.
+    Resample a single sample image using spacing/size rules or a target reference image.
+    Args tuple: (image_itk_path, target_spacing, target_size, output_path, target_image_path, field)
+    Returns metadata dict or None if skipped.
     """
-    image_itk_path, target_spacing, target_size, output_path = args
+    # 解包参数
+    image_itk_path, target_spacing, target_size, output_path, target_image_path, field = args
     img_dim = 3
 
     # 检查目标文件是否已存在
@@ -45,40 +38,46 @@ def resample_one_sample(args):
         tqdm.write(f"Error reading {image_itk_path}: {e}")
         return None
 
-    # --- 阶段一：Spacing 重采样 ---
-    orig_spacing = image_itk.GetSpacing()[::-1]
-    effective_spacing = list(orig_spacing)
-    needs_spacing_resample = False
-    for i in range(img_dim):
-        if target_spacing[i] != -1:
-            effective_spacing[i] = target_spacing[i]
-            needs_spacing_resample = True
+    # 如果指定了目标图像，则使用目标图像重采样，否则使用spacing/size重采样
+    if target_image_path:
+        target_image = sitk.ReadImage(target_image_path)
+        image_resampled = sitk_resample_to_image(image_itk, target_image, field)
+    else:
+        # spacing/size重采样逻辑
+        # --- 阶段一：Spacing 重采样 ---
+        orig_spacing = image_itk.GetSpacing()[::-1]
+        effective_spacing = list(orig_spacing)
+        needs_spacing_resample = False
+        for i in range(img_dim):
+            if target_spacing[i] != -1:
+                effective_spacing[i] = target_spacing[i]
+                needs_spacing_resample = True
 
-    image_after_spacing = image_itk
+        image_after_spacing = image_itk
 
-    if needs_spacing_resample and not np.allclose(effective_spacing, orig_spacing):
-        itk_name = os.path.basename(image_itk_path)
-        tqdm.write(f"Resampling {itk_name} to spacing {effective_spacing}...")
-        image_after_spacing = sitk_resample_to_spacing(image_itk, effective_spacing, "image")
+        if needs_spacing_resample and not np.allclose(effective_spacing, orig_spacing):
+            itk_name = os.path.basename(image_itk_path)
+            tqdm.write(f"Resampling {itk_name} to spacing {effective_spacing}...")
+            image_after_spacing = sitk_resample_to_spacing(image_itk, effective_spacing, field)
 
-    # --- 阶段二：Size 重采样 ---
-    current_size = image_after_spacing.GetSize()[::-1]
-    effective_size = list(current_size)
-    needs_size_resample = False
-    for i in range(img_dim):
-        if target_size[i] != -1:
-            effective_size[i] = target_size[i]
-            needs_size_resample = True
+        # --- 阶段二：Size 重采样 ---
+        current_size = image_after_spacing.GetSize()[::-1]
+        effective_size = list(current_size)
+        needs_size_resample = False
+        for i in range(img_dim):
+            if target_size[i] != -1:
+                effective_size[i] = target_size[i]
+                needs_size_resample = True
 
-    image_resampled = image_after_spacing
+        image_resampled = image_after_spacing
 
-    if needs_size_resample and effective_size != list(current_size):
-        itk_name = os.path.basename(image_itk_path)
-        tqdm.write(f"Resampling {itk_name} to size {effective_size}...")
-        image_resampled = sitk_resample_to_size(image_after_spacing, effective_size, "image")
+        if needs_size_resample and effective_size != list(current_size):
+            itk_name = os.path.basename(image_itk_path)
+            tqdm.write(f"Resampling {itk_name} to size {effective_size}...")
+            image_resampled = sitk_resample_to_size(image_after_spacing, effective_size, field)
 
-    # --- 阶段三：方向重采样 ---
-    image_resampled = sitk.DICOMOrient(image_resampled, 'LPI')
+        # --- 阶段三：方向重采样 ---
+        image_resampled = sitk.DICOMOrient(image_resampled, 'LPI')
 
     # 写入
     try:
@@ -106,9 +105,11 @@ def resample_dataset(
     recursive: bool = False,
     mp: bool = False,
     workers: int|None = None,
+    target_image_path: str|None = None,
+    field: str = "image",
 ):
     """
-    Resample a dataset with dimension-wise spacing/size rules.
+    Resample a dataset with dimension-wise spacing/size rules or target image.
 
     Args:
         source_folder (str): The source folder containing .mha files.
@@ -118,6 +119,8 @@ def resample_dataset(
         recursive (bool): Whether to recursively process subdirectories.
         mp (bool): Whether to use multiprocessing.
         workers (int | None): Number of workers for multiprocessing.
+        target_image_path (str | None): Path to target reference image.
+        field (str): Field type for resampling ('image' or 'label').
     """
     os.makedirs(dest_folder, exist_ok=True)
     
@@ -156,10 +159,16 @@ def resample_dataset(
         return
     
     # 生成任务列表
-    task_list = [
-        (image_paths[i], target_spacing, target_size, output_paths[i])
-        for i in range(len(image_paths))
-    ]
+    if target_image_path is not None:
+        task_list = [
+            (image_paths[i], target_spacing, target_size, output_paths[i], target_image_path, field)
+            for i in range(len(image_paths))
+        ]
+    else:
+        task_list = [
+            (image_paths[i], target_spacing, target_size, output_paths[i], None, field)
+            for i in range(len(image_paths))
+        ]
 
     # 收集每个样本的meta信息
     series_meta = dict()
@@ -201,7 +210,7 @@ def resample_dataset(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Resample a dataset with dimension-wise spacing/size rules.")
+    parser = argparse.ArgumentParser(description="Resample a dataset with dimension-wise spacing/size rules or target image.")
     parser.add_argument("source_folder", type=str, help="The source folder containing .mha files.")
     parser.add_argument("dest_folder", type=str, help="The destination folder for resampled files.")
     parser.add_argument("-r", "--recursive", action="store_true", help="Recursively process subdirectories.")
@@ -214,6 +223,12 @@ def parse_args():
                         help="Target spacing (ZYX order). Use -1 for dimensions to ignore spacing rule. e.g., 1.5 -1 1.5")
     parser.add_argument("--size", type=str, nargs='+', default=["-1", "-1", "-1"],
                         help="Target size (ZYX order). Use -1 for dimensions to ignore size rule. e.g., -1 256 256")
+    
+    # 新增的target参数
+    parser.add_argument("--target", type=str, default=None,
+                        help="Path to target reference image for resampling. Mutually exclusive with --spacing and --size.")
+    parser.add_argument("--field", type=str, choices=["image", "label"], default="image",
+                        help="Field type for resampling. Required when --target is specified.")
 
     return parser.parse_args()
 
@@ -224,34 +239,59 @@ def main():
 
     # --- 参数转换和验证 ---
     try:
-        # 转换 spacing 为 float, size 为 int
-        target_spacing = [float(s) for s in args.spacing]
-        target_size = [int(s) for s in args.size]
+        # 检查 target 与 spacing/size 的互斥性
+        target_specified = args.target is not None
+        spacing_specified = any(s != "-1" for s in args.spacing)
+        size_specified = any(s != "-1" for s in args.size)
+        
+        if target_specified and (spacing_specified or size_specified):
+            raise ValueError("--target is mutually exclusive with --spacing and --size. Use either --target or --spacing/--size, not both.")
+        
+        if target_specified:
+            # 使用目标图像模式
+            if not os.path.exists(args.target):
+                raise ValueError(f"Target image file does not exist: {args.target}")
+            
+            # target模式下，spacing和size设为默认值（不起作用）
+            target_spacing = [-1, -1, -1]
+            target_size = [-1, -1, -1]
+            
+            print(f"Resampling {args.source_folder} to {args.dest_folder}")
+            print(f"  Target Image: {args.target}")
+            print(f"  Field Type: {args.field}")
+            print(f"  Recursive mode: {args.recursive}")
+            
+        else:
+            # 使用spacing/size模式
+            # 转换 spacing 为 float, size 为 int
+            target_spacing = [float(s) for s in args.spacing]
+            target_size = [int(s) for s in args.size]
 
-        # 检查列表长度是否匹配维度
-        if len(target_spacing) != img_dim:
-            raise ValueError(f"--spacing must have {img_dim} values (received {len(target_spacing)})")
-        if len(target_size) != img_dim:
-             raise ValueError(f"--size must have {img_dim} values (received {len(target_size)})")
+            # 检查列表长度是否匹配维度
+            if len(target_spacing) != img_dim:
+                raise ValueError(f"--spacing must have {img_dim} values (received {len(target_spacing)})")
+            if len(target_size) != img_dim:
+                 raise ValueError(f"--size must have {img_dim} values (received {len(target_size)})")
 
-        # 验证每个维度的互斥性
-        for i in range(img_dim):
-            if target_spacing[i] != -1 and target_size[i] != -1:
-                raise ValueError(f"Dimension {i} (ZYX order) cannot have both spacing ({target_spacing[i]}) and size ({target_size[i]}) specified. Use -1 for one of them.")
+            # 验证每个维度的互斥性
+            for i in range(img_dim):
+                if target_spacing[i] != -1 and target_size[i] != -1:
+                    raise ValueError(f"Dimension {i} (ZYX order) cannot have both spacing ({target_spacing[i]}) and size ({target_size[i]}) specified. Use -1 for one of them.")
 
-        # 检查是否至少指定了一个重采样操作
-        if all(s == -1 for s in target_spacing) and all(sz == -1 for sz in target_size):
-             tqdm.write("Warning: No resampling specified (all spacing and size values are -1).")
-             return
+            # 检查是否至少指定了一个重采样操作
+            if all(s == -1 for s in target_spacing) and all(sz == -1 for sz in target_size):
+                 tqdm.write("Warning: No resampling specified (all spacing and size values are -1).")
+                 return
+
+            print(f"Resampling {args.source_folder} to {args.dest_folder}")
+            print(f"  Target Spacing (ZYX): {target_spacing}")
+            print(f"  Target Size (ZYX): {target_size}")
+            print(f"  Field Type: {args.field}")
+            print(f"  Recursive mode: {args.recursive}")
 
     except ValueError as e:
         print(f"Error parsing arguments: {e}")
         return
-
-    print(f"Resampling {args.source_folder} to {args.dest_folder}")
-    print(f"  Target Spacing (ZYX): {target_spacing}")
-    print(f"  Target Size (ZYX): {target_size}")
-    print(f"  Recursive mode: {args.recursive}")
 
     # 保存配置信息
     config_data = vars(args)
@@ -273,6 +313,8 @@ def main():
         args.recursive,
         args.mp,
         args.workers,
+        args.target,
+        args.field,
     )
     print(f"Resampling completed. The resampled dataset is saved in {args.dest_folder}.")
 
