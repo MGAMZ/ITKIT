@@ -16,49 +16,33 @@ from mgamdata.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_
 
 def resample_one_sample(args):
     """
-    Resample a single sample image and its corresponding label image based on
-    dimension-wise spacing and size rules.
+    Resample a single sample image based on dimension-wise spacing and size rules.
 
     Args:
         args (tuple): A tuple containing:
             image_itk_path (str): The file path of the input image.
-            label_itk_path (str): The file path of the input label image.
             target_spacing (Sequence[float]): Target spacing per dimension (-1 to ignore).
             target_size (Sequence[int]): Target size per dimension (-1 to ignore).
-            out_image_folder (str): The output folder for the resampled image.
-            out_label_folder (str): The output folder for the resampled label image.
+            output_path (str): The output file path for the resampled image.
 
     Returns:
-        A tuple containing the resampled image and label image, or None if the output files already exist.
+        A dict containing metadata about the resampled image, or None if the output file already exists.
     """
-    image_itk_path, label_itk_path, target_spacing, target_size, out_image_folder, out_label_folder = args
+    image_itk_path, target_spacing, target_size, output_path = args
     img_dim = 3
 
-    # 路径
-    itk_name = os.path.basename(image_itk_path)
-    target_image_path = os.path.join(out_image_folder, itk_name)
-    target_label_path = os.path.join(out_label_folder, itk_name) if out_label_folder else ''
-    # 检查目标文件是否已存在（考虑 .mha 后缀）
-    potential_target_image_path = target_image_path.replace(".nii.gz", ".mha").replace(".nii", ".mha")
-    potential_target_label_path = target_label_path.replace(".nii.gz", ".mha").replace(".nii", ".mha")
-    if os.path.exists(potential_target_image_path) \
-    and (not os.path.exists(label_itk_path) 
-         or os.path.exists(potential_target_label_path)
-        ):
+    # 检查目标文件是否已存在
+    if os.path.exists(output_path):
+        itk_name = os.path.basename(image_itk_path)
         tqdm.write(f"Skipping {itk_name}, output exists.")
         return None
 
     # 读取
     try:
         image_itk = sitk.ReadImage(image_itk_path)
-        label_itk = None
-        if os.path.exists(label_itk_path):
-            label_itk = sitk.ReadImage(label_itk_path)
-        else:
-            tqdm.write(f"Warning: Label file not found for {image_itk_path}, skipping label resampling.")
     except Exception as e:
         traceback.print_exc()
-        tqdm.write(f"Error reading {image_itk_path} or {label_itk_path}: {e}")
+        tqdm.write(f"Error reading {image_itk_path}: {e}")
         return None
 
     # --- 阶段一：Spacing 重采样 ---
@@ -71,13 +55,11 @@ def resample_one_sample(args):
             needs_spacing_resample = True
 
     image_after_spacing = image_itk
-    label_after_spacing = label_itk
 
     if needs_spacing_resample and not np.allclose(effective_spacing, orig_spacing):
+        itk_name = os.path.basename(image_itk_path)
         tqdm.write(f"Resampling {itk_name} to spacing {effective_spacing}...")
         image_after_spacing = sitk_resample_to_spacing(image_itk, effective_spacing, "image")
-        if label_itk:
-            label_after_spacing = sitk_resample_to_spacing(label_itk, effective_spacing, "label")
 
     # --- 阶段二：Size 重采样 ---
     current_size = image_after_spacing.GetSize()[::-1]
@@ -89,29 +71,22 @@ def resample_one_sample(args):
             needs_size_resample = True
 
     image_resampled = image_after_spacing
-    label_resampled = label_after_spacing
 
     if needs_size_resample and effective_size != list(current_size):
+        itk_name = os.path.basename(image_itk_path)
         tqdm.write(f"Resampling {itk_name} to size {effective_size}...")
         image_resampled = sitk_resample_to_size(image_after_spacing, effective_size, "image")
-        if label_itk and label_after_spacing: # 确保 label 存在且经过了第一阶段
-             label_resampled = sitk_resample_to_size(label_after_spacing, effective_size, "label")
 
     # --- 阶段三：方向重采样 ---
     image_resampled = sitk.DICOMOrient(image_resampled, 'LPI')
-    if label_itk and label_resampled:
-        label_resampled = sitk.DICOMOrient(label_resampled, 'LPI')
 
     # 写入
-    target_image_path = potential_target_image_path
-    target_label_path = potential_target_label_path
     try:
-        sitk.WriteImage(image_resampled, target_image_path, useCompression=True)
-        if label_itk and label_resampled:
-            sitk.WriteImage(label_resampled, target_label_path, useCompression=True)
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        sitk.WriteImage(image_resampled, output_path, useCompression=True)
     except Exception as e:
         traceback.print_exc()
-        tqdm.write(f"Error writing {target_image_path} or {target_label_path}: {e}")
+        tqdm.write(f"Error writing {output_path}: {e}")
         return None
 
     # 获取实际spacing和size并返回元数据
@@ -119,83 +94,71 @@ def resample_one_sample(args):
     final_size = image_resampled.GetSize()[::-1]
     # 获取实际origin
     final_origin = image_resampled.GetOrigin()[::-1]
+    itk_name = os.path.basename(image_itk_path)
     return {itk_name: {"spacing": final_spacing, "size": final_size, "origin": final_origin}}
 
 
-def resample_standard_dataset(
-    source_image_folder: str,
-    source_label_folder: str|None,
+def resample_dataset(
+    source_folder: str,
+    dest_folder: str,
     target_spacing: Sequence[float],
     target_size: Sequence[int],
-    dest_root: str,
+    recursive: bool = False,
     mp: bool = False,
     workers: int|None = None,
 ):
     """
-    Resample a standard dataset with dimension-wise spacing/size rules.
+    Resample a dataset with dimension-wise spacing/size rules.
 
     Args:
-        source_root (str): The root folder of the source dataset.
+        source_folder (str): The source folder containing .mha files.
+        dest_folder (str): The destination folder for resampled files.
         target_spacing (Sequence[float]): Target spacing per dimension (-1 to ignore).
         target_size (Sequence[int]): Target size per dimension (-1 to ignore).
-        dest_root (str): The root folder of the destination dataset.
+        recursive (bool): Whether to recursively process subdirectories.
         mp (bool): Whether to use multiprocessing.
         workers (int | None): Number of workers for multiprocessing.
     """
-    # 任务准备
-    image_itk_paths = []
-    label_itk_paths = []
+    os.makedirs(dest_folder, exist_ok=True)
     
-    '''
-    支持两种存储结构：
-    1. image 和 label 分别存储在 image 和 label 文件夹中
-    2. 目录下source_root直接存储mha文件，并且只有image。
-    '''
-
-    # 第一种情况
-    if source_label_folder is not None:
-        dest_image_folder = os.path.join(dest_root, "image")
-        dest_label_folder = os.path.join(dest_root, "label")
-        os.makedirs(dest_image_folder, exist_ok=True)
-        os.makedirs(dest_label_folder, exist_ok=True)
-        image_itk_paths = [
-            os.path.join(source_image_folder, f)
-            for f in os.listdir(source_image_folder)
-            if f.endswith((".mha", ".nii", ".nii.gz", "mhd"))
-        ]
-        if not image_itk_paths:
-            tqdm.write("No image files found to process.")
-            return
-        label_itk_paths = [
-            os.path.join(source_label_folder, os.path.basename(p))
-            for p in image_itk_paths
-        ]
+    # 收集所有mha文件
+    image_paths = []
+    output_paths = []
     
-    # 第二种情况
+    if recursive:
+        # 递归模式：遍历所有子目录
+        for root, dirs, files in os.walk(source_folder):
+            for file in files:
+                if file.endswith((".mha", ".nii", ".nii.gz", ".mhd")):
+                    source_file = os.path.join(root, file)
+                    # 保持相同的目录结构
+                    rel_path = os.path.relpath(source_file, source_folder)
+                    output_file = os.path.join(dest_folder, rel_path)
+                    # 统一输出为.mha格式
+                    output_file = output_file.replace(".nii.gz", ".mha").replace(".nii", ".mha").replace(".mhd", ".mha")
+                    
+                    image_paths.append(source_file)
+                    output_paths.append(output_file)
     else:
-        dest_image_folder = dest_root
-        dest_label_folder = ''
-        image_itk_paths = [
-            os.path.join(source_image_folder, f)
-            for f in os.listdir(source_image_folder)
-            if f.endswith((".mha", ".nii", ".nii.gz", "mhd"))
-        ]
-        if not image_itk_paths:
-            tqdm.write("No image files found to process.")
-            return
-        label_itk_paths = [''] * len(image_itk_paths)
+        # 非递归模式：只处理顶层目录
+        for file in os.listdir(source_folder):
+            if file.endswith((".mha", ".nii", ".nii.gz", ".mhd")):
+                source_file = os.path.join(source_folder, file)
+                output_file = os.path.join(dest_folder, file)
+                # 统一输出为.mha格式
+                output_file = output_file.replace(".nii.gz", ".mha").replace(".nii", ".mha").replace(".mhd", ".mha")
+                
+                image_paths.append(source_file)
+                output_paths.append(output_file)
+    
+    if not image_paths:
+        tqdm.write("No image files found to process.")
+        return
     
     # 生成任务列表
     task_list = [
-        (
-            image_itk_paths[i],
-            label_itk_paths[i],
-            target_spacing,
-            target_size,
-            dest_image_folder,
-            dest_label_folder,
-        )
-        for i in range(len(image_itk_paths))
+        (image_paths[i], target_spacing, target_size, output_paths[i])
+        for i in range(len(image_paths))
     ]
 
     # 收集每个样本的meta信息
@@ -204,7 +167,7 @@ def resample_standard_dataset(
         with (
             Pool(processes=workers) as pool,
             tqdm(
-                total=len(image_itk_paths),
+                total=len(image_paths),
                 desc="Resampling",
                 leave=True,
                 dynamic_ncols=True,
@@ -217,7 +180,7 @@ def resample_standard_dataset(
                 pbar.update()
     else:
         with tqdm(
-            total=len(image_itk_paths),
+            total=len(image_paths),
             desc="Resampling",
             leave=True,
             dynamic_ncols=True,
@@ -227,8 +190,9 @@ def resample_standard_dataset(
                 if res:
                     series_meta.update(res)
                 pbar.update()
+    
     # 保存每个样本的实际spacing和size到JSON
-    meta_path = os.path.join(dest_root, "series_meta.json")
+    meta_path = os.path.join(dest_folder, "series_meta.json")
     try:
         with open(meta_path, "w") as f:
             json.dump(series_meta, f, indent=4)
@@ -237,10 +201,10 @@ def resample_standard_dataset(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Resample a standard dataset with dimension-wise spacing/size rules.")
-    parser.add_argument("img_source", type=str)
-    parser.add_argument("lbl_source", type=str, default=None)
-    parser.add_argument("dest_root", type=str, help="The root folder of the destination dataset.")
+    parser = argparse.ArgumentParser(description="Resample a dataset with dimension-wise spacing/size rules.")
+    parser.add_argument("source_folder", type=str, help="The source folder containing .mha files.")
+    parser.add_argument("dest_folder", type=str, help="The destination folder for resampled files.")
+    parser.add_argument("-r", "--recursive", action="store_true", help="Recursively process subdirectories.")
     parser.add_argument("--mp", action="store_true", help="Whether to use multiprocessing.")
     parser.add_argument("--workers", type=int, default=None, help="The number of workers for multiprocessing.")
 
@@ -284,32 +248,33 @@ def main():
         print(f"Error parsing arguments: {e}")
         return
 
-    os.makedirs(args.dest_root, exist_ok=True)
-    print(f"Resampling {args.source_root} to {args.dest_root}")
+    print(f"Resampling {args.source_folder} to {args.dest_folder}")
     print(f"  Target Spacing (ZYX): {target_spacing}")
     print(f"  Target Size (ZYX): {target_size}")
+    print(f"  Recursive mode: {args.recursive}")
 
     # 保存配置信息
     config_data = vars(args)
     config_data['target_spacing_validated'] = target_spacing
     config_data['target_size_validated'] = target_size
     try:
-        with open(os.path.join(args.dest_root, "resample_configs.json"), "w") as f:
+        os.makedirs(args.dest_folder, exist_ok=True)
+        with open(os.path.join(args.dest_folder, "resample_configs.json"), "w") as f:
             json.dump(config_data, f, indent=4)
     except Exception as e:
         print(f"Warning: Could not save config file: {e}")
 
     # 执行
-    resample_standard_dataset(
-        args.img_source,
-        args.lbl_source,
+    resample_dataset(
+        args.source_folder,
+        args.dest_folder,
         target_spacing,
         target_size,
-        args.dest_root,
+        args.recursive,
         args.mp,
         args.workers,
     )
-    print(f"Resampling completed. The resampled dataset is saved in {args.dest_root}.")
+    print(f"Resampling completed. The resampled dataset is saved in {args.dest_folder}.")
 
 
 
