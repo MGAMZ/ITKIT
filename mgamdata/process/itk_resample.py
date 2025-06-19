@@ -105,11 +105,11 @@ def resample_dataset(
     recursive: bool = False,
     mp: bool = False,
     workers: int|None = None,
-    target_image_path: str|None = None,
+    target_folder: str|None = None,
     field: str = "image",
 ):
     """
-    Resample a dataset with dimension-wise spacing/size rules or target image.
+    Resample a dataset with dimension-wise spacing/size rules or target-folder reference images.
 
     Args:
         source_folder (str): The source folder containing .mha files.
@@ -119,14 +119,14 @@ def resample_dataset(
         recursive (bool): Whether to recursively process subdirectories.
         mp (bool): Whether to use multiprocessing.
         workers (int | None): Number of workers for multiprocessing.
-        target_image_path (str | None): Path to target reference image.
+        target_folder (str | None): Folder containing reference images named same as source.
         field (str): Field type for resampling ('image' or 'label').
     """
     os.makedirs(dest_folder, exist_ok=True)
-    
-    # 收集所有mha文件
+    # 收集所有mha文件及其相对路径
     image_paths = []
     output_paths = []
+    rel_paths = []
     
     if recursive:
         # 递归模式：遍历所有子目录
@@ -142,6 +142,7 @@ def resample_dataset(
                     
                     image_paths.append(source_file)
                     output_paths.append(output_file)
+                    rel_paths.append(rel_path)
     else:
         # 非递归模式：只处理顶层目录
         for file in os.listdir(source_folder):
@@ -153,22 +154,22 @@ def resample_dataset(
                 
                 image_paths.append(source_file)
                 output_paths.append(output_file)
+                rel_paths.append(file)
     
     if not image_paths:
         tqdm.write("No image files found to process.")
         return
     
-    # 生成任务列表
-    if target_image_path is not None:
-        task_list = [
-            (image_paths[i], target_spacing, target_size, output_paths[i], target_image_path, field)
-            for i in range(len(image_paths))
-        ]
+    # 构建对应的参考图像路径列表
+    if target_folder:
+        target_paths = [os.path.join(target_folder, rel) for rel in rel_paths]
     else:
-        task_list = [
-            (image_paths[i], target_spacing, target_size, output_paths[i], None, field)
-            for i in range(len(image_paths))
-        ]
+        target_paths = [None] * len(image_paths)
+    # 生成任务列表
+    task_list = [
+        (image_paths[i], target_spacing, target_size, output_paths[i], target_paths[i], field)
+        for i in range(len(image_paths))
+    ]
 
     # 收集每个样本的meta信息
     series_meta = dict()
@@ -224,9 +225,9 @@ def parse_args():
     parser.add_argument("--size", type=str, nargs='+', default=["-1", "-1", "-1"],
                         help="Target size (ZYX order). Use -1 for dimensions to ignore size rule. e.g., -1 256 256")
     
-    # 新增的target参数
-    parser.add_argument("--target", type=str, default=None,
-                        help="Path to target reference image for resampling. Mutually exclusive with --spacing and --size.")
+    # target_folder 模式
+    parser.add_argument("--target-folder", dest="target_folder", type=str, default=None,
+                        help="Folder containing target reference images matching source names. Mutually exclusive with --spacing and --size.")
     parser.add_argument("--field", type=str, choices=["image", "label"], default="image",
                         help="Field type for resampling. Required when --target is specified.")
 
@@ -239,31 +240,23 @@ def main():
 
     # --- 参数转换和验证 ---
     try:
-        # 检查 target 与 spacing/size 的互斥性
-        target_specified = args.target is not None
+        # 检查 target_folder 与 spacing/size 的互斥性
+        target_specified = args.target_folder is not None
         spacing_specified = any(s != "-1" for s in args.spacing)
         size_specified = any(s != "-1" for s in args.size)
         
         if target_specified and (spacing_specified or size_specified):
-            raise ValueError("--target is mutually exclusive with --spacing and --size. Use either --target or --spacing/--size, not both.")
+            raise ValueError("--target-folder is mutually exclusive with --spacing and --size. Use either --target-folder or --spacing/--size, not both.")
         
         if target_specified:
-            # 使用目标图像模式
-            if not os.path.exists(args.target):
-                raise ValueError(f"Target image file does not exist: {args.target}")
-            
-            # target模式下，spacing和size设为默认值（不起作用）
+            # 使用 target_folder 模式
+            if not os.path.isdir(args.target_folder):
+                raise ValueError(f"Target folder does not exist: {args.target_folder}")
+            # 设置无效的 spacing/size
             target_spacing = [-1, -1, -1]
             target_size = [-1, -1, -1]
-            
-            print(f"Resampling {args.source_folder} to {args.dest_folder}")
-            print(f"  Target Image: {args.target}")
-            print(f"  Field Type: {args.field}")
-            print(f"  Recursive mode: {args.recursive}")
-            
         else:
             # 使用spacing/size模式
-            # 转换 spacing 为 float, size 为 int
             target_spacing = [float(s) for s in args.spacing]
             target_size = [int(s) for s in args.size]
 
@@ -276,18 +269,20 @@ def main():
             # 验证每个维度的互斥性
             for i in range(img_dim):
                 if target_spacing[i] != -1 and target_size[i] != -1:
-                    raise ValueError(f"Dimension {i} (ZYX order) cannot have both spacing ({target_spacing[i]}) and size ({target_size[i]}) specified. Use -1 for one of them.")
+                    raise ValueError(f"Dimension {i} cannot同时指定 spacing 和 size。")
 
-            # 检查是否至少指定了一个重采样操作
+            # 检查至少指定一种重采样
             if all(s == -1 for s in target_spacing) and all(sz == -1 for sz in target_size):
-                 tqdm.write("Warning: No resampling specified (all spacing and size values are -1).")
-                 return
+                tqdm.write("Warning: 未指定spacing或size，跳过重采样。")
+                return
 
-            print(f"Resampling {args.source_folder} to {args.dest_folder}")
-            print(f"  Target Spacing (ZYX): {target_spacing}")
-            print(f"  Target Size (ZYX): {target_size}")
-            print(f"  Field Type: {args.field}")
-            print(f"  Recursive mode: {args.recursive}")
+        # 打印配置信息
+        print(f"Resampling {args.source_folder} -> {args.dest_folder}")
+        if target_specified:
+            print(f"  Target Folder: {args.target_folder} | Field: {args.field}")
+        else:
+            print(f"  Spacing: {target_spacing} | Size: {target_size} | Field: {args.field}")
+        print(f"  Recursive: {args.recursive} | Multiprocessing: {args.mp} | Workers: {args.workers}")
 
     except ValueError as e:
         print(f"Error parsing arguments: {e}")
@@ -313,7 +308,7 @@ def main():
         args.recursive,
         args.mp,
         args.workers,
-        args.target,
+        args.target_folder,
         args.field,
     )
     print(f"Resampling completed. The resampled dataset is saved in {args.dest_folder}.")
