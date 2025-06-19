@@ -292,14 +292,5 @@ class Pack(BaseTransform):
         # {group_name: [label1, label2, ...]}
         sample.set_field(self.to_tensor(results['gt_label']), "gt_label")
         sample.set_field(self.to_tensor(results['feat_anno']), "feat_anno")
-        
-        """
-        inputs: torch.Tensor [num_patches, channels]
-        data_sample: DataSample
-            - gt_label: dict {group_name: [label1, label2, ...]}
-            - feat_anno: np.ndarray [num_feat, ]
-        """
-        return {
-            "inputs": results["pt"],
-            "data_samples": sample
-        }
+        return {"inputs": results["pt"],
+                "data_samples": sample}
