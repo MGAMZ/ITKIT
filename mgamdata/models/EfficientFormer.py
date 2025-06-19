@@ -1,5 +1,6 @@
 import pdb
 import timm
+from collections.abc import Callable
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,6 +10,7 @@ class EfficientFormerV2(torch.nn.Module):
     def __init__(self,
                  out_channels:int=1,
                  embed_dims:list[int]=[32, 64, 144, 288],
+                 activation:Callable|None=None,
                  *args, **kwargs):
         super(EfficientFormerV2, self).__init__()
 
@@ -17,6 +19,7 @@ class EfficientFormerV2(torch.nn.Module):
             pretrained=False,
             features_only=True,
             *args, **kwargs)
+        self.activation = activation if activation is not None else nn.Identity()
         encoder_channels = embed_dims
         decoder_channels = embed_dims[::-1]
         self.decoder_blocks = nn.ModuleList()
@@ -75,8 +78,7 @@ class EfficientFormerV2(torch.nn.Module):
             align_corners=False
         )
         
-        # 最终输出
-        return self.final_conv(decoder_output)
+        return self.activation(self.final_conv(decoder_output))
 
 
 if __name__ == '__main__':

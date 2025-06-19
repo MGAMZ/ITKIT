@@ -73,8 +73,12 @@ class LabelCsvProvider:
         split_idx = int(len(anno) * self.SPLIT_RATIO[0])
         if self.split == "train":
             anno = anno.iloc[:split_idx]
-        else:
+        elif self.split == "val" or self.split == "test":
             anno = anno.iloc[split_idx:]
+        elif self.split == "all":
+            pass
+        else:
+            raise ValueError(f"Unknown split: {self.split}. Must be one of 'train', 'val', 'test', or 'all'.")
         
         # 将中文标注映射到数字索引
         for ori, idx in TISSUE_CLASS_INDEX.items():
@@ -264,18 +268,30 @@ class LoadPt(BaseTransform):
 
 class FudanDoubleBlindSample(BaseDataElement):
     def to(self, *args, **kwargs):
+        def recursive(data):
+            if isinstance(data, dict):
+                return {k: recursive(v) for k, v in data.items()}
+            elif isinstance(data, list):
+                return [recursive(item) for item in data]
+            elif hasattr(data, 'to'):
+                return data.to(*args, **kwargs)
+            elif isinstance(data, np.ndarray):
+                return torch.from_numpy(data).to(*args, **kwargs)
+            else:
+                return data
+        
         new_data = self.new()
         for k, v in self.items():
             if hasattr(v, 'to'):
                 v = v.to(*args, **kwargs)
-                data = {k: v}
-                new_data.set_data(data)
+                new_data.set_field(v, k)
+            elif isinstance(v, np.ndarray):
+                v = torch.from_numpy(v).to(*args, **kwargs)
+                new_data.set_field(v, k)
             elif isinstance(v, dict):
-                new_data.set_field(
-                    {kk: vv.to(*args, **kwargs) 
-                     for kk, vv in v.items()},
-                    k
-                )
+                v = recursive(v)
+                new_data.set_field(v, k)
+        
         return new_data
 
 

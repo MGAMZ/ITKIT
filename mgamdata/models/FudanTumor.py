@@ -383,7 +383,6 @@ class GrouppedClser(BaseModel):
         else:
             feat = None
         
-        
         if mode == "tensor":
             return feat
 
@@ -469,7 +468,7 @@ class GrouppedClser(BaseModel):
         return results
     
     def predict(self, 
-                feat: Literal["loss", "predict"], 
+                feat: Tensor, 
                 data_samples: list[BaseDataElement]):
         """
         Args:
@@ -511,9 +510,8 @@ class GrouppedClser(BaseModel):
                                           for i in sg_indices])
             
             # 调用对应分类器
-            clser: BaseModule = getattr(self, f"clser_{sg}")
+            clser: SubGroupHead = getattr(self, f"clser_{sg}")
             batch_results = clser.predict(sub_feats, sub_feat_annos)
-            
             results[sg] = batch_results
             
         return results
@@ -716,14 +714,14 @@ class SubGroupMetric(BaseMetric):
                         correct = (pred_label[i].item() == gt_label[i].item())
                         classwise_counts[sub_group][i][0] += int(correct)
                         classwise_counts[sub_group][i][1] += 1
-                    
-        self.results.append((losses, classwise_counts))
+        
+        self.results.append((losses, classwise_counts, data_samples))
 
     def compute_metrics(self, results: list) -> dict:
         # ...existing code...
         avg_loss = {k: [] for k in LABEL_GROUP.keys()}
         aggregated_classwise_counts = {k: {} for k in LABEL_GROUP.keys()}
-        for (loss_dict, cls_dict) in results:
+        for (loss_dict, cls_dict, data_samples) in results:
             for k, v in loss_dict.items():
                 avg_loss[k].extend(v)
             # 聚合 Class-Wise 统计
