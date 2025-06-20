@@ -8,6 +8,9 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 from torch import Tensor
+import matplotlib.pyplot as plt
+from pytorch_lightning import Callback
+
 
 from ..dataset.base import BaseDataset
 from ..pipeline.base import BaseTransform
@@ -39,6 +42,8 @@ class SarcopeniaBIARegressionTask(pl.LightningModule):
         self.criterion = criterion
         self.gt_key = gt_key
         self.num_semantic_classes = num_semantic_classes
+        self.optimizer_config = optimizer_config
+        self.scheduler_config = scheduler_config
 
     def forward(self, x: Tensor) -> Tensor:
         return self.model(x).flatten(1).mean(dim=1)
@@ -50,7 +55,6 @@ class SarcopeniaBIARegressionTask(pl.LightningModule):
         1. Converts the label to one-hot encoding
         2. Concatenates it with the image.
         """
-        
         image = batch['image'].to(device=self.device, non_blocking=True)
         label = batch['label'].to(device=self.device, non_blocking=True)
         gt_bia = batch[self.gt_key].to(device=self.device, non_blocking=True)
@@ -63,7 +67,7 @@ class SarcopeniaBIARegressionTask(pl.LightningModule):
         image, gt_bia = self._parse_batch(batch)
         pred_bia = self(image).squeeze()  # Ensure output is scalar-like
         loss = self.criterion(pred_bia, gt_bia.float())
-        self.log('train/loss', loss, on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=len(image))
+        self.log('train/loss', loss, prog_bar=True, on_step=True, on_epoch=False, logger=True, sync_dist=True, batch_size=len(image))
         return loss
 
     def validation_step(self, batch: dict[str, Any], batch_idx: int):
@@ -75,7 +79,7 @@ class SarcopeniaBIARegressionTask(pl.LightningModule):
         self.log('val/loss', loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, batch_size=len(image))
         mae = torch.nn.functional.l1_loss(pred_bia, gt_bia.float())
         self.log('val/mae', mae, on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=len(image))
-        mape = torch.mean(torch.abs((gt_bia.float() - pred_bia) / (gt_bia.float() + 1e-8))) * 100
+        mape = torch.mean(torch.abs((gt_bia.float() - pred_bia) / (gt_bia.float() + 1e-5))) * 100
         self.log('val/mape', mape, on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=len(image))
 
         return {'val_loss': loss, 'predictions': pred_bia, 'targets': gt_bia}
@@ -92,13 +96,13 @@ class SarcopeniaBIARegressionTask(pl.LightningModule):
 
     def configure_optimizers(self):
         """Configures the optimizer and learning rate scheduler."""
-        optimizer = torch.optim.AdamW(self.parameters(), **self.hparams.optimizer_config)
+        optimizer = torch.optim.AdamW(self.parameters(), **self.optimizer_config)
 
-        if self.hparams.scheduler_config is None:
+        if self.scheduler_config is None:
             return optimizer
 
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, **self.hparams.scheduler_config
+            optimizer, **self.scheduler_config
         )
         return {
             "optimizer": optimizer,
@@ -134,6 +138,7 @@ class SarcopeniaBIADataset(BaseDataset):
         split_accordance: str | Path,
         series_uid_col: str = 'SeriesUID',
         bia_col: str = '45. BMI (Body Mass Index)',
+        bia_multiplier: float = 0.05,
         segmentation_root: str | Path | None = None,
         **kwargs
     ):
@@ -143,6 +148,7 @@ class SarcopeniaBIADataset(BaseDataset):
         self.split_accordance = Path(split_accordance)
         self.series_uid_col = series_uid_col
         self.bia_col = bia_col
+        self.bia_multiplier = bia_multiplier
         self.segmentation_root = Path(segmentation_root) if segmentation_root else None
 
         # Load BIA values from metadata file into a lookup dictionary
@@ -214,7 +220,7 @@ class SarcopeniaBIADataset(BaseDataset):
         sample = {
             "series_uid": series_uid,
             "image_mha_path": str(self.image_root / f"{series_uid}.mha"),
-            "bia": np.array(bia_value)
+            "bia": np.array(bia_value * self.bia_multiplier)
         }
 
         if self.segmentation_root:
@@ -224,11 +230,124 @@ class SarcopeniaBIADataset(BaseDataset):
         return self._preprocess(sample)
 
 
-class ConcatImageAndSemanticChannel(BaseTransform):
-    def __call__(self, sample:dict):
-        sample['image'] = np.concatenate(
-            [sample['image'], sample['label']],
-            axis=0
+class BIARegVis3DCallback(Callback):
+    """
+    Callback for visualizing 3D regression task inputs and results during validation and testing.
+
+    This callback creates visualizations showing each input channel of a sample on different axial slices.
+    It also displays the ground truth and predicted BIA values in the title.
+    """
+
+    def __init__(
+        self,
+        log_every_n_batches: int = 10,
+        log_every_n_epochs: int = 1,
+        max_samples_per_epoch: int = 5,
+        slice_indices: list[int] = None,
+        figsize: tuple[int, int] = (16, 8),
+        cmap: str = 'gray',
+    ):
+        """
+        Initialize the visualization callback.
+
+        Args:
+            log_every_n_batches (int): Log visualization every N batches.
+            log_every_n_epochs (int): Log visualization every N epochs.
+            max_samples_per_epoch (int): Maximum number of samples to visualize per epoch.
+            slice_indices (list[int] | None): Specific slice indices to visualize. If None, defaults to [Z/4, Z/2, 3Z/4].
+            figsize (tuple[int, int]): Figure size for matplotlib plots.
+            cmap (str): Colormap for the images.
+        """
+        super().__init__()
+        self.log_every_n_batches = log_every_n_batches
+        self.log_every_n_epochs = log_every_n_epochs
+        self.max_samples_per_epoch = max_samples_per_epoch
+        self.slice_indices = slice_indices
+        self.figsize = figsize
+        self.cmap = cmap
+        self.samples_visualized_this_epoch = 0
+
+    def on_validation_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+        self.samples_visualized_this_epoch = 0
+
+    def on_test_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+        self.samples_visualized_this_epoch = 0
+
+    def on_validation_batch_end(
+        self,
+        trainer: pl.Trainer,
+        pl_module: "SarcopeniaBIARegressionTask",
+        outputs: Any,
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        self._maybe_visualize(trainer, pl_module, outputs, batch, batch_idx, stage='val')
+
+    def on_test_batch_end(
+        self,
+        trainer: pl.Trainer,
+        pl_module: "SarcopeniaBIARegressionTask",
+        outputs: Any,
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        self._maybe_visualize(trainer, pl_module, outputs, batch, batch_idx, stage='test')
+
+    def _maybe_visualize(
+        self,
+        trainer: pl.Trainer,
+        pl_module: "SarcopeniaBIARegressionTask",
+        outputs: Any,
+        batch: Any,
+        batch_idx: int,
+        stage: str
+    ) -> None:
+        should_log_batch = batch_idx % self.log_every_n_batches == 0
+        should_log_epoch = trainer.current_epoch % self.log_every_n_epochs == 0
+        within_sample_limit = self.samples_visualized_this_epoch < self.max_samples_per_epoch
+        if not (should_log_batch and should_log_epoch and within_sample_limit and trainer.logger):
+            return
+
+        model_input, gt_bia = pl_module._parse_batch(batch)
+        pred_bia = outputs['predictions']
+
+        sample_idx = 0
+        sample_input = model_input[sample_idx].cpu().numpy()
+        gt_bia_val = gt_bia[sample_idx].cpu().item()
+        pred_bia_val = pred_bia[sample_idx].cpu().item()
+
+        num_channels, z_size = sample_input.shape[0], sample_input.shape[1]
+        slice_indices = self.slice_indices or [z_size // 4, z_size // 2, 3 * z_size // 4]
+        
+        fig, axes = plt.subplots(len(slice_indices), num_channels, figsize=self.figsize)
+        fig.suptitle(
+            f'{stage.capitalize()} Vis - Batch {batch_idx}, Epoch {trainer.current_epoch}\n'
+            f'GT BIA: {gt_bia_val:.4f}, Pred BIA: {pred_bia_val:.4f}',
+            fontsize=16
         )
-        del sample['label']
-        return sample
+
+        col_titles = ['Image'] + [f'Semantic Ch {i}' for i in range(1, num_channels)]
+        for col, title in enumerate(col_titles):
+            ax = axes[0, col] if len(slice_indices) > 1 else axes[col]
+            ax.set_title(title, fontsize=12, fontweight='bold')
+
+        for row, slice_idx in enumerate(slice_indices):
+            for col in range(num_channels):
+                ax = axes[row, col] if len(slice_indices) > 1 else axes[col]
+                ax.imshow(sample_input[col, min(slice_idx, z_size - 1)], cmap=self.cmap)
+                if col == 0:
+                    ax.set_ylabel(f'Slice {slice_idx}', fontsize=10)
+
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+        if hasattr(trainer.logger, 'experiment') and hasattr(trainer.logger.experiment, 'add_figure'):
+            trainer.logger.experiment.add_figure(
+                f'{stage}_BIARegVis3D/batch_{batch_idx}',
+                fig,
+                trainer.global_step
+            )
+        
+        plt.close(fig)
+        self.samples_visualized_this_epoch += 1

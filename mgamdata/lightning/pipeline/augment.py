@@ -33,6 +33,41 @@ class RandomPatch3D(BaseTransform):
         return sample
 
 
+class RandomPatch3DIndexing(BaseTransform):
+    """
+    Generates random patch indices but does not slice the data.
+    The slicing is intended to be done on the GPU in the training step.
+    """
+    def __init__(
+        self,
+        patch_size: Sequence[int],
+        num_patches: int,
+    ):
+        self.patch_size = patch_size
+        self.num_patches = num_patches
+    
+    def __call__(self, sample:dict[str, np.ndarray]):
+        img = sample.get("image")
+        if img is None:
+            raise KeyError("`image` key is required for RandomPatch3DIndexing")
+
+        # img shape is [C, Z, Y, X]
+        c, z, y, x = img.shape
+        pz, py, px = self.patch_size
+        if any(dim < p for dim, p in zip((z, y, x), (pz, py, px))):
+            raise ValueError(f"Patch size {self.patch_size} exceeds image shape {(z, y, x)}")
+        
+        indices = []
+        for _ in range(self.num_patches):
+            z1 = random.randint(0, z - pz)
+            y1 = random.randint(0, y - py)
+            x1 = random.randint(0, x - px)
+            indices.append((z1, y1, x1))
+
+        sample['patch_indices'] = np.array(indices, dtype=np.int32)
+        return sample
+
+
 class AutoPad(BaseTransform):
     def __init__(
         self, 
