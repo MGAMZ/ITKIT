@@ -11,19 +11,17 @@ from torch import Tensor
 import matplotlib.pyplot as plt
 from pytorch_lightning import Callback
 
-
 from ..dataset.base import BaseDataset
-from ..pipeline.base import BaseTransform
 
 
-class SarcopeniaBIARegressionTask(pl.LightningModule):
+class SarcopeniaSMIRegressionTask(pl.LightningModule):
     def __init__(
         self,
         model: torch.nn.Module,
         criterion: torch.nn.Module,
         optimizer_config: dict = {'lr': 1e-4, 'weight_decay': 1e-5},
         scheduler_config: dict | None = None,
-        gt_key: str = 'bia',
+        gt_key: str = 'smi',
         num_semantic_classes: int = 7,
     ) -> None:
         """
@@ -34,7 +32,7 @@ class SarcopeniaBIARegressionTask(pl.LightningModule):
             optimizer_config (dict): Configuration for the AdamW optimizer.
             scheduler_config (dict | None): Configuration for the learning rate scheduler.
                 If None, no scheduler is used.
-            gt_key (str): The key to access the ground truth BIA value in the batch dictionary.
+            gt_key (str): The key to access the ground truth SMI value in the batch dictionary.
         """
         super().__init__()
         self.save_hyperparameters(ignore=['model', 'criterion'])
@@ -49,7 +47,7 @@ class SarcopeniaBIARegressionTask(pl.LightningModule):
         return self.model(x).flatten(1).mean(dim=1)
 
     def _parse_batch(self, batch: dict[str, Any]) -> tuple[Tensor, Tensor]:
-        """Extracts image and ground truth BIA from a batch.
+        """Extracts image and ground truth SMI from a batch.
         
         Including two steps:
         1. Converts the label to one-hot encoding
@@ -57,32 +55,32 @@ class SarcopeniaBIARegressionTask(pl.LightningModule):
         """
         image = batch['image'].to(device=self.device, non_blocking=True)
         label = batch['label'].to(device=self.device, non_blocking=True)
-        gt_bia = batch[self.gt_key].to(device=self.device, non_blocking=True)
+        gt_smi = batch[self.gt_key].to(device=self.device, non_blocking=True)
         label = torch.nn.functional.one_hot(label[:, 0, ...].long(), num_classes=self.num_semantic_classes).permute(0, 4, 1, 2, 3).to(dtype=image.dtype)
         image = torch.cat([image, label], dim=1)  # Concatenate image and semantic channel
-        return image, gt_bia
+        return image, gt_smi
 
     def training_step(self, batch: dict[str, Any], batch_idx: int) -> Tensor:
         """Performs a single training step."""
-        image, gt_bia = self._parse_batch(batch)
-        pred_bia = self(image).squeeze()  # Ensure output is scalar-like
-        loss = self.criterion(pred_bia, gt_bia.float())
+        image, gt_smi = self._parse_batch(batch)
+        pred_smi = self(image).squeeze()  # Ensure output is scalar-like
+        loss = self.criterion(pred_smi, gt_smi.float())
         self.log('train/loss', loss, prog_bar=True, on_step=True, on_epoch=False, logger=True, sync_dist=True, batch_size=len(image))
         return loss
 
     def validation_step(self, batch: dict[str, Any], batch_idx: int):
         """Performs a single validation step."""
-        image, gt_bia = self._parse_batch(batch)
-        pred_bia = self(image).squeeze()
+        image, gt_smi = self._parse_batch(batch)
+        pred_smi = self(image).squeeze()
 
-        loss = self.criterion(pred_bia, gt_bia.float())
+        loss = self.criterion(pred_smi, gt_smi.float())
         self.log('val/loss', loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, batch_size=len(image))
-        mae = torch.nn.functional.l1_loss(pred_bia, gt_bia.float())
+        mae = torch.nn.functional.l1_loss(pred_smi, gt_smi.float())
         self.log('val/mae', mae, on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=len(image))
-        mape = torch.mean(torch.abs((gt_bia.float() - pred_bia) / (gt_bia.float() + 1e-5))) * 100
+        mape = torch.mean(torch.abs((gt_smi.float() - pred_smi) / (gt_smi.float() + 1e-5))) * 100
         self.log('val/mape', mape, on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=len(image))
 
-        return {'val_loss': loss, 'predictions': pred_bia, 'targets': gt_bia}
+        return {'val_loss': loss, 'predictions': pred_smi, 'targets': gt_smi}
 
     def test_step(self, batch: dict[str, Any], batch_idx: int):
         """Performs a single test step."""
@@ -113,21 +111,15 @@ class SarcopeniaBIARegressionTask(pl.LightningModule):
         }
 
 
-class SarcopeniaBIADataset(BaseDataset):
+class SarcopeniaSMIDataset(BaseDataset):
     """
-    Dataset for Sarcopenia BIA regression.
-
-    This dataset combines 3D CT images (in .mha format) with Body Impedance Analysis (BIA)
-    values from a corresponding metadata file (CSV or Excel). It can optionally include
-    a segmentation mask, which is converted to one-hot and concatenated to the image.
-
     Args:
         image_root (str | Path): Path to the directory containing .mha image files.
-        meta_path (str | Path): Path to the CSV or Excel file containing BIA values.
+        meta_path (str | Path): Path to the CSV or Excel file containing SMI values.
         split_accordance (str | Path): Path to a directory whose contents (.mha files)
             define the dataset's samples.
         series_uid_col (str): The name of the column in the metadata file that contains the SeriesUID.
-        bia_col (str): The name of the column in the metadata file that contains the BIA target value.
+        smi_col (str): The name of the column in the metadata file that contains the SMI target value.
         segmentation_root (str | Path | None): Optional path to the directory containing segmentation .mha files.
         **kwargs: Additional arguments passed to the `BaseDataset` constructor.
     """
@@ -137,8 +129,8 @@ class SarcopeniaBIADataset(BaseDataset):
         meta_path: str | Path,
         split_accordance: str | Path,
         series_uid_col: str = 'SeriesUID',
-        bia_col: str = '45. BMI (Body Mass Index)',
-        bia_multiplier: float = 0.05,
+        smi_col: str = '45. BMI (Body Mass Index)',
+        smi_multiplier: float = 0.05,
         segmentation_root: str | Path | None = None,
         **kwargs
     ):
@@ -147,11 +139,11 @@ class SarcopeniaBIADataset(BaseDataset):
         self.meta_path = Path(meta_path)
         self.split_accordance = Path(split_accordance)
         self.series_uid_col = series_uid_col
-        self.bia_col = bia_col
-        self.bia_multiplier = bia_multiplier
+        self.smi_col = smi_col
+        self.smi_multiplier = smi_multiplier
         self.segmentation_root = Path(segmentation_root) if segmentation_root else None
 
-        # Load BIA values from metadata file into a lookup dictionary
+        # Load SMI values from metadata file into a lookup dictionary
         if not self.meta_path.exists():
             raise FileNotFoundError(f"Metadata file not found: {self.meta_path}")
 
@@ -165,7 +157,9 @@ class SarcopeniaBIADataset(BaseDataset):
 
         # Ensure the UID column is treated as string to match file names
         df[self.series_uid_col] = df[self.series_uid_col].astype(str)
-        self.bia_map = df.set_index(self.series_uid_col)[self.bia_col].to_dict()
+        # Filter out rows with NaN values in the SMI column
+        df = df.dropna(subset=[self.smi_col])
+        self.smi_map = df.set_index(self.series_uid_col)[self.smi_col].to_dict()
 
         # Get all series UIDs from the split accordance directory
         all_series_uids = self._search_series()
@@ -174,7 +168,7 @@ class SarcopeniaBIADataset(BaseDataset):
         self.valid_series_uids = []
         for uid in all_series_uids:
             image_exists = (self.image_root / f"{uid}.mha").exists()
-            meta_exists = uid in self.bia_map
+            meta_exists = uid in self.smi_map
             
             seg_exists = True
             if self.segmentation_root:
@@ -184,7 +178,7 @@ class SarcopeniaBIADataset(BaseDataset):
                 self.valid_series_uids.append(uid)
         
         if len(self.valid_series_uids) < len(all_series_uids):
-            print(f"Warning: Found {len(all_series_uids)} series in split_accordance, "
+            print(f"Found {len(all_series_uids)} series in split_accordance, "
                   f"but only {len(self.valid_series_uids)} are available across all specified paths (image, meta, seg).")
         
         if len(self.valid_series_uids) == 0:
@@ -212,15 +206,15 @@ class SarcopeniaBIADataset(BaseDataset):
 
     def __getitem__(self, index) -> dict:
         """
-        Retrieves a sample, including image, BIA value, and optional segmentation path.
+        Retrieves a sample, including image, SMI value, and optional segmentation path.
         """
         series_uid = self.valid_series_uids[index]
-        bia_value = self.bia_map[series_uid]
+        smi_value = self.smi_map[series_uid]
         
         sample = {
             "series_uid": series_uid,
             "image_mha_path": str(self.image_root / f"{series_uid}.mha"),
-            "bia": np.array(bia_value * self.bia_multiplier)
+            "smi": np.array(smi_value * self.smi_multiplier)
         }
 
         if self.segmentation_root:
@@ -230,12 +224,12 @@ class SarcopeniaBIADataset(BaseDataset):
         return self._preprocess(sample)
 
 
-class BIARegVis3DCallback(Callback):
+class SMIRegVis3DCallback(Callback):
     """
     Callback for visualizing 3D regression task inputs and results during validation and testing.
 
     This callback creates visualizations showing each input channel of a sample on different axial slices.
-    It also displays the ground truth and predicted BIA values in the title.
+    It also displays the ground truth and predicted SMI values in the title.
     """
 
     def __init__(
@@ -276,7 +270,7 @@ class BIARegVis3DCallback(Callback):
     def on_validation_batch_end(
         self,
         trainer: pl.Trainer,
-        pl_module: "SarcopeniaBIARegressionTask",
+        pl_module: "SarcopeniaSMIRegressionTask",
         outputs: Any,
         batch: Any,
         batch_idx: int,
@@ -287,7 +281,7 @@ class BIARegVis3DCallback(Callback):
     def on_test_batch_end(
         self,
         trainer: pl.Trainer,
-        pl_module: "SarcopeniaBIARegressionTask",
+        pl_module: "SarcopeniaSMIRegressionTask",
         outputs: Any,
         batch: Any,
         batch_idx: int,
@@ -298,7 +292,7 @@ class BIARegVis3DCallback(Callback):
     def _maybe_visualize(
         self,
         trainer: pl.Trainer,
-        pl_module: "SarcopeniaBIARegressionTask",
+        pl_module: "SarcopeniaSMIRegressionTask",
         outputs: Any,
         batch: Any,
         batch_idx: int,
@@ -310,13 +304,13 @@ class BIARegVis3DCallback(Callback):
         if not (should_log_batch and should_log_epoch and within_sample_limit and trainer.logger):
             return
 
-        model_input, gt_bia = pl_module._parse_batch(batch)
-        pred_bia = outputs['predictions']
+        model_input, gt_smi = pl_module._parse_batch(batch)
+        pred_smi = outputs['predictions']
 
         sample_idx = 0
         sample_input = model_input[sample_idx].cpu().numpy()
-        gt_bia_val = gt_bia[sample_idx].cpu().item()
-        pred_bia_val = pred_bia[sample_idx].cpu().item()
+        gt_smi_val = gt_smi[sample_idx].cpu().item()
+        pred_smi_val = pred_smi[sample_idx].cpu().item()
 
         num_channels, z_size = sample_input.shape[0], sample_input.shape[1]
         slice_indices = self.slice_indices or [z_size // 4, z_size // 2, 3 * z_size // 4]
@@ -324,7 +318,7 @@ class BIARegVis3DCallback(Callback):
         fig, axes = plt.subplots(len(slice_indices), num_channels, figsize=self.figsize)
         fig.suptitle(
             f'{stage.capitalize()} Vis - Batch {batch_idx}, Epoch {trainer.current_epoch}\n'
-            f'GT BIA: {gt_bia_val:.4f}, Pred BIA: {pred_bia_val:.4f}',
+            f'GT SMI: {gt_smi_val:.4f}, Pred SMI: {pred_smi_val:.4f}',
             fontsize=16
         )
 
@@ -344,7 +338,7 @@ class BIARegVis3DCallback(Callback):
 
         if hasattr(trainer.logger, 'experiment') and hasattr(trainer.logger.experiment, 'add_figure'):
             trainer.logger.experiment.add_figure(
-                f'{stage}_BIARegVis3D/batch_{batch_idx}',
+                f'{stage}_SMIRegVis3D/batch_{batch_idx}',
                 fig,
                 trainer.global_step
             )
