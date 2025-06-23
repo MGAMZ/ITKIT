@@ -1,15 +1,15 @@
 import re
 import pdb
 import torch
+from tqdm import tqdm
 from typing import Any
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
-from torch import Tensor
 import matplotlib.pyplot as plt
-from pytorch_lightning import Callback
+from torch import Tensor
 
 from ..dataset.base import BaseDataset
 
@@ -17,7 +17,9 @@ from ..dataset.base import BaseDataset
 class SarcopeniaSMIRegressionTask(pl.LightningModule):
     def __init__(
         self,
-        model: torch.nn.Module,
+        enable_image_input: bool,
+        enable_semantic_input: bool,
+        backbone: torch.nn.Module,
         criterion: torch.nn.Module,
         optimizer_config: dict = {'lr': 1e-4, 'weight_decay': 1e-5},
         scheduler_config: dict | None = None,
@@ -26,7 +28,7 @@ class SarcopeniaSMIRegressionTask(pl.LightningModule):
     ) -> None:
         """
         Args:
-            model (torch.nn.Module): The neural network model for regression. It should accept
+            backbone (torch.nn.Module): The neural network backbone for regression. It should accept
                 a 3D tensor and output a single value.
             criterion (torch.nn.Module): The loss function (e.g., MSELoss, L1Loss).
             optimizer_config (dict): Configuration for the AdamW optimizer.
@@ -35,16 +37,26 @@ class SarcopeniaSMIRegressionTask(pl.LightningModule):
             gt_key (str): The key to access the ground truth SMI value in the batch dictionary.
         """
         super().__init__()
-        self.save_hyperparameters(ignore=['model', 'criterion'])
-        self.model = model
+        self.save_hyperparameters(ignore=['backbone', 'criterion'])
+        self.enable_image_input = enable_image_input
+        self.enable_semantic_input = enable_semantic_input
+        self.backbone = backbone
         self.criterion = criterion
         self.gt_key = gt_key
         self.num_semantic_classes = num_semantic_classes
         self.optimizer_config = optimizer_config
         self.scheduler_config = scheduler_config
+        
+        self.out_proj = torch.nn.Linear(self.backbone.embed_dims[-1], 1)  # pyright: ignore
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.model(x).flatten(1).mean(dim=1)
+        backbone_out:Tensor = self.backbone(x)[-1] # [B, C, Z, Y, X]
+        spatial_average = torch.nn.functional.adaptive_avg_pool3d(backbone_out, (1, 1, 1))  # [B, C, 1, 1, 1]
+        sample_average = spatial_average.squeeze((2, 3, 4)) # [B, C]
+        pred = self.out_proj(sample_average).squeeze(1)  # [B]
+        formatted = [f"{x:.2f}" for x in pred.tolist()]
+        tqdm.write(str(formatted))
+        return pred
 
     def _parse_batch(self, batch: dict[str, Any]) -> tuple[Tensor, Tensor]:
         """Extracts image and ground truth SMI from a batch.
@@ -53,17 +65,27 @@ class SarcopeniaSMIRegressionTask(pl.LightningModule):
         1. Converts the label to one-hot encoding
         2. Concatenates it with the image.
         """
-        image = batch['image'].to(device=self.device, non_blocking=True)
-        label = batch['label'].to(device=self.device, non_blocking=True)
+        if self.enable_image_input:
+            image = batch['image'].to(device=self.device, dtype=torch.float32, non_blocking=True)
+        if self.enable_semantic_input:
+            label = batch['label'].to(device=self.device, dtype=torch.float32, non_blocking=True)
+            label_dtype = label.dtype
+            label = torch.nn.functional.one_hot(label[:, 0, ...].long(), num_classes=self.num_semantic_classes).permute(0, 4, 1, 2, 3).to(dtype=label_dtype)
+            label = label[:, 1:, ...]  # Exclude the background class (index 0)
         gt_smi = batch[self.gt_key].to(device=self.device, non_blocking=True)
-        label = torch.nn.functional.one_hot(label[:, 0, ...].long(), num_classes=self.num_semantic_classes).permute(0, 4, 1, 2, 3).to(dtype=image.dtype)
-        image = torch.cat([image, label], dim=1)  # Concatenate image and semantic channel
-        return image, gt_smi
+        
+        if self.enable_image_input and self.enable_semantic_input:
+            out = torch.cat([image, label], dim=1)  # pyright: ignore
+        elif self.enable_image_input:
+            out = image  # pyright: ignore
+        else:
+            out = label  # pyright: ignore
+        return out, gt_smi
 
     def training_step(self, batch: dict[str, Any], batch_idx: int) -> Tensor:
         """Performs a single training step."""
         image, gt_smi = self._parse_batch(batch)
-        pred_smi = self(image).squeeze()  # Ensure output is scalar-like
+        pred_smi = self(image)  # Ensure output is scalar-like
         loss = self.criterion(pred_smi, gt_smi.float())
         self.log('train/loss', loss, prog_bar=True, on_step=True, on_epoch=False, logger=True, sync_dist=True, batch_size=len(image))
         return loss
@@ -71,7 +93,7 @@ class SarcopeniaSMIRegressionTask(pl.LightningModule):
     def validation_step(self, batch: dict[str, Any], batch_idx: int):
         """Performs a single validation step."""
         image, gt_smi = self._parse_batch(batch)
-        pred_smi = self(image).squeeze()
+        pred_smi = self(image)
 
         loss = self.criterion(pred_smi, gt_smi.float())
         self.log('val/loss', loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, batch_size=len(image))
@@ -112,6 +134,9 @@ class SarcopeniaSMIRegressionTask(pl.LightningModule):
 
 
 class SarcopeniaSMIDataset(BaseDataset):
+    SMI_MEAN = 0  # 7.19
+    SMI_MULTIPLIER = 1.0  # 1.0
+    
     """
     Args:
         image_root (str | Path): Path to the directory containing .mha image files.
@@ -129,8 +154,7 @@ class SarcopeniaSMIDataset(BaseDataset):
         meta_path: str | Path,
         split_accordance: str | Path,
         series_uid_col: str = 'SeriesUID',
-        smi_col: str = '45. BMI (Body Mass Index)',
-        smi_multiplier: float = 0.05,
+        smi_col: str = 'SMI (Skeletal Muscle Index)-BIA',
         segmentation_root: str | Path | None = None,
         **kwargs
     ):
@@ -140,7 +164,6 @@ class SarcopeniaSMIDataset(BaseDataset):
         self.split_accordance = Path(split_accordance)
         self.series_uid_col = series_uid_col
         self.smi_col = smi_col
-        self.smi_multiplier = smi_multiplier
         self.segmentation_root = Path(segmentation_root) if segmentation_root else None
 
         # Load SMI values from metadata file into a lookup dictionary
@@ -214,7 +237,7 @@ class SarcopeniaSMIDataset(BaseDataset):
         sample = {
             "series_uid": series_uid,
             "image_mha_path": str(self.image_root / f"{series_uid}.mha"),
-            "smi": np.array(smi_value * self.smi_multiplier)
+            "smi": np.array((smi_value - self.SMI_MEAN) * self.SMI_MULTIPLIER)
         }
 
         if self.segmentation_root:
@@ -224,7 +247,7 @@ class SarcopeniaSMIDataset(BaseDataset):
         return self._preprocess(sample)
 
 
-class SMIRegVis3DCallback(Callback):
+class SMIRegVis3DCallback(pl.Callback):
     """
     Callback for visualizing 3D regression task inputs and results during validation and testing.
 

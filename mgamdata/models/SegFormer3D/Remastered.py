@@ -11,10 +11,11 @@
 Modified to support arbitrary DWH input and optimized using SDPA.
 """
 
+
 import torch
-import math
-import numpy as np
 from torch import nn
+from collections.abc import Sequence
+
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
@@ -230,14 +231,14 @@ class MixVisionTransformer(nn.Module):
     def __init__(
         self,
         in_channels: int,
-        embed_dims: list,
-        num_heads: list,
-        mlp_ratios: list,
-        depths: list,
-        sr_ratios: list,
-        patch_kernel_size: list,
-        patch_stride: list,
-        patch_padding: list,
+        embed_dims: Sequence,
+        num_heads: Sequence,
+        mlp_ratios: Sequence,
+        depths: Sequence,
+        sr_ratios: Sequence,
+        patch_kernel_size: Sequence,
+        patch_stride: Sequence,
+        patch_padding: Sequence,
         qkv_bias: bool = True, # Common default
         attn_dropout: float = 0.0,
         proj_dropout: float = 0.0,
@@ -245,6 +246,7 @@ class MixVisionTransformer(nn.Module):
     ):
         super().__init__()
         self.depths = depths
+        self.embed_dims = embed_dims
 
         # Create Patch Embedding layers for each stage
         self.patch_embeds = nn.ModuleList()
