@@ -21,7 +21,7 @@ def resample_one_sample(args):
     Returns metadata dict or None if skipped.
     """
     # 解包参数
-    image_itk_path, target_spacing, target_size, output_path, target_image_path, field = args
+    image_itk_path, target_spacing, target_size, field, output_path, target_image_path = args
     img_dim = 3
 
     # 检查目标文件是否已存在
@@ -97,16 +97,16 @@ def resample_one_sample(args):
     return {itk_name: {"spacing": final_spacing, "size": final_size, "origin": final_origin}}
 
 
-def resample_dataset(
+def resample_task(
     source_folder: str,
     dest_folder: str,
     target_spacing: Sequence[float],
     target_size: Sequence[int],
+    field: str,
     recursive: bool = False,
     mp: bool = False,
     workers: int|None = None,
     target_folder: str|None = None,
-    field: str = "image",
 ):
     """
     Resample a dataset with dimension-wise spacing/size rules or target-folder reference images.
@@ -167,7 +167,7 @@ def resample_dataset(
         target_paths = [None] * len(image_paths)
     # 生成任务列表
     task_list = [
-        (image_paths[i], target_spacing, target_size, output_paths[i], target_paths[i], field)
+        (image_paths[i], target_spacing, target_size, field, output_paths[i], target_paths[i])
         for i in range(len(image_paths))
     ]
 
@@ -212,6 +212,7 @@ def resample_dataset(
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Resample a dataset with dimension-wise spacing/size rules or target image.")
+    parser.add_argument("field", type=str, choices=["image", "label"], help="Field type for resampling. Required when --target is specified.")
     parser.add_argument("source_folder", type=str, help="The source folder containing .mha files.")
     parser.add_argument("dest_folder", type=str, help="The destination folder for resampled files.")
     parser.add_argument("-r", "--recursive", action="store_true", help="Recursively process subdirectories.")
@@ -228,9 +229,7 @@ def parse_args():
     # target_folder 模式
     parser.add_argument("--target-folder", dest="target_folder", type=str, default=None,
                         help="Folder containing target reference images matching source names. Mutually exclusive with --spacing and --size.")
-    parser.add_argument("--field", type=str, choices=["image", "label"], default="image",
-                        help="Field type for resampling. Required when --target is specified.")
-
+    
     return parser.parse_args()
 
 
@@ -300,16 +299,16 @@ def main():
         print(f"Warning: Could not save config file: {e}")
 
     # 执行
-    resample_dataset(
+    resample_task(
         args.source_folder,
         args.dest_folder,
         target_spacing,
         target_size,
+        args.field,
         args.recursive,
         args.mp,
         args.workers,
         args.target_folder,
-        args.field,
     )
     print(f"Resampling completed. The resampled dataset is saved in {args.dest_folder}.")
 
