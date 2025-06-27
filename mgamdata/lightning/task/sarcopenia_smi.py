@@ -54,8 +54,6 @@ class SarcopeniaSMIRegressionTask(pl.LightningModule):
         spatial_average = torch.nn.functional.adaptive_avg_pool3d(backbone_out, (1, 1, 1))  # [B, C, 1, 1, 1]
         sample_average = spatial_average.squeeze((2, 3, 4)) # [B, C]
         pred = self.out_proj(sample_average).squeeze(1)  # [B]
-        formatted = [f"{x:.2f}" for x in pred.tolist()]
-        tqdm.write(str(formatted))
         return pred
 
     def _parse_batch(self, batch: dict[str, Any]) -> tuple[Tensor, Tensor]:
@@ -100,7 +98,7 @@ class SarcopeniaSMIRegressionTask(pl.LightningModule):
         mae = torch.nn.functional.l1_loss(pred_smi, gt_smi.float())
         self.log('val/mae', mae, on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=len(image))
         mape = torch.mean(torch.abs((gt_smi.float() - pred_smi) / (gt_smi.float() + 1e-5))) * 100
-        self.log('val/mape', mape, on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=len(image))
+        self.log('val/mape(%)', mape, on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=len(image))
 
         return {'val_loss': loss, 'predictions': pred_smi, 'targets': gt_smi}
 
