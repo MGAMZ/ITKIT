@@ -10,6 +10,7 @@ import pandas as pd
 import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 from torch import Tensor
+from sklearn.metrics import r2_score
 
 from ..dataset.base import BaseDataset
 
@@ -99,8 +100,15 @@ class SarcopeniaSMIRegressionTask(pl.LightningModule):
         self.log('val/mae', mae, on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=len(image))
         mape = torch.mean(torch.abs((gt_smi.float() - pred_smi) / (gt_smi.float() + 1e-5))) * 100
         self.log('val/mape(%)', mape, on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=len(image))
+        r2 = r2_score(gt_smi.float().detach().cpu().numpy(), pred_smi.detach().cpu().numpy())
+        self.log('val/r2', float(r2), on_step=False, on_epoch=True, logger=True, sync_dist=True, batch_size=len(image))
 
-        return {'val_loss': loss, 'predictions': pred_smi, 'targets': gt_smi}
+        return {'val_loss': loss,
+                'val_mae': mae,
+                'val_mape(%)': mape,
+                'val_r2': r2,
+                'predictions': pred_smi,
+                'targets': gt_smi}
 
     def test_step(self, batch: dict[str, Any], batch_idx: int):
         """Performs a single test step."""

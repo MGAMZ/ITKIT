@@ -21,22 +21,23 @@ def resample_one_sample(args):
     Returns metadata dict or None if skipped.
     """
     # 解包参数
+    logs = []
     image_itk_path, target_spacing, target_size, field, output_path, target_image_path = args
     img_dim = 3
 
     # 检查目标文件是否已存在
     if os.path.exists(output_path):
         itk_name = os.path.basename(image_itk_path)
-        tqdm.write(f"Skipping {itk_name}, output exists.")
-        return None
+        logs.append(f"Skipping {itk_name}, output exists.")
+        return None, logs
 
     # 读取
     try:
         image_itk = sitk.ReadImage(image_itk_path)
     except Exception as e:
         traceback.print_exc()
-        tqdm.write(f"Error reading {image_itk_path}: {e}")
-        return None
+        logs.append(f"Error reading {image_itk_path}: {e}")
+        return None, logs
 
     # 如果指定了目标图像，则使用目标图像重采样，否则使用spacing/size重采样
     if target_image_path:
@@ -57,7 +58,6 @@ def resample_one_sample(args):
 
         if needs_spacing_resample and not np.allclose(effective_spacing, orig_spacing):
             itk_name = os.path.basename(image_itk_path)
-            tqdm.write(f"Resampling {itk_name} to spacing {effective_spacing}...")
             image_after_spacing = sitk_resample_to_spacing(image_itk, effective_spacing, field)
 
         # --- 阶段二：Size 重采样 ---
@@ -73,11 +73,15 @@ def resample_one_sample(args):
 
         if needs_size_resample and effective_size != list(current_size):
             itk_name = os.path.basename(image_itk_path)
-            tqdm.write(f"Resampling {itk_name} to size {effective_size}...")
             image_resampled = sitk_resample_to_size(image_after_spacing, effective_size, field)
 
         # --- 阶段三：方向重采样 ---
         image_resampled = sitk.DICOMOrient(image_resampled, 'LPI')
+        
+        logs.append(
+            f"Resampling completed for {os.path.basename(image_itk_path)}. "
+            f"Output size {image_resampled.GetSize()} | spacing {image_resampled.GetSpacing().tolist()}."
+        )
 
     # 写入
     try:
@@ -85,8 +89,8 @@ def resample_one_sample(args):
         sitk.WriteImage(image_resampled, output_path, useCompression=True)
     except Exception as e:
         traceback.print_exc()
-        tqdm.write(f"Error writing {output_path}: {e}")
-        return None
+        logs.append(f"Error writing {output_path}: {e}")
+        return None, logs
 
     # 获取实际spacing和size并返回元数据
     final_spacing = image_resampled.GetSpacing()[::-1]
@@ -94,7 +98,7 @@ def resample_one_sample(args):
     # 获取实际origin
     final_origin = image_resampled.GetOrigin()[::-1]
     itk_name = os.path.basename(image_itk_path)
-    return {itk_name: {"spacing": final_spacing, "size": final_size, "origin": final_origin}}
+    return {itk_name: {"spacing": final_spacing, "size": final_size, "origin": final_origin}}, logs
 
 
 def resample_task(
@@ -184,7 +188,9 @@ def resample_task(
             ) as pbar,
         ):
             result_fetcher = pool.imap_unordered(func=resample_one_sample, iterable=task_list)
-            for res in result_fetcher:
+            for res, logs in result_fetcher:
+                for log in logs:
+                    tqdm.write(log)
                 if res:
                     series_meta.update(res)
                 pbar.update()
@@ -196,7 +202,9 @@ def resample_task(
             dynamic_ncols=True,
         ) as pbar:
             for task_args in task_list:
-                res = resample_one_sample(task_args)
+                res, logs = resample_one_sample(task_args)
+                for log in logs:
+                    tqdm.write(log)
                 if res:
                     series_meta.update(res)
                 pbar.update()
