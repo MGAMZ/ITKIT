@@ -4,8 +4,8 @@ CLASS_INDEX_MAP = {
     'adrenal_gland_right': 2, # 右肾上腺
     'aorta': 3, # 主动脉
     'atrial_appendage_left': 4, # 左心耳
-    'autochthon_left': 5, # 左自体骨
-    'autochthon_right': 6, # 右自体骨
+    'autochthon_left': 5, # 左侧竖脊肌
+    'autochthon_right': 6, # 右侧竖脊肌
     'brachiocephalic_trunk': 7, # 头臂干
     'brachiocephalic_vein_left': 8, # 左头臂静脉
     'brachiocephalic_vein_right': 9, # 右头臂静脉
@@ -16,108 +16,107 @@ CLASS_INDEX_MAP = {
     'common_carotid_artery_left': 14, # 左颈总动脉
     'common_carotid_artery_right': 15, # 右颈总动脉
     'costal_cartilages': 16, # 肋软骨
-    'ct': 17, # 计算机断层扫描（此项似乎为缩写，通常意指影像类型而非解剖结构）
-    'duodenum': 18, # 十二指肠
-    'esophagus': 19, # 食管
-    'femur_left': 20, # 左股骨
-    'femur_right': 21, # 右股骨
-    'gallbladder': 22, # 胆囊
-    'gluteus_maximus_left': 23, # 左臀大肌
-    'gluteus_maximus_right': 24, # 右臀大肌
-    'gluteus_medius_left': 25, # 左臀中肌
-    'gluteus_medius_right': 26, # 右臀中肌
-    'gluteus_minimus_left': 27, # 左臀小肌
-    'gluteus_minimus_right': 28, # 右臀小肌
-    'heart': 29, # 心脏
-    'hip_left': 30, # 左髋
-    'hip_right': 31, # 右髋
-    'humerus_left': 32, # 左肱骨
-    'humerus_right': 33, # 右肱骨
-    'iliac_artery_left': 34, # 左髂动脉
-    'iliac_artery_right': 35, # 右髂动脉
-    'iliac_vena_left': 36, # 左髂静脉
-    'iliac_vena_right': 37, # 右髂静脉
-    'iliopsoas_left': 38, # 左髂腰肌
-    'iliopsoas_right': 39, # 右髂腰肌
-    'inferior_vena_cava': 40, # 下腔静脉
-    'kidney_cyst_left': 41, # 左肾囊肿
-    'kidney_cyst_right': 42, # 右肾囊肿
-    'kidney_left': 43, # 左肾
-    'kidney_right': 44, # 右肾
-    'liver': 45, # 肝
-    'lung_lower_lobe_left': 46, # 左肺下叶
-    'lung_lower_lobe_right': 47, # 右肺下叶
-    'lung_middle_lobe_right': 48, # 右肺中叶
-    'lung_upper_lobe_left': 49, # 左肺上叶
-    'lung_upper_lobe_right': 50, # 右肺上叶
-    'pancreas': 51, # 胰腺
-    'portal_vein_and_splenic_vein': 52, # 门静脉和脾静脉
-    'prostate': 53, # 前列腺
-    'pulmonary_vein': 54, # 肺静脉
-    'rib_left_1': 55, # 左第1肋骨
-    'rib_left_10': 56, # 左第10肋骨
-    'rib_left_11': 57, # 左第11肋骨
-    'rib_left_12': 58, # 左第12肋骨
-    'rib_left_2': 59, # 左第2肋骨
-    'rib_left_3': 60, # 左第3肋骨
-    'rib_left_4': 61, # 左第4肋骨
-    'rib_left_5': 62, # 左第5肋骨
-    'rib_left_6': 63, # 左第6肋骨
-    'rib_left_7': 64, # 左第7肋骨
-    'rib_left_8': 65, # 左第8肋骨
-    'rib_left_9': 66, # 左第9肋骨
-    'rib_right_1': 67, # 右第1肋骨
-    'rib_right_10': 68, # 右第10肋骨
-    'rib_right_11': 69, # 右第11肋骨
-    'rib_right_12': 70, # 右第12肋骨
-    'rib_right_2': 71, # 右第2肋骨
-    'rib_right_3': 72, # 右第3肋骨
-    'rib_right_4': 73, # 右第4肋骨
-    'rib_right_5': 74, # 右第5肋骨
-    'rib_right_6': 75, # 右第6肋骨
-    'rib_right_7': 76, # 右第7肋骨
-    'rib_right_8': 77, # 右第8肋骨
-    'rib_right_9': 78, # 右第9肋骨
-    'sacrum': 79, # 骶骨
-    'scapula_left': 80, # 左肩胛骨
-    'scapula_right': 81, # 右肩胛骨
-    'skull': 82, # 颅骨
-    'small_bowel': 83, # 小肠
-    'spinal_cord': 84, # 脊髓
-    'spleen': 85, # 脾
-    'sternum': 86, # 胸骨
-    'stomach': 87, # 胃
-    'subclavian_artery_left': 88, # 左锁骨下动脉
-    'subclavian_artery_right': 89, # 右锁骨下动脉
-    'superior_vena_cava': 90, # 上腔静脉
-    'thyroid_gland': 91, # 甲状腺
-    'trachea': 92, # 气管
-    'urinary_bladder': 93, # 膀胱
-    'vertebrae_C1': 94, # 第1颈椎
-    'vertebrae_C2': 95, # 第2颈椎
-    'vertebrae_C3': 96, # 第3颈椎
-    'vertebrae_C4': 97, # 第4颈椎
-    'vertebrae_C5': 98, # 第5颈椎
-    'vertebrae_C6': 99, # 第6颈椎
-    'vertebrae_C7': 100, # 第7颈椎
-    'vertebrae_L1': 101, # 第1腰椎
-    'vertebrae_L2': 102, # 第2腰椎
-    'vertebrae_L3': 103, # 第3腰椎
-    'vertebrae_L4': 104, # 第4腰椎
-    'vertebrae_L5': 105, # 第5腰椎
-    'vertebrae_S1': 106, # 第1骶椎
-    'vertebrae_T1': 107, # 第1胸椎
-    'vertebrae_T10': 108, # 第10胸椎
-    'vertebrae_T11': 109, # 第11胸椎
-    'vertebrae_T12': 110, # 第12胸椎
-    'vertebrae_T2': 111, # 第2胸椎
-    'vertebrae_T3': 112, # 第3胸椎
-    'vertebrae_T4': 113, # 第4胸椎
-    'vertebrae_T5': 114, # 第5胸椎
-    'vertebrae_T6': 115, # 第6胸椎
-    'vertebrae_T7': 116, # 第7胸椎
-    'vertebrae_T8': 117, # 第8胸椎
-    'vertebrae_T9': 118, # 第9胸椎
+    'duodenum': 17, # 十二指肠
+    'esophagus': 18, # 食管
+    'femur_left': 19, # 左股骨
+    'femur_right': 20, # 右股骨
+    'gallbladder': 21, # 胆囊
+    'gluteus_maximus_left': 22, # 左臀大肌
+    'gluteus_maximus_right': 23, # 右臀大肌
+    'gluteus_medius_left': 24, # 左臀中肌
+    'gluteus_medius_right': 25, # 右臀中肌
+    'gluteus_minimus_left': 26, # 左臀小肌
+    'gluteus_minimus_right': 27, # 右臀小肌
+    'heart': 28, # 心脏
+    'hip_left': 29, # 左髋
+    'hip_right': 30, # 右髋
+    'humerus_left': 31, # 左肱骨
+    'humerus_right': 32, # 右肱骨
+    'iliac_artery_left': 33, # 左髂动脉
+    'iliac_artery_right': 34, # 右髂动脉
+    'iliac_vena_left': 35, # 左髂静脉
+    'iliac_vena_right': 36, # 右髂静脉
+    'iliopsoas_left': 37, # 左髂腰肌
+    'iliopsoas_right': 38, # 右髂腰肌
+    'inferior_vena_cava': 39, # 下腔静脉
+    'kidney_cyst_left': 40, # 左肾囊肿
+    'kidney_cyst_right': 41, # 右肾囊肿
+    'kidney_left': 42, # 左肾
+    'kidney_right': 43, # 右肾
+    'liver': 44, # 肝
+    'lung_lower_lobe_left': 45, # 左肺下叶
+    'lung_lower_lobe_right': 46, # 右肺下叶
+    'lung_middle_lobe_right': 47, # 右肺中叶
+    'lung_upper_lobe_left': 48, # 左肺上叶
+    'lung_upper_lobe_right': 49, # 右肺上叶
+    'pancreas': 50, # 胰腺
+    'portal_vein_and_splenic_vein': 51, # 门静脉和脾静脉
+    'prostate': 52, # 前列腺
+    'pulmonary_vein': 53, # 肺静脉
+    'rib_left_1': 54, # 左第1肋骨
+    'rib_left_10': 55, # 左第10肋骨
+    'rib_left_11': 56, # 左第11肋骨
+    'rib_left_12': 57, # 左第12肋骨
+    'rib_left_2': 58, # 左第2肋骨
+    'rib_left_3': 59, # 左第3肋骨
+    'rib_left_4': 60, # 左第4肋骨
+    'rib_left_5': 61, # 左第5肋骨
+    'rib_left_6': 62, # 左第6肋骨
+    'rib_left_7': 63, # 左第7肋骨
+    'rib_left_8': 64, # 左第8肋骨
+    'rib_left_9': 65, # 左第9肋骨
+    'rib_right_1': 66, # 右第1肋骨
+    'rib_right_10': 67, # 右第10肋骨
+    'rib_right_11': 68, # 右第11肋骨
+    'rib_right_12': 69, # 右第12肋骨
+    'rib_right_2': 70, # 右第2肋骨
+    'rib_right_3': 71, # 右第3肋骨
+    'rib_right_4': 72, # 右第4肋骨
+    'rib_right_5': 73, # 右第5肋骨
+    'rib_right_6': 74, # 右第6肋骨
+    'rib_right_7': 75, # 右第7肋骨
+    'rib_right_8': 76, # 右第8肋骨
+    'rib_right_9': 77, # 右第9肋骨
+    'sacrum': 78, # 骶骨
+    'scapula_left': 79, # 左肩胛骨
+    'scapula_right': 80, # 右肩胛骨
+    'skull': 81, # 颅骨
+    'small_bowel': 82, # 小肠
+    'spinal_cord': 83, # 脊髓
+    'spleen': 84, # 脾
+    'sternum': 85, # 胸骨
+    'stomach': 86, # 胃
+    'subclavian_artery_left': 87, # 左锁骨下动脉
+    'subclavian_artery_right': 88, # 右锁骨下动脉
+    'superior_vena_cava': 89, # 上腔静脉
+    'thyroid_gland': 90, # 甲状腺
+    'trachea': 91, # 气管
+    'urinary_bladder': 92, # 膀胱
+    'vertebrae_C1': 93, # 第1颈椎
+    'vertebrae_C2': 94, # 第2颈椎
+    'vertebrae_C3': 95, # 第3颈椎
+    'vertebrae_C4': 96, # 第4颈椎
+    'vertebrae_C5': 97, # 第5颈椎
+    'vertebrae_C6': 98, # 第6颈椎
+    'vertebrae_C7': 99, # 第7颈椎
+    'vertebrae_L1': 100, # 第1腰椎
+    'vertebrae_L2': 101, # 第2腰椎
+    'vertebrae_L3': 102, # 第3腰椎
+    'vertebrae_L4': 103, # 第4腰椎
+    'vertebrae_L5': 104, # 第5腰椎
+    'vertebrae_S1': 105, # 第1骶椎
+    'vertebrae_T1': 106, # 第1胸椎
+    'vertebrae_T10': 107, # 第10胸椎
+    'vertebrae_T11': 108, # 第11胸椎
+    'vertebrae_T12': 109, # 第12胸椎
+    'vertebrae_T2': 110, # 第2胸椎
+    'vertebrae_T3': 111, # 第3胸椎
+    'vertebrae_T4': 112, # 第4胸椎
+    'vertebrae_T5': 113, # 第5胸椎
+    'vertebrae_T6': 114, # 第6胸椎
+    'vertebrae_T7': 115, # 第7胸椎
+    'vertebrae_T8': 116, # 第8胸椎
+    'vertebrae_T9': 117, # 第9胸椎
 }
 
 SUBSETS = {
@@ -129,7 +128,6 @@ SUBSETS = {
         'rib_right_1', 'rib_right_2', 'rib_right_3', 'rib_right_4', 'rib_right_5',
         'rib_right_6', 'rib_right_7', 'rib_right_8', 'rib_right_9',
         'rib_right_10', 'rib_right_11', 'rib_right_12',
-        'sacrum', 
         'vertebrae_C1', 'vertebrae_C2', 'vertebrae_C3', 'vertebrae_C4',
         'vertebrae_C5', 'vertebrae_C6', 'vertebrae_C7', 
         'vertebrae_T1', 'vertebrae_T2', 'vertebrae_T3', 'vertebrae_T4',
@@ -138,7 +136,27 @@ SUBSETS = {
         'vertebrae_T12', 
         'vertebrae_L1', 'vertebrae_L2', 'vertebrae_L3', 'vertebrae_L4', 'vertebrae_L5',
         'vertebrae_S1', 
-    ]
+    ],
+    'bones': [
+        'background', 'clavicula_left', 'clavicula_right', 'costal_cartilages',
+        'femur_left', 'femur_right',
+        'humerus_left', 'humerus_right',
+        'rib_left_1', 'rib_left_2', 'rib_left_3', 'rib_left_4', 'rib_left_5',
+        'rib_left_6', 'rib_left_7', 'rib_left_8', 'rib_left_9', 
+        'rib_left_10', 'rib_left_11', 'rib_left_12',
+        'rib_right_1', 'rib_right_2', 'rib_right_3', 'rib_right_4', 'rib_right_5',
+        'rib_right_6', 'rib_right_7', 'rib_right_8', 'rib_right_9',
+        'rib_right_10', 'rib_right_11', 'rib_right_12',
+        'sacrum', 'scapula_left', 'scapula_right', 'skull', 'sternum',
+        'vertebrae_C1', 'vertebrae_C2', 'vertebrae_C3', 'vertebrae_C4',
+        'vertebrae_C5', 'vertebrae_C6', 'vertebrae_C7', 
+        'vertebrae_T1', 'vertebrae_T2', 'vertebrae_T3', 'vertebrae_T4',
+        'vertebrae_T5', 'vertebrae_T6', 'vertebrae_T7', 'vertebrae_T8',
+        'vertebrae_T9', 'vertebrae_T10', 'vertebrae_T11','vertebrae_T12', 
+        'vertebrae_L1', 'vertebrae_L2', 'vertebrae_L3', 'vertebrae_L4', 'vertebrae_L5',
+        'vertebrae_S1',
+    ],
+    'erector': ['background', 'autochthon_left', 'autochthon_right'],
 }
 
 CLASS_MERGE = {

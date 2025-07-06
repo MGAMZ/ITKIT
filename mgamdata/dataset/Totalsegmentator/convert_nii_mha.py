@@ -7,11 +7,46 @@ import numpy as np
 import SimpleITK as sitk
 
 from mgamdata.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size, nii_to_sitk, merge_masks
-from mgamdata.dataset.Totalsegmentator.meta import CLASS_INDEX_MAP, CLASS_MERGE, generate_reduced_class_map_and_label_map
+from mgamdata.dataset.Totalsegmentator.meta import CLASS_INDEX_MAP, CLASS_MERGE, generate_reduced_class_map_and_label_map, SUBSETS
 
 
+def extract_subset_segmentations(
+    corresponding_itk_image: sitk.Image,
+    all_nii_files: list[str],
+    subset_name: str
+) -> sitk.Image:
+    """
+    从所有分割文件中提取一个子集，并根据子集定义重新映射标签ID。
+    """
+    subset_classes = SUBSETS[subset_name]
+    
+    class_to_files = {
+        os.path.basename(file_path)[:-7]: file_path
+        for file_path in all_nii_files
+    }
 
-def merge_one_case_segmentations(corresponding_itk_image:sitk.Image, 
+    reference_array = sitk.GetArrayFromImage(corresponding_itk_image)
+    merged_array = np.zeros_like(reference_array, dtype=np.uint8)
+
+    for new_id, class_name in enumerate(subset_classes):
+        if class_name == 'background':
+            continue
+        
+        if class_name in class_to_files:
+            nii_path = class_to_files[class_name]
+            try:
+                mask_itk = nii_to_sitk(nii_path, 'label')
+                mask_array = sitk.GetArrayFromImage(mask_itk)
+                merged_array[mask_array > 0] = new_id
+            except Exception as e:
+                print(f"Warning: Failed to process {nii_path}: {e}")
+
+    merged_itk = sitk.GetImageFromArray(merged_array)
+    merged_itk.CopyInformation(corresponding_itk_image)
+    return merged_itk
+
+
+def parse_one_case_segmentations(corresponding_itk_image:sitk.Image, 
                                  case_path: str,
                                  subset: str | None = None,
                                  merge_rule: str | None = None):
@@ -28,22 +63,9 @@ def merge_one_case_segmentations(corresponding_itk_image:sitk.Image,
         raise ValueError("Cannot specify both subset and merge_rule. Please use only one.")
     
     if subset is not None:
-        # 如果指定了子集，只处理子集中的类
-        from mgamdata.dataset.Totalsegmentator.meta import SUBSETS
-        subset_classes = SUBSETS[subset]
-        class_to_files = {}
-        
-        # 建立类名到文件路径的映射
-        for file_path in all_nii_files:
-            class_name = os.path.basename(file_path)[:-7]  # 去除.nii.gz后缀
-            if class_name in subset_classes:
-                class_to_files[class_name] = file_path
-        
-        # 按照子集中的顺序排序，确保索引正确
-        idx_sorted_paths = []
-        for class_name in subset_classes:
-            if class_name in class_to_files:
-                idx_sorted_paths.append(class_to_files[class_name])
+        # 如果指定了子集，使用新的提取函数
+        return extract_subset_segmentations(corresponding_itk_image, all_nii_files, subset)
+    
     elif merge_rule is not None:
         # 如果指定了merge规则，按照merge规则处理
         if merge_rule not in CLASS_MERGE:
@@ -87,6 +109,7 @@ def merge_one_case_segmentations(corresponding_itk_image:sitk.Image,
             merged_itk = sitk.GetImageFromArray(merged_array)
             merged_itk.CopyInformation(merged_itk_original)
             return merged_itk
+    
     else:
         # 如果未指定子集，处理所有类，按照原始CLASS_INDEX_MAP排序
         idx_sorted_paths = sorted(
@@ -100,6 +123,7 @@ def merge_one_case_segmentations(corresponding_itk_image:sitk.Image,
         reference_array = sitk.GetArrayFromImage(corresponding_itk_image)
         empty_mask = np.zeros_like(reference_array, dtype=np.uint8)
         merged_itk = sitk.GetImageFromArray(empty_mask)
+    
     else:
         merged_itk = merge_masks(idx_sorted_paths)
     
@@ -117,11 +141,9 @@ def convert_one_case(args):
     os.makedirs(os.path.join(series_output_folder, 'label'), exist_ok=True)
     if os.path.exists(output_image_mha_path) and os.path.exists(output_anno_mha_path):
         return
-    
-    # 原始扫描转换为SimpleITK格式并保存
-    # 类分离的标注文件合并后保存
+
     input_image_mha = nii_to_sitk(input_image_nii_path, "image")
-    merged_itk = merge_one_case_segmentations(
+    merged_itk = parse_one_case_segmentations(
         input_image_mha, 
         series_input_folder, 
         subset=subset,
@@ -194,11 +216,11 @@ def main():
         parser.error("Cannot specify both --subset and --merge. Please use only one.")
     
     convert_and_save_nii_to_mha(
-        args.input_dir, 
-        args.output_dir, 
-        args.mp, 
-        args.workers, 
-        args.spacing, 
+        args.input_dir,
+        args.output_dir,
+        args.mp,
+        args.workers,
+        args.spacing,
         args.size,
         args.subset,
         args.merge
