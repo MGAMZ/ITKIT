@@ -289,7 +289,7 @@ class Inferencer_3D_ONNX(SegInferencer):
         itk_image = sitk.DICOMOrient(itk_image, 'LPI')
         image_array = sitk.GetArrayFromImage(itk_image) # [Z, Y, X]
         pred = self.Inference_FromNDArray(image_array)  # [C, Z, Y, X]
-        pred = pred.argmax(axis=0) # [Z, Y, X]
+        pred = pred.argmax(axis=0).astype(np.uint8) # [Z, Y, X]
         itk_pred = sitk.GetImageFromArray(pred)
         itk_pred.CopyInformation(itk_image)
         return itk_image, itk_pred
