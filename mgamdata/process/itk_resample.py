@@ -80,7 +80,7 @@ def resample_one_sample(args):
         
         logs.append(
             f"Resampling completed for {os.path.basename(image_itk_path)}. "
-            f"Output size {image_resampled.GetSize()} | spacing {image_resampled.GetSpacing().tolist()}."
+            f"Output size {image_resampled.GetSize()} | spacing {image_resampled.GetSpacing()}."
         )
 
     # 写入

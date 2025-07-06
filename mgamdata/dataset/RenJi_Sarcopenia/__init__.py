@@ -17,7 +17,7 @@ CLASS_MAP = {
     1: 'Psoas Major Muscle',
     2: 'Other Skeletal Muscle',
     3: 'Subcutaneous Fat',
-    4: 'Visceral Fat'
+    4: 'Visceral Fat',
 }
 # 类定义缩写
 CLASS_MAP_ABBR = {
@@ -36,6 +36,8 @@ CLASS_MAP_AFTER_POSTSEG = {
     4: 'Visceral Fat',
     5: 'PsoasMajor-Fat',
     6: 'OtherSkeletal-Fat',
+    7: 'Erector-Muscle',
+    8: 'Erector-Fat'
 }
 # 标签颜色映射
 LABEL_COLOR_DICT = {
