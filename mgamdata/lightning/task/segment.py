@@ -121,14 +121,6 @@ class SegmentationBase(pl.LightningModule):
 
     @abstractmethod
     def slide_inference(self, inputs: Tensor) -> Tensor:
-        """Sliding window inference implementation.
-        
-        Args:
-            inputs: Input tensor
-            
-        Returns:
-            Output logits
-        """
         raise NotImplementedError("Subclasses must implement slide_inference method")
 
     def _compute_losses(self, logits: Tensor, targets: Tensor) -> dict[str, Tensor]:

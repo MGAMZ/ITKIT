@@ -240,19 +240,34 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         batch_size, _, h_img, w_img = inputs.size()
         h_img, w_img = int(h_img), int(w_img)
         
-        # 计算网格数
-        h_grids = max(h_img - h_crop + h_stride - 1, 0) // h_stride + 1
-        w_grids = max(w_img - w_crop + w_stride - 1, 0) // w_stride + 1
+        # 检查是否需要padding
+        need_padding = h_img < h_crop or w_img < w_crop
+        if need_padding:
+            # 计算padding大小
+            pad_h = max(h_crop - h_img, 0)
+            pad_w = max(w_crop - w_img, 0)
+            # 对称padding：(left, right, top, bottom)
+            pad = (pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2)
+            padded_inputs = torch.nn.functional.pad(inputs, pad, mode='replicate', value=0)
+            h_padded, w_padded = padded_inputs.shape[2], padded_inputs.shape[3]
+        else:
+            padded_inputs = inputs
+            h_padded, w_padded = h_img, w_img
+            pad = None
+        
+        # 计算网格数（基于padded size）
+        h_grids = max(h_padded - h_crop + h_stride - 1, 0) // h_stride + 1
+        w_grids = max(w_padded - w_crop + w_stride - 1, 0) // w_stride + 1
         
         accumulate_device = torch.device(self.inference_PatchAccumulateDevice)
         
         preds = torch.zeros(
-            size=(batch_size, self.num_classes, h_img, w_img),
+            size=(batch_size, self.num_classes, h_padded, w_padded),
             dtype=torch.float32,
             device=accumulate_device
         )
         count_mat = torch.zeros(
-            size=(batch_size, 1, h_img, w_img),
+            size=(batch_size, 1, h_padded, w_padded),
             dtype=torch.uint8,
             device=accumulate_device
         )
@@ -262,13 +277,13 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
             for w_idx in range(w_grids):
                 h1 = h_idx * h_stride
                 w1 = w_idx * w_stride
-                h2 = min(h1 + h_crop, h_img)
-                w2 = min(w1 + w_crop, w_img)
+                h2 = min(h1 + h_crop, h_padded)
+                w2 = min(w1 + w_crop, w_padded)
                 h1 = max(h2 - h_crop, 0)
                 w1 = max(w2 - w_crop, 0)
                 
                 # 截取patch
-                crop_img = inputs[:, :, h1:h2, w1:w2]
+                crop_img = padded_inputs[:, :, h1:h2, w1:w2]
                 
                 # 推理
                 crop_seg_logit = self._forward(crop_img)
@@ -280,6 +295,12 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         
         assert torch.min(count_mat).item() > 0, "存在未被滑动窗口覆盖的区域"
         seg_logits = preds / count_mat
+        
+        # 如果有padding，需要裁剪回原始尺寸
+        if need_padding:
+            assert pad is not None, "Padding信息丢失，无法裁剪回原始尺寸"
+            pad_left, pad_right, pad_top, pad_bottom = pad
+            seg_logits = seg_logits[:, :, pad_top:h_padded-pad_bottom, pad_left:w_padded-pad_right]
         
         return seg_logits
 
@@ -413,22 +434,40 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         y_img = int(y_img)
         x_img = int(x_img)
         
-        # 计算网格数
-        z_grids = max(z_img - z_crop + z_stride - 1, 0) // z_stride + 1
-        y_grids = max(y_img - y_crop + y_stride - 1, 0) // y_stride + 1
-        x_grids = max(x_img - x_crop + x_stride - 1, 0) // x_stride + 1
+        # 检查是否需要padding
+        need_padding = z_img < z_crop or y_img < y_crop or x_img < x_crop
+        if need_padding:
+            # 计算padding大小
+            pad_z = max(z_crop - z_img, 0)
+            pad_y = max(y_crop - y_img, 0)
+            pad_x = max(x_crop - x_img, 0)
+            # 对称padding：(left, right, top, bottom, front, back)
+            pad = (pad_x // 2, pad_x - pad_x // 2, 
+                   pad_y // 2, pad_y - pad_y // 2,
+                   pad_z // 2, pad_z - pad_z // 2)
+            padded_inputs = torch.nn.functional.pad(inputs, pad, mode='replicate', value=0)
+            z_padded, y_padded, x_padded = padded_inputs.shape[2], padded_inputs.shape[3], padded_inputs.shape[4]
+        else:
+            padded_inputs = inputs
+            z_padded, y_padded, x_padded = z_img, y_img, x_img
+            pad = None
+        
+        # 计算网格数（基于padded size）
+        z_grids = max(z_padded - z_crop + z_stride - 1, 0) // z_stride + 1
+        y_grids = max(y_padded - y_crop + y_stride - 1, 0) // y_stride + 1
+        x_grids = max(x_padded - x_crop + x_stride - 1, 0) // x_stride + 1
         
         # 准备结果累加矩阵，根据指定的设备创建
         accumulate_device = torch.device(self.inference_PatchAccumulateDevice)
         
         # 创建累加矩阵和计数矩阵在指定的设备上
         preds = torch.zeros(
-            size=(batch_size, self.num_classes, z_img, y_img, x_img),
+            size=(batch_size, self.num_classes, z_padded, y_padded, x_padded),
             dtype=torch.float16,
             device=accumulate_device
         )
         count_mat = torch.zeros(
-            size=(batch_size, 1, z_img, y_img, x_img),
+            size=(batch_size, 1, z_padded, y_padded, x_padded),
             dtype=torch.uint8,
             device=accumulate_device
         )
@@ -440,15 +479,15 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                     z1 = z_idx * z_stride
                     y1 = y_idx * y_stride
                     x1 = x_idx * x_stride
-                    z2 = min(z1 + z_crop, z_img)
-                    y2 = min(y1 + y_crop, y_img)
-                    x2 = min(x1 + x_crop, x_img)
+                    z2 = min(z1 + z_crop, z_padded)
+                    y2 = min(y1 + y_crop, y_padded)
+                    x2 = min(x1 + x_crop, x_padded)
                     z1 = max(z2 - z_crop, 0)
                     y1 = max(y2 - y_crop, 0)
                     x1 = max(x2 - x_crop, 0)
                     
                     # 推理
-                    crop_seg_logit = self._forward(inputs[:, :, z1:z2, y1:y2, x1:x2])
+                    crop_seg_logit = self._forward(padded_inputs[:, :, z1:z2, y1:y2, x1:x2])
                     # 累加
                     preds[:, :, z1:z2, y1:y2, x1:x2] += crop_seg_logit.to(accumulate_device)
                     count_mat[:, :, z1:z2, y1:y2, x1:x2] += 1
@@ -458,6 +497,15 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         assert min_count.item() > 0, "存在未被滑动窗口覆盖的区域"
         # 计算平均值
         seg_logits = (preds / count_mat).to(dtype=torch.float16)
+        
+        # 如果有padding，需要裁剪回原始尺寸
+        if need_padding:
+            assert pad is not None, "Padding信息丢失，无法裁剪回原始尺寸"
+            pad_x_left, pad_x_right, pad_y_top, pad_y_bottom, pad_z_front, pad_z_back = pad
+            seg_logits = seg_logits[:, :, 
+                                   pad_z_front:z_padded-pad_z_back,
+                                   pad_y_top:y_padded-pad_y_bottom,
+                                   pad_x_left:x_padded-pad_x_right]
         
         return seg_logits
 

@@ -2,12 +2,6 @@
 
 **Note:** This repo is now only for preview, I am still working on it. I hope it will help more researchers with easy APIs one day. If you are eager to use several functions, I am happy to offer some help through [my Email](mailto:312065559@qq.com).
 
-## 开源协议
-
-本项目采用 **GNU General Public License v3.0** 开源协议。
-
-详细条款请参考 [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html)。
-
 ## 简介
 
 一开始只是为了自己开发方便，整理了大多数常用的函数方法在这个工具包中，以后不知道会不会帮到别人呢？
