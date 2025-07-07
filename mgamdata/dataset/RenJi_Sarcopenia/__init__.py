@@ -36,6 +36,8 @@ CLASS_MAP_AFTER_POSTSEG = {
     4: 'Visceral Fat',
     5: 'PsoasMajor-Fat',
     6: 'OtherSkeletal-Fat',
+    7: 'Erector-Muscle',
+    8: 'Erector-Fat',
 }
 # 标签颜色映射
 LABEL_COLOR_DICT = {
