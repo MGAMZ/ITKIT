@@ -74,10 +74,6 @@ class IoUMetric_PerClass(IoUMetric):
                 mainly includes aAcc, mIoU, mAcc, mDice, mFscore, mPrecision,
                 mRecall.
         """
-        logger: MMLogger = MMLogger.get_current_instance()
-        if self.format_only:
-            logger.info(f"results are saved to {osp.dirname(self.output_dir)}")
-            return OrderedDict()
         # convert list of tuples to tuple of lists, e.g.
         # [(A_1, B_1, C_1, D_1), ...,  (A_n, B_n, C_n, D_n)] to
         # ([A_1, ..., A_n], ..., [D_1, ..., D_n])
@@ -89,7 +85,7 @@ class IoUMetric_PerClass(IoUMetric):
         total_area_pred_label: torch.Tensor = sum(results[2])
         total_area_label: torch.Tensor = sum(results[3])
 
-        ret_metrics = self.total_area_to_metrics(
+        per_class_eval_metrics = self.total_area_to_metrics(
             total_area_intersect,
             total_area_union,
             total_area_pred_label,
@@ -98,41 +94,40 @@ class IoUMetric_PerClass(IoUMetric):
             self.nan_to_num,
             self.beta,
         )
-        class_names = self.dataset_meta["classes"]  # type: ignore
-
+        
         # class averaged table
-        ret_metrics_summary = OrderedDict(
+        class_avged_metrics = OrderedDict(
             {
-                ret_metric: np.round(np.nanmean(ret_metric_value) * 100, 2)
-                for ret_metric, ret_metric_value in ret_metrics.items()
+                criterion: np.round(np.nanmean(criterion_value) * 100, 2)
+                for criterion, criterion_value in per_class_eval_metrics.items()
             }
         )
         metrics = dict()
-        for key, val in ret_metrics_summary.items():
+        for key, val in class_avged_metrics.items():
             if key == "aAcc":
                 metrics[key] = val
             else:
                 metrics["m" + key] = val
 
         # each class table
-        ret_metrics.pop("aAcc", None)
-        class_metrics = OrderedDict(
+        per_class_eval_metrics.pop("aAcc", None)
+        per_classes_formatted_dict = OrderedDict(
             {
-                ret_metric: [format(v, ".2f") for v in ret_metric_value * 100]
-                for ret_metric, ret_metric_value in ret_metrics.items()
+                criterion: [format(v, ".2f") for v in criterion_value * 100]
+                for criterion, criterion_value in per_class_eval_metrics.items()
             }
         )
-        class_metrics.update({"Class": class_names})
-        class_metrics.move_to_end("Class", last=False)
-        class_table_data = PrettyTable()
-        for key, val in class_metrics.items():
-            class_table_data.add_column(key, val)
+        per_classes_formatted_dict.update({"Class": self.dataset_meta["classes"]}) # type: ignore
+        per_classes_formatted_dict.move_to_end("Class", last=False)
+        terminal_table = PrettyTable()
+        for key, val in per_classes_formatted_dict.items():
+            terminal_table.add_column(key, val)
 
         # provide per class results for logger hook
-        metrics["PerClass"] = class_metrics
+        metrics["PerClass"] = per_classes_formatted_dict
 
-        print_log("per class results:", logger)
-        print_log("\n" + class_table_data.get_string(), logger=logger)
+        print_log("per class results:", 'current')
+        print_log("\n" + terminal_table.get_string(), logger='current')
 
         return metrics
 

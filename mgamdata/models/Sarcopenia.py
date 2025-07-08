@@ -483,6 +483,7 @@ class ForegroundSlicesMetric(IoUMetric_PerClass):
 
 
 
+
 """ ----- Neural Models ----- """
 
 @deprecated("250521: L3Locating is now using seg-based model.")
