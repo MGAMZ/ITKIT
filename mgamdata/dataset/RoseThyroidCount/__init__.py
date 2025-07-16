@@ -22,11 +22,10 @@ class FileID_Map:
                     raise ValueError(f"CSV file {path} missing required columns")
                 self.ann.append(df)
             except Exception as e:
-                print(Fore.YELLOW, f"Error loading {path}: {str(e)}", Style.RESET_ALL)
+                raise RuntimeError(Fore.YELLOW, f"Error loading {path}: {str(e)}", Style.RESET_ALL)
 
         if not self.ann:
-             print(Fore.YELLOW, "Warning: No valid data loaded from any mapping files. Initializing empty map.", Style.RESET_ALL)
-             # 创建一个空的DataFrame，包含必要的列，以避免后续操作出错
+             raise RuntimeError(Fore.YELLOW, "No valid data loaded from any mapping files. Initializing empty map.", Style.RESET_ALL)
              self.ann = pd.DataFrame(columns=["originPath", "seriesinstanceUID"])
         else:
             self.ann = pd.concat(self.ann, ignore_index=True)
