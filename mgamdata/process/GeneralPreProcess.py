@@ -390,7 +390,7 @@ class RandomGaussianBlur3D(BaseTransform):
         return results
 
 
-class RandomFlip3D(BaseTransform):
+class RandomFlip(BaseTransform):
     def __init__(self, axis: Literal[0, 1, 2], prob: float = 0.5):
         self.axis = axis
         self.prob = prob

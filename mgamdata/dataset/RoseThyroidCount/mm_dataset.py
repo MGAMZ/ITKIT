@@ -3,6 +3,7 @@ import pdb
 import json
 from typing_extensions import Literal, Sequence
 
+import cv2
 import numpy as np
 from mmcv.transforms import BaseTransform
 from ..base import mgam_BaseSegDataset
@@ -78,9 +79,9 @@ class LoadRoseThyroidSampleFromNpz(BaseTransform):
         try:
             if "img" in self.load_type:
                 results["img"] = sample["img"] # shape: (Y, X, C)
-                results["img_shape"] = results["img"].shape[:-1]
                 results["ori_shape"] = results["img"].shape[:-1]
-
+                results["img_shape"] = results["img"].shape[:-1]
+                    
             if "anno" in self.load_type:
                 results["points"] = sample["point_map"]
                 results["gt_label"] = sample["clustered_cls"]
@@ -89,6 +90,21 @@ class LoadRoseThyroidSampleFromNpz(BaseTransform):
         
         except Exception as e:
             raise FileNotFoundError(f"Error when loading {sample_path}") from e
+
+
+class Resize(BaseTransform):
+    def __init__(self, size:tuple[int]):
+        self.size = size
+    
+    def transform(self, results:dict):
+        results["img"] = cv2.resize(results["img"], self.size, interpolation=cv2.INTER_LINEAR)
+        results["img_shape"] = self.size
+        if "points" in results:
+            # point: [N, 2]
+            resize_ratio = np.array(self.size) / np.array(results["ori_shape"])
+            results["points"] = (results["points"] * resize_ratio).astype(np.uint16)
+        
+        return results
 
 
 class GenPointMap(BaseTransform):
