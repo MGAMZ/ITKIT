@@ -39,6 +39,7 @@ def SetWindow(array:np.ndarray|torch.Tensor, window_width:int, window_level:int)
     array = (array - window_left) / window_width
     return array # range: [0, 1]
 
+
 class AutoPad(BaseTransform):
     def __init__(
         self, 
