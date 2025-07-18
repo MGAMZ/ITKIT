@@ -14,6 +14,7 @@ import cv2
 from torch.nn import functional as F
 from scipy.ndimage import gaussian_filter, map_coordinates
 from scipy.spatial.transform import Rotation as R
+import albumentations as A
 
 from mmcv.transforms import Resize, BaseTransform
 from mmengine.registry import TRANSFORMS
@@ -1021,4 +1022,31 @@ class RandomPatch3D(BaseTransform):
             results[key] = results[key][z1:z1+pz, y1:y1+py, x1:x1+px, ...]
         # Update the shape in results
         results["img_shape"] = (pz, py, px)
+        return results
+
+
+class RandomBrightnessContrast(BaseTransform):
+    def __init__(self,
+                 brightness_limit: tuple[float, float] = (-0.5, 0.5),
+                 contrast_limit: tuple[float, float] = (-0.5, 0.5),
+                 prob: float = 0.5):
+        self.fn = A.RandomBrightnessContrast(
+            brightness_limit=brightness_limit,
+            contrast_limit=contrast_limit,
+            p=prob
+        )
+
+    def transform(self, results: dict):
+        results["img"] = self.fn(image=results["img"])["image"]
+        return results
+
+
+class RandomGamma(BaseTransform):
+    def __init__(self,
+                 gamma_limit: tuple[int, int] = (50, 150),
+                 prob: float = 0.5):
+        self.fn = A.RandomGamma(gamma_limit=gamma_limit, p=prob)
+
+    def transform(self, results: dict):
+        results["img"] = self.fn(image=results["img"])["image"]
         return results
