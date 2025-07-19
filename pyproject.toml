@@ -10,6 +10,8 @@ description = "mgam's data toolkit for a better world!"
 readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
+  "numpy>=2.3",
+  "opencv-python>=4.11",
   "openpyxl",
   "pandas",
   "scikit-image",
