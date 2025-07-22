@@ -48,7 +48,6 @@ deploy = [
   "tensorrt",
 ]
 medical_vision = [
-  "monai",
   "opensdpc",
   "openslide-python",
   "openslide-bin",
@@ -56,9 +55,6 @@ medical_vision = [
   "pydicom",
   "pynrrd",
   "nibabel",
-]
-electrophysiology = [
-  "lightning",
 ]
 
 
