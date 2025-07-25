@@ -32,14 +32,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "timm",
-  "deepspeed",
   "h5py",
   "pylint-django",
   "HolisticTraceAnalysis",
   "pynvml",
 ]
-deploy = [
+nvidia = [
   "onnx",
   "onnxruntime",
   "onnxruntime-gpu",
@@ -56,7 +54,10 @@ medical_vision = [
   "pynrrd",
   "nibabel",
 ]
-
+pytorch = [
+  "timm",
+  "deepspeed",
+]
 
 [project.scripts]
 mmrun = "mgamdata.mm.run:main"
