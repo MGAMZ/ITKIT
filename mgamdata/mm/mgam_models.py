@@ -478,7 +478,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         pbar_z_grids = tqdm(range(z_grids), desc='Slide Win. Infer. Z', disable=not is_main_process(), dynamic_ncols=True, position=2, leave=False)
         pbar_y_grids = tqdm(range(y_grids), desc='Slide Win. Infer. Y', disable=not is_main_process(), dynamic_ncols=True, position=1, leave=False)
         pbar_x_grids = tqdm(range(x_grids), desc='Slide Win. Infer. X', disable=not is_main_process(), dynamic_ncols=True, position=0, leave=False)
-
+        
         for z_idx in pbar_z_grids:
             for y_idx in pbar_y_grids:
                 for x_idx in pbar_x_grids:
@@ -497,6 +497,10 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                     # 累加
                     preds[:, :, z1:z2, y1:y2, x1:x2] += crop_seg_logit.to(accumulate_device)
                     count_mat[:, :, z1:z2, y1:y2, x1:x2] += 1
+                    
+        pbar_x_grids.close()
+        pbar_y_grids.close()
+        pbar_z_grids.close()
         
         # 使用tensor操作进行断言检查，避免tensor到boolean转换
         min_count = torch.min(count_mat)
