@@ -2,6 +2,7 @@ import pdb
 import logging
 import copy
 from abc import abstractmethod
+from tqdm import tqdm
 from typing_extensions import Sequence
 
 import torch
@@ -12,6 +13,7 @@ from mmengine.registry import MODELS
 from mmengine.config import ConfigDict
 from mmengine.structures import BaseDataElement, PixelData
 from mmengine.model import BaseModel
+from mmengine.dist import is_main_process
 
 from .mmseg_Dev3D import VolumeData
 
@@ -473,9 +475,13 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         )
         
         # 滑动窗口推理
-        for z_idx in range(z_grids):
-            for y_idx in range(y_grids):
-                for x_idx in range(x_grids):
+        pbar_z_grids = tqdm(range(z_grids), desc='Slide Win. Infer. Z', disable=not is_main_process(), dynamic_ncols=True, position=0, leave=False)
+        pbar_y_grids = tqdm(range(y_grids), desc='Slide Win. Infer. Y', disable=not is_main_process(), dynamic_ncols=True, position=1, leave=False)
+        pbar_x_grids = tqdm(range(x_grids), desc='Slide Win. Infer. X', disable=not is_main_process(), dynamic_ncols=True, position=2, leave=False)
+
+        for z_idx in pbar_z_grids:
+            for y_idx in pbar_y_grids:
+                for x_idx in pbar_x_grids:
                     z1 = z_idx * z_stride
                     y1 = y_idx * y_stride
                     x1 = x_idx * x_stride
