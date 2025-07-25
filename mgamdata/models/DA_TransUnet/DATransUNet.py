@@ -124,7 +124,6 @@ class Mlp(nn.Module):
         x = self.dropout(x)
         return x
 
-    
 
 class Embeddings(nn.Module):
     """Construct the embeddings from patch, position embeddings.

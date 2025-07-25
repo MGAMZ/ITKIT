@@ -461,7 +461,7 @@ class SegFormer3D(nn.Module):
         self.gradients = grad_out[0]
 
     def forward(self, x, save_gradcam: bool = False, save_dir: str = 'tmp'):
-        encoder_features = self.encoder(x)
+        encoder_features = self.encoder(x) # [N, C, Z, Y, X]
         segmentation_output = self.decoder(encoder_features)
 
         if save_gradcam:
@@ -500,7 +500,7 @@ class SegFormer3D(nn.Module):
             plt.close()
             exit(1)
 
-        return segmentation_output
+        return segmentation_output # [N, C, Z, Y, X]
 
 
 def forward_test():

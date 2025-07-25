@@ -486,10 +486,10 @@ class BodyCompositionMetric(ForegroundSlicesMetric):
         thus aligning to the original class definition,
         which does not tell inter-muscle fat.
         """
-        if CLASS_MAP[1] not in self.dataset_meta["classes"]:
-            self.dataset_meta["classes"].insert(-1, CLASS_MAP[1])
-        if CLASS_MAP[2] not in self.dataset_meta["classes"]:
-            self.dataset_meta["classes"].insert(-1, CLASS_MAP[2])
+        if "Psoas Major Total" not in self.dataset_meta["classes"]:
+            self.dataset_meta["classes"].append("Psoas Major Total")
+        if "Other Skeletal Total" not in self.dataset_meta["classes"]:
+            self.dataset_meta["classes"].append("Other Skeletal Total")
         return super().process(data_batch, data_samples)
 
     def intersect_and_union(self, pred_label: Tensor, label: Tensor, num_classes: int, ignore_index: int):
