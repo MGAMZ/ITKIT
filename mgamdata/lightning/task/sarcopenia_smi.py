@@ -4,6 +4,7 @@ import torch
 from tqdm import tqdm
 from typing import Any
 from pathlib import Path
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
@@ -11,6 +12,7 @@ import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 from torch import Tensor
 from sklearn.metrics import r2_score
+from torch.utils.checkpoint import checkpoint
 
 from ..dataset.base import BaseDataset
 
@@ -299,7 +301,7 @@ class SMIRegVis3DCallback(pl.Callback):
     def on_validation_batch_end(
         self,
         trainer: pl.Trainer,
-        pl_module: "SarcopeniaSMIRegressionTask",
+        pl_module: SarcopeniaSMIRegressionTask,
         outputs: Any,
         batch: Any,
         batch_idx: int,
@@ -310,7 +312,7 @@ class SMIRegVis3DCallback(pl.Callback):
     def on_test_batch_end(
         self,
         trainer: pl.Trainer,
-        pl_module: "SarcopeniaSMIRegressionTask",
+        pl_module: SarcopeniaSMIRegressionTask,
         outputs: Any,
         batch: Any,
         batch_idx: int,
@@ -321,7 +323,7 @@ class SMIRegVis3DCallback(pl.Callback):
     def _maybe_visualize(
         self,
         trainer: pl.Trainer,
-        pl_module: "SarcopeniaSMIRegressionTask",
+        pl_module: SarcopeniaSMIRegressionTask,
         outputs: Any,
         batch: Any,
         batch_idx: int,
@@ -374,3 +376,167 @@ class SMIRegVis3DCallback(pl.Callback):
         
         plt.close(fig)
         self.samples_visualized_this_epoch += 1
+
+
+class SarcopeniaSMISlidingWindowRegressionTask(SarcopeniaSMIRegressionTask):
+    """
+    Sliding window version of SarcopeniaSMIRegressionTask to handle large input matrices.
+    
+    This class extends the base regression task to support sliding window inference
+    and training with gradient checkpointing to reduce memory usage.
+    """
+    
+    def __init__(
+        self,
+        enable_image_input: bool,
+        enable_semantic_input: bool,
+        backbone: torch.nn.Module,
+        criterion: torch.nn.Module,
+        patch_size: Sequence[int] = (64, 256, 256),
+        patch_stride: Sequence[int] = (32, 128, 128),
+        optimizer_config: dict = {'lr': 1e-4, 'weight_decay': 1e-5},
+        scheduler_config: dict | None = None,
+        gt_key: str = 'smi',
+        num_semantic_classes: int = 7,
+    ) -> None:
+        """
+        Args:
+            patch_size (Sequence[int]): Size of sliding window patches (Z, Y, X).
+            patch_stride (Sequence[int]): Stride of sliding window (Z, Y, X).
+            Other args are the same as parent class.
+        """
+        super().__init__(
+            enable_image_input=enable_image_input,
+            enable_semantic_input=enable_semantic_input,
+            backbone=backbone,
+            criterion=criterion,
+            optimizer_config=optimizer_config,
+            scheduler_config=scheduler_config,
+            gt_key=gt_key,
+            num_semantic_classes=num_semantic_classes,
+        )
+        
+        self.patch_size = patch_size
+        self.patch_stride = patch_stride
+    
+    def _get_patch_positions(self, Z: int, Y: int, X: int) -> list[tuple[int, int, int, int, int, int]]:
+        """
+        Calculate patch positions for sliding window.
+        
+        Args:
+            Z, Y, X (int): Input tensor dimensions
+            
+        Returns:
+            list[tuple]: List of (z_start, z_end, y_start, y_end, x_start, x_end) tuples
+        """
+        patch_z, patch_y, patch_x = self.patch_size
+        stride_z, stride_y, stride_x = self.patch_stride
+        
+        # 计算滑动窗口的起始位置
+        z_starts = list(range(0, max(1, Z - patch_z + 1), stride_z))
+        y_starts = list(range(0, max(1, Y - patch_y + 1), stride_y))
+        x_starts = list(range(0, max(1, X - patch_x + 1), stride_x))
+        
+        # 确保最后一个patch覆盖到边界
+        if z_starts[-1] + patch_z < Z:
+            z_starts.append(max(0, Z - patch_z))
+        if y_starts[-1] + patch_y < Y:
+            y_starts.append(max(0, Y - patch_y))
+        if x_starts[-1] + patch_x < X:
+            x_starts.append(max(0, X - patch_x))
+        
+        positions = []
+        for z_start in z_starts:
+            for y_start in y_starts:
+                for x_start in x_starts:
+                    z_end = min(z_start + patch_z, Z)
+                    y_end = min(y_start + patch_y, Y)
+                    x_end = min(x_start + patch_x, X)
+                    positions.append((z_start, z_end, y_start, y_end, x_start, x_end))
+        
+        return positions
+    
+    def _process_patch_at_position(self, x: Tensor, z_start: int, z_end: int, 
+                                   y_start: int, y_end: int, x_start: int, x_end: int) -> Tensor:
+        """
+        Process a patch at specific position through the backbone.
+        
+        Args:
+            x (Tensor): Input tensor of shape [B, C, Z, Y, X]
+            z_start, z_end, y_start, y_end, x_start, x_end (int): Patch boundaries
+            
+        Returns:
+            Tensor: Processed features of shape [B, C]
+        """
+        patch_z, patch_y, patch_x = self.patch_size
+        
+        # 直接从源矩阵中提取patch
+        patch = x[:, :, z_start:z_end, y_start:y_end, x_start:x_end]
+        
+        # 如果patch小于目标大小，进行padding
+        if patch.shape[2:] != (patch_z, patch_y, patch_x):
+            pad_z = patch_z - patch.shape[2]
+            pad_y = patch_y - patch.shape[3]
+            pad_x = patch_x - patch.shape[4]
+            patch = torch.nn.functional.pad(
+                patch, 
+                (0, pad_x, 0, pad_y, 0, pad_z), 
+                mode='constant', 
+                value=0
+            )
+        
+        # 通过backbone处理
+        backbone_out = self.backbone(patch)[-1]  # [B, C, Z, Y, X]
+        spatial_average = torch.nn.functional.adaptive_avg_pool3d(backbone_out, (1, 1, 1))  # [B, C, 1, 1, 1]
+        sample_average = spatial_average.squeeze((2, 3, 4))  # [B, C]
+        return sample_average
+    
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        Forward pass with sliding window mechanism.
+        
+        Args:
+            x (Tensor): Input tensor of shape [B, C, Z, Y, X]
+            
+        Returns:
+            Tensor: Predicted SMI values of shape [B]
+        """
+        B, C, Z, Y, X = x.shape
+        
+        # 如果输入尺寸小于或等于patch_size，直接使用原来的forward
+        if (Z <= self.patch_size[0] and 
+            Y <= self.patch_size[1] and 
+            X <= self.patch_size[2]):
+            return super().forward(x)
+        
+        # 获取所有patch位置
+        patch_positions = self._get_patch_positions(Z, Y, X)
+        num_patches = len(patch_positions)
+        
+        feature_dim = self.backbone.embed_dims[-1]  # pyright: ignore
+        aggregated_features = torch.zeros(B, feature_dim, device=x.device, dtype=x.dtype)
+        
+        for z_start, z_end, y_start, y_end, x_start, x_end in patch_positions:
+            if self.training:
+                # 训练模式下使用gradient checkpointing
+                patch_feature:torch.Tensor = checkpoint( # pyright: ignore
+                    self._process_patch_at_position, 
+                    x, z_start, z_end, y_start, y_end, x_start, x_end,
+                    use_reentrant=False
+                )
+            else:
+                # 推断模式下直接计算
+                patch_feature = self._process_patch_at_position(
+                    x, z_start, z_end, y_start, y_end, x_start, x_end
+                )
+            
+            # 累加到输出矩阵
+            aggregated_features += patch_feature
+        
+        # 归一化
+        aggregated_features /= num_patches
+
+        # 输出映射
+        pred = self.out_proj(aggregated_features).squeeze(1)  # [B]
+        
+        return pred
