@@ -831,14 +831,16 @@ class SampleAugment(BaseTransform):
 
 
 class RandomRotate3D(BaseTransform):
+    """自由随机3D旋转"""
+    
     def __init__(self,
                  degree: float,
                  prob: float = 1.0,
                  interp_order: int = 0,
-                 pad_val: float = -4096,
+                 pad_val: float = 0,
                  resample_prefilter: bool = False,
-                 crop_to_valid_region: bool = True,
-                 keys: list[str] = ["img", "gt_seg_map"],
+                 crop_to_valid_region: bool = False,
+                 img_keys: list[str] = ["img"],
     ):
         self.degree = degree
         self.prob = prob
@@ -846,7 +848,7 @@ class RandomRotate3D(BaseTransform):
         self.pad_val = pad_val
         self.resample_prefilter = resample_prefilter
         self.crop_to_valid_region = crop_to_valid_region
-        self.keys = keys
+        self.img_keys = img_keys
         # 预计算最大旋转角的余弦值
         self.cos_theta = np.cos(np.deg2rad(degree))
 
@@ -856,7 +858,7 @@ class RandomRotate3D(BaseTransform):
         angle = np.random.uniform(-self.degree, self.degree)
         return R.from_rotvec(np.deg2rad(angle) * axis).as_matrix()
 
-    def _rotate_volume(self, array: np.ndarray, rot: np.ndarray):
+    def _rotate_volume(self, array: np.ndarray, rot: np.ndarray, order: int):
         z, y, x = array.shape
         center = np.array([z/2, y/2, x/2])
 
@@ -869,67 +871,12 @@ class RandomRotate3D(BaseTransform):
         rotated = map_coordinates(
             array,
             [coords_rotated[:, 0], coords_rotated[:, 1], coords_rotated[:, 2]],
-            order=self.interp_order,
+            order=order,
             mode="constant",
             cval=self.pad_val,
             prefilter=self.resample_prefilter,
         ).reshape(z, y, x)
         return rotated
-
-    def _find_valid_bounds(self, volume: np.ndarray):
-        """使用递归缩小的方式找出有效区域
-        
-        Args:
-            volume: 旋转后的体积数据
-            pad_val: padding值
-        
-        Returns:
-            (zmin,zmax,ymin,ymax,xmin,xmax): 有效区域的边界
-        """
-        shape = np.array(volume.shape)
-        center = shape // 2
-        
-        def check_region(size_ratio):
-            """检查给定比例下的区域是否有效"""
-            # 计算当前size
-            current_size = (shape * size_ratio).astype(int)
-            half_size = current_size // 2
-            
-            # 计算边界
-            mins = center - half_size
-            maxs = center + half_size
-            
-            # 提取区域
-            region = volume[mins[0]:maxs[0],
-                        mins[1]:maxs[1],
-                        mins[2]:maxs[2]]
-            
-            # 检查是否包含pad_val
-            return not np.any(region == self.pad_val), (mins, maxs)
-        
-        # 二分查找最大有效比例
-        left, right = 0.0, 1.0
-        best_bounds = None
-        
-        while right - left > 0.01:  # 精度阈值
-            mid = (left + right) / 2
-            is_valid, bounds = check_region(mid)
-            
-            # 区域值有效，更新左边界，减小裁切比例
-            if is_valid:
-                left = mid
-                best_bounds = bounds
-            # 区域中包含pad_val，更新右边界，增大裁切比例
-            else:
-                right = mid
-        
-        if best_bounds is None:
-            raise ValueError("No valid region found")
-            
-        mins, maxs = best_bounds
-        return (mins[0], maxs[0]-1,
-                mins[1], maxs[1]-1,
-                mins[2], maxs[2]-1)
 
     def _center_crop(self, array: np.ndarray, bounds):
         zmin, zmax, ymin, ymax, xmin, xmax = bounds
@@ -938,18 +885,10 @@ class RandomRotate3D(BaseTransform):
     def transform(self, results):
         if np.random.rand() < self.prob:
             rot = self._sample_rotation_matrix()
-            
-            for key in self.keys:
-                # 旋转体积
-                rotated = self._rotate_volume(results[key], rot)
-                # 找出有效区域
-                bounds = self._find_valid_bounds(rotated)
-                # 裁剪到有效区域
-                if self.crop_to_valid_region:
-                    results[key] = self._center_crop(rotated, bounds)
-                else:
-                    results[key] = rotated
-        
+            for key in self.img_keys:
+                results[key] = self._rotate_volume(results[key], rot, self.interp_order)
+            for key in results.get("seg_fields", []):
+                results[key] = self._rotate_volume(results[key], rot, 0)
         return results
 
 

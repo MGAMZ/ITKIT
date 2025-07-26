@@ -28,6 +28,7 @@ dependencies = [
   "matplotlib-inline",
   "jupyter",
   "colored",
+  "albumentations"
 ]
 
 [project.optional-dependencies]
