@@ -5,7 +5,6 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-
 from mmengine.logging import print_log, MMLogger
 
 from . import CLASS_MAP, TEST_SERIES_UIDS, CLASS_MAP_AFTER_POSTSEG

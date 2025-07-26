@@ -8,6 +8,8 @@ import multiprocessing
 
 SARCOPENIA_TASK_REMAP = {
     'background': 0,
+    
+    # noise bones
     'clavicula_left': 1, # 左锁骨
     'clavicula_right': 1, # 右锁骨
     'costal_cartilages': 1, # 肋软骨
@@ -53,16 +55,7 @@ SARCOPENIA_TASK_REMAP = {
     'vertebrae_C5': 1, # 第5颈椎
     'vertebrae_C6': 1, # 第6颈椎
     'vertebrae_C7': 1, # 第7颈椎
-    'vertebrae_L1': 1, # 第1腰椎
-    'vertebrae_L2': 1, # 第2腰椎
-    'vertebrae_L3': 1, # 第3腰椎
-    'vertebrae_L4': 1, # 第4腰椎
-    'vertebrae_L5': 1, # 第5腰椎
-    'vertebrae_S1': 1, # 第1骶椎
     'vertebrae_T1': 1, # 第1胸椎
-    'vertebrae_T10': 1, # 第10胸椎
-    'vertebrae_T11': 1, # 第11胸椎
-    'vertebrae_T12': 1, # 第12胸椎
     'vertebrae_T2': 1, # 第2胸椎
     'vertebrae_T3': 1, # 第3胸椎
     'vertebrae_T4': 1, # 第4胸椎
@@ -71,15 +64,73 @@ SARCOPENIA_TASK_REMAP = {
     'vertebrae_T7': 1, # 第7胸椎
     'vertebrae_T8': 1, # 第8胸椎
     'vertebrae_T9': 1, # 第9胸椎
-    'autochthon_left': 2, # 左侧竖脊肌
-    'autochthon_right': 2, # 右侧竖脊肌
+
+    # vertebrae
+    'vertebrae_T10': 2, # 第10胸椎
+    'vertebrae_T11': 3, # 第11胸椎
+    'vertebrae_T12': 4, # 第12胸椎
+    'vertebrae_L1': 5, # 第1腰椎
+    'vertebrae_L2': 6, # 第2腰椎
+    'vertebrae_L3': 7, # 第3腰椎
+    'vertebrae_L4': 8, # 第4腰椎
+    'vertebrae_L5': 9, # 第5腰椎
+    'vertebrae_S1': 10, # 第1骶椎
+    
+    # muscles
+    'autochthon_left': 11, # 左侧竖脊肌
+    'autochthon_right': 11, # 右侧竖脊肌
+    'iliopsoas_left': 12, # 左髂腰肌
+    'iliopsoas_right': 12, # 右髂腰肌
+    
+    # noise class
+    'liver': 13, # 肝脏
+    'pancreas': 14, # 胰腺
+    'spleen': 15, # 脾脏
+    'stomach': 16, # 胃
+    'colon': 17, # 结肠
+    'duodenum': 18, # 十二指肠
+    'inferior_vena_cava': 19, # 下腔静脉
+    'aorta': 20, # 主动脉
+    'esophagus': 21, # 食管
+    'heart': 22, # 心脏
+    'lung_lower_lobe_left': 23, # 左肺下叶
+    'lung_lower_lobe_right': 23, # 右肺下叶
+    'lung_middle_lobe_right': 23, # 右肺中叶
+    'lung_upper_lobe_left': 23, # 左肺上叶
+    'lung_upper_lobe_right': 23, # 右肺上叶
+    'gallbladder': 24, # 胆囊
+    'kidney_left': 25, # 左肾
+    'kidney_right': 25, # 右肾
 }
 
 
 CLASS_MAP = {
     0: 'background',
-    1: 'bones', # 骨
-    2: 'erector' # 竖脊肌
+    1: 'Bones',
+    2: 'Vert_T10',
+    3: 'Vert_T11',
+    4: 'Vert_T12',
+    5: 'Vert_L1',
+    6: 'Vert_L2',
+    7: 'Vert_L3',
+    8: 'Vert_L4',
+    9: 'Vert_L5',
+    10: 'Vert_S1',
+    11: 'Erector_Muscle',
+    12: 'Psoas_Major',
+    13: 'Liver',
+    14: 'Pancreas',
+    15: 'Spleen',
+    16: 'Stomach',
+    17: 'Colon',
+    18: 'Duodenum',
+    19: 'Infer_Vena_Cava',
+    20: 'Aorta',
+    21: 'Esophagus',
+    22: 'Heart',
+    23: 'Lung',
+    24: 'Gallbladder',
+    25: 'Kidney',
 }
 
 
