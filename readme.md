@@ -24,9 +24,24 @@
 
 - utils: 其他小工具
 
-## Release Note
+## Commands
 
-### V2.0.a0.250517:
+### itk_check
 
-未来将很有可能从OpenMM框架迁移到PyTorch Lightning框架。之后的电生理模态数据会直接使用新的架构部署并训练。
-主代码仓支持方向也因此会跟随改动，因此全新开出一个分支。
+Check ITK image-label sample pairs whether they meet the required spacing / size.
+
+### itk_resample
+
+Resample ITK image-label sample pairs, according to the given spacing or size on any dimension.
+
+### itk_orient
+
+Orient ITK image-label sample pairs to the specified orientation, e.g., `LPI`.
+
+### itk_patch
+
+Extract patches from ITK image-label sample pairs. This may be helpful for training, as train-time-patching can consume a lot of CPU resources.
+
+### itk_aug
+
+Do augmentation on ITK image files, only supports `RandomRotate3D` now.
