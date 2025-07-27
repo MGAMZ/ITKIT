@@ -119,3 +119,7 @@ class Sarcopenia_Mha_V2(Sarcopenia_base_V2, mgam_SemiSup_3D_Mha):
 class Sarcopenia_Totalsegmentator_AuxTask(Sarcopenia_base, mgam_SemiSup_3D_Mha):
     from .remap_Totalsegmentator_to_sarcopenia_task import CLASS_MAP as CLASS_MAP_TSD_AUX_TASK
     METAINFO = dict(classes=list(CLASS_MAP_TSD_AUX_TASK.values()))
+
+class Sarcopenia_Tsd_Aux_Task_Patched(Sarcopenia_base, mgam_SeriesPatched_Structure):
+    from .remap_Totalsegmentator_to_sarcopenia_task import CLASS_MAP as CLASS_MAP_TSD_AUX_TASK
+    METAINFO = dict(classes=list(CLASS_MAP_TSD_AUX_TASK.values()))
