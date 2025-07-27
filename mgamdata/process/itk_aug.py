@@ -61,11 +61,11 @@ def process_sample(args):
         # 保存增强文件
         if out_img_folder:
             aug_img_path = os.path.join(out_img_folder, f"{basename}_{i}.mha")
-            sitk.WriteImage(rotated_image, aug_img_path)
+            sitk.WriteImage(rotated_image, aug_img_path, True)
         
         if out_lbl_folder:
             aug_lbl_path = os.path.join(out_lbl_folder, f"{basename}_{i}.mha")
-            sitk.WriteImage(rotated_label, aug_lbl_path)
+            sitk.WriteImage(rotated_label, aug_lbl_path, True)
     
     return filename
 

@@ -130,18 +130,14 @@ def process_case(args):
     img_path, lbl_path, dst_folder, patch_size, patch_stride, min_fg, still_save = args
     case_name = img_path.stem
     try:
-        # create one folder per case
         out_case = dst_folder / case_name
         out_case.mkdir(parents=True, exist_ok=True)
         image = sitk.ReadImage(str(img_path))
         label = sitk.ReadImage(str(lbl_path))
-        # load image array for metadata
         img_arr = sitk.GetArrayFromImage(image)
-        shape = list(img_arr.shape)
+        
         class_within_patch = {}
-        patches = extract_patches(image, label,
-                                  patch_size, patch_stride,
-                                  min_fg, still_save)
+        patches = extract_patches(image, label, patch_size, patch_stride, min_fg, still_save)
         for idx, (img_patch, lbl_patch) in enumerate(patches):
             # write image and label patches with explicit suffix
             fname_img = f"{case_name}_{idx}_image.mha"
@@ -152,17 +148,19 @@ def process_case(args):
                 lbl_np = sitk.GetArrayFromImage(lbl_patch)
                 class_within_patch[fname_lbl] = np.unique(lbl_np).tolist()
                 sitk.WriteImage(lbl_patch, str(out_case / fname_lbl), True)
-        # write series metadata
+        
         series_meta = {
             "series_id": case_name,
-            "shape": shape,
+            "shape": list(img_arr.shape),
             "num_patches": len(patches),
             "anno_available": True,
             "class_within_patch": class_within_patch
         }
         with open(out_case / "SeriesMeta.json", "w") as f:
             json.dump(series_meta, f, indent=4)
+        
         return case_name, len(patches)
+    
     except Exception as e:
         print(f"Failed processing case {case_name}: {e}")
         return None
@@ -179,12 +177,15 @@ def main():
         args.minimum_foreground_ratio,
         args.still_save_when_no_label
     ) for img, lbl in tasks]
+    
     results = []
+    
     if args.mp:
         with Pool(cpu_count()) as pool, tqdm(total=len(task_args), desc="Processing cases (mp)") as pbar:
             for res in pool.imap_unordered(process_case, task_args):
                 results.append(res)
                 pbar.update(1)
+    
     else:
         with tqdm(total=len(task_args), desc="Processing cases") as pbar:
             for t in task_args:

@@ -197,13 +197,25 @@ class mgam_SeriesPatched_Structure(mgam_SeriesVolume):
         super().__init__(*args, **kwargs)
 
     def sample_iterator(self) -> Generator[tuple[str, str], None, None]:
-        for series in tqdm(self._split(),
-                           desc=f"Indexing {self.split} samples of all series of {self.__class__.__name__}",
+        series_exist = os.listdir(self.data_root)
+        series_avail = self._split()
+        
+        for series in tqdm(series_exist,
+                           desc=f"Indexing {self.split} for {self.__class__.__name__}",
                            leave=False,
                            dynamic_ncols=True):
-            # Check usability.
+            series_id = series.split('_')
+            if len(series_id) >= 3:
+                raise ValueError(
+                    f"Series ID {series} is not in the expected format. "
+                    "Expected format: <SeriesID>_<Optional augment idx>, "
+                    f"encountered {series}."
+                )
+            if series.split('_')[0] not in series_avail:
+                continue
             if self.mode == "sup" and series not in self.precrop_meta["anno_available"]:
                 continue
+            
             series_folder = os.path.join(self.data_root, series)
             try:
                 with open(os.path.join(series_folder, "SeriesMeta.json"), "r") as f:
