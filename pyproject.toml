@@ -70,6 +70,7 @@ split3d = "mgamdata.process.Split3D:main"
 split2d = "mgamdata.process.Split2D:main"
 itk_patch = "mgamdata.process.itk_patch:main"
 itk_check = "mgamdata.process.itk_check:main"
+itk_aug = "mgamdata.process.itk_aug:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
