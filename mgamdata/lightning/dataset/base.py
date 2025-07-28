@@ -68,10 +68,17 @@ class BaseDataModule(LightningDataModule):
 class BaseDataset(Dataset):
     SPLIT_RATIO = (0.7, 0.05, 0.25)  # train, val, test
 
-    def __init__(self, pipeline:list[Callable]=[], debug:bool=False, **kwargs):
+    def __init__(self,
+                 split:Literal['train', 'val', 'test']|None = None,
+                 pipeline:list[Callable]=[],
+                 debug:bool=False, 
+                 **kwargs):
         super().__init__(**kwargs)
+        self.split = split
         self.pipeline = pipeline
         self.debug = debug
+        assert self.split is None, "The dataset split for Lightning is implemented in DataModule, not in Dataset. " \
+                                   f"Please set split to None, got {self.split}."
 
     def _preprocess(self, sample:dict):
         for transform in self.pipeline:

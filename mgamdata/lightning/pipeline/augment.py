@@ -84,7 +84,7 @@ class AutoPad(BaseTransform):
         self.pad_val = pad_val
         self.pad_label_val = pad_label_val
 
-    def _get_pad_params(self, current_shape: tuple) -> tuple[tuple[int, int], ...]:
+    def _get_pad_params(self, current_shape: tuple):
         pad_params = []
         # 只处理最后n个维度，n由dim决定
         dims_to_pad = self.dim_map[self.dim]
@@ -107,24 +107,24 @@ class AutoPad(BaseTransform):
                 pad_2 = pad - pad_1
                 pad_params.append((pad_1, pad_2))
                 
-        return tuple(pad_params)
+        return pad_params
 
     def __call__(self, sample: dict):
-        img = sample["image"]
-        pad_params = self._get_pad_params(img.shape)
+        pad_params = self._get_pad_params(sample["image"].shape)
         
         if any(p[0] > 0 or p[1] > 0 for p in pad_params):
             sample["image"] = np.pad(
-                img,
+                sample["image"],
                 pad_params,
                 mode="constant",
                 constant_values=self.pad_val,
             )
             
             if "label" in sample:
+                label_do_not_have_channel_dimension = (sample["image"].ndim - sample["label"].ndim) == 1
                 sample["label"] = np.pad(
                     sample["label"],
-                    pad_params,
+                    pad_params[1:] if label_do_not_have_channel_dimension else pad_params,
                     mode="constant",
                     constant_values=self.pad_label_val,
                 )

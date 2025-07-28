@@ -1,10 +1,13 @@
 import pdb
+from collections.abc import Sequence
+from abc import abstractmethod
+from typing import Any
 
 import torch
 from torch import Tensor
+import numpy as np
 import pytorch_lightning as pl
-from abc import abstractmethod
-from typing import Any
+from tabulate import tabulate
 
 
 
@@ -20,14 +23,15 @@ class SegmentationBase(pl.LightningModule):
     def __init__(
         self,
         model: torch.nn.Module,
-        criterion: torch.nn.Module | list[torch.nn.Module],
+        criterion: torch.nn.Module | Sequence[torch.nn.Module],
         num_classes: int,
         optimizer_config: dict = {},
         scheduler_config: dict = {},
         gt_sem_seg_key: str = 'label',
+        to_one_hot:bool = False,
         binary_segment_threshold: float | None = None,
-        inference_patch_size: tuple[int, ...] | None = None,
-        inference_patch_stride: tuple[int, ...] | None = None,
+        inference_patch_size: Sequence[int] | None = None,
+        inference_patch_stride: Sequence[int] | None = None,
         inference_patch_accumulate_device: str = 'cuda',
         class_names: list[str] | None = None,
         eps = 1e-5,
@@ -35,7 +39,7 @@ class SegmentationBase(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters(ignore=['model', 'criterion'])
         self.model = model
-        if isinstance(criterion, (list, tuple)):
+        if isinstance(criterion, Sequence):
             self.criteria = list(criterion)
         else:
             self.criteria = [criterion]
@@ -44,11 +48,12 @@ class SegmentationBase(pl.LightningModule):
         self.optimizer_config = optimizer_config
         self.scheduler_config = scheduler_config
         self.gt_sem_seg_key = gt_sem_seg_key
+        self.to_one_hot = to_one_hot
         self.binary_segment_threshold = binary_segment_threshold
         self.inference_patch_size = inference_patch_size
         self.inference_patch_stride = inference_patch_stride
         self.inference_patch_accumulate_device = inference_patch_accumulate_device
-        self.class_names = class_names
+        self.class_names = list(range(num_classes)) if class_names is None else class_names
         self.eps = eps
 
     def forward(self, x: Tensor) -> Tensor:
@@ -62,6 +67,9 @@ class SegmentationBase(pl.LightningModule):
         """
         return self.model(x)
 
+    def configure_optimizers(self):
+        return torch.optim.AdamW(self.parameters(), **self.optimizer_config)
+
     def _logits_to_predictions(self, logits: Tensor) -> Tensor:
         if self.num_classes > 1:
             return logits.argmax(dim=1).to(torch.uint8)
@@ -72,67 +80,11 @@ class SegmentationBase(pl.LightningModule):
     def _parse_batch(self, batch: dict[str, Any]) -> tuple[Tensor, Tensor]:
         image = batch['image'].to(device=torch.device(self.device), non_blocking=True)
         label = batch[self.gt_sem_seg_key].to(device=torch.device(self.device), non_blocking=True)
+        label = torch.nn.functional.one_hot(label.long(), num_classes=self.num_classes).permute(0,4,1,2,3).float() \
+                if self.to_one_hot else label
         return image, label
 
-    def training_step(self, batch: dict[str, Any], batch_idx: int) -> Tensor:
-        image, gt_segs = self._parse_batch(batch)
-        logits:Tensor = self(image)
-        losses = self._compute_losses(logits, gt_segs)
-        total_loss = sum(losses.values())
-        for loss_name, loss_value in losses.items():
-            self.log(f'train/{loss_name}', loss_value, on_step=True, on_epoch=True, logger=True)
-        self.log('train/total_loss', total_loss, on_step=True, on_epoch=True, logger=True)
-        return total_loss
-
-    def validation_step(self, batch: dict[str, Any], batch_idx: int) -> dict[str, Any]:
-        image, gt_segs = self._parse_batch(batch)
-        logits:Tensor = self(image)
-        losses = self._compute_losses(logits, gt_segs)
-        for loss_name, loss_value in losses.items():
-            self.log(f'val/{loss_name}', loss_value, on_step=False, on_epoch=True, prog_bar=True)
-        
-        predictions = self._logits_to_predictions(logits)
-        
-        metrics = self._compute_metrics(predictions, gt_segs)
-        for metric_name, metric_value in metrics.items():
-            self.log(f'val/{metric_name}', metric_value, on_step=False, on_epoch=True, logger=True)
-        
-        return {'val_loss': sum(losses.values()), 
-                'logits': logits, 
-                'predictions': predictions, 
-                'targets': gt_segs}
-
-    def test_step(self, batch: dict[str, Any], batch_idx: int) -> dict[str, Any]:
-        return self.validation_step(batch, batch_idx)
-
-    def predict_step(self, batch: dict[str, Any], batch_idx: int) -> dict[str, Any]:
-        batch['predictions'] = self._logits_to_predictions(self.inference(batch['image']))
-        return batch
-
-    def configure_optimizers(self):
-        return torch.optim.AdamW(self.parameters(), **self.optimizer_config)
-
-    @torch.inference_mode()
-    def inference(self, inputs: Tensor) -> Tensor:
-        if self.inference_patch_size is not None and self.inference_patch_stride is not None:
-            return self.slide_inference(inputs)
-        else:
-            return self.forward(inputs)
-
-    @abstractmethod
-    def slide_inference(self, inputs: Tensor) -> Tensor:
-        raise NotImplementedError("Subclasses must implement slide_inference method")
-
     def _compute_losses(self, logits: Tensor, targets: Tensor) -> dict[str, Tensor]:
-        """Compute losses using configured criteria.
-        
-        Args:
-            logits: Model output logits
-            targets: Ground truth targets
-            
-        Returns:
-            Dictionary of computed losses
-        """
         losses = {}
         for i, criterion in enumerate(self.criteria):
             loss_name = f'loss_{criterion.__class__.__name__}' if len(self.criteria) > 1 else 'loss'
@@ -140,22 +92,29 @@ class SegmentationBase(pl.LightningModule):
         return losses
 
     def _compute_metrics(self, predictions: Tensor, targets: Tensor) -> dict[str, Tensor]:
+        """
+        predictions: shape [N, ...]
+        targets: shape [N, C, ...]
+        """
         metrics = {}
         
         if self.num_classes > 1:
-            for class_idx in range(self.num_classes):
-                class_name = self.class_names[class_idx] if self.class_names is not None else f'class_{class_idx}'
-                
-                pred_mask = (predictions == class_idx)
-                target_mask = (targets == class_idx)
+            for class_idx, class_name in enumerate(self.class_names):
+                pred_mask = predictions == class_idx
+                target_mask = targets[:, class_idx].bool()
                 intersection = (pred_mask & target_mask).float().sum()
                 union = (pred_mask | target_mask).float().sum()
                 
                 metrics[f'IoU_{class_name}'] = intersection / (union + self.eps)
                 metrics[f'Dice_{class_name}'] = 2 * intersection / (pred_mask.float().sum() + target_mask.float().sum() + self.eps)
                 metrics[f'Recall_{class_name}'] = intersection / (target_mask.float().sum() + self.eps)
-                metrics[f'precision_{class_name}'] = intersection / (pred_mask.float().sum() + self.eps)
-        
+                metrics[f'Precision_{class_name}'] = intersection / (pred_mask.float().sum() + self.eps)
+            
+            metrics[f"IoU_Avg"] = torch.mean(torch.stack([metrics[f'IoU_{class_name}'] for class_name in self.class_names]))
+            metrics[f"Dice_Avg"] = torch.mean(torch.stack([metrics[f'Dice_{class_name}'] for class_name in self.class_names]))
+            metrics[f"Recall_Avg"] = torch.mean(torch.stack([metrics[f'Recall_{class_name}'] for class_name in self.class_names]))
+            metrics[f"Precision_Avg"] = torch.mean(torch.stack([metrics[f'Precision_{class_name}'] for class_name in self.class_names]))
+
         else:
             assert self.binary_segment_threshold is not None, "Binary segmentation requires a threshold"
             class_name = self.class_names[0] if self.class_names is not None else 'binary'
@@ -168,9 +127,60 @@ class SegmentationBase(pl.LightningModule):
             metrics[f'IoU'] = intersection / (union + self.eps)
             metrics[f'Dice'] = 2 * intersection / (pred_mask.float().sum() + target_mask.float().sum() + self.eps)
             metrics[f'Recall'] = intersection / (target_mask.float().sum() + self.eps)
-            metrics[f'precision'] = intersection / (pred_mask.float().sum() + self.eps)
+            metrics[f'Precision'] = intersection / (pred_mask.float().sum() + self.eps)
         
         return metrics
+
+    def training_step(self, batch: dict[str, Any], batch_idx: int) -> Tensor:
+        image, gt_segs = self._parse_batch(batch)
+        logits:Tensor = self(image)
+        
+        losses = self._compute_losses(logits, gt_segs)
+        total_loss = torch.stack(list(losses.values())).sum()
+        
+        for loss_name, loss_value in losses.items():
+            self.log(f'train/{loss_name}', loss_value, on_step=True, on_epoch=True, logger=True)
+        self.log('train/total_loss', total_loss, on_step=True, on_epoch=True, logger=True)
+        
+        return total_loss
+
+    def validation_step(self, batch: dict[str, Any], batch_idx: int) -> dict[str, Any]:
+        image, gt_segs = self._parse_batch(batch)
+        logits:Tensor = self(image)
+        
+        losses = self._compute_losses(logits, gt_segs)
+        for loss_name, loss_value in losses.items():
+            self.log(f'val/{loss_name}', loss_value, on_step=False, on_epoch=True, prog_bar=True)
+        
+        predictions = self._logits_to_predictions(logits) # [N, ...]
+        
+        metrics = self._compute_metrics(predictions, gt_segs)
+        for metric_name, metric_value in metrics.items():
+            self.log(f'val/{metric_name}', metric_value, on_step=False, on_epoch=True, logger=True)
+        
+        return {'val_loss': sum(losses.values()),
+                'logits': logits,
+                'predictions': predictions,
+                'targets': gt_segs}
+
+    def test_step(self, batch: dict[str, Any], batch_idx: int) -> dict[str, Any]:
+        return self.validation_step(batch, batch_idx)
+
+    def predict_step(self, batch: dict[str, Any], batch_idx: int) -> dict[str, Any]:
+        batch['predictions'] = self._logits_to_predictions(self.inference(batch['image']))
+        return batch
+
+    @torch.inference_mode()
+    def inference(self, inputs: Tensor) -> Tensor:
+        if self.inference_patch_size is not None and self.inference_patch_stride is not None:
+            return self.slide_inference(inputs)
+        else:
+            return self.forward(inputs)
+
+    @abstractmethod
+    def slide_inference(self, inputs: Tensor) -> Tensor:
+        raise NotImplementedError("Subclasses must implement slide_inference method")
+
 
 
 class Segmentation3D(SegmentationBase):

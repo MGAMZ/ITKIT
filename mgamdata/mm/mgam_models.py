@@ -29,6 +29,7 @@ class mgam_Seg_Lite(BaseModel):
                  inference_PatchSize:tuple|None=None,
                  inference_PatchStride:tuple|None=None,
                  inference_PatchAccumulateDevice:str='cuda',
+                 allow_pbar:bool = False,
                  *args, **kwargs):
         """mgam_Seg_Lite 是一个简化版的分割范式。
         
@@ -57,6 +58,7 @@ class mgam_Seg_Lite(BaseModel):
         self.inference_PatchSize = inference_PatchSize
         self.inference_PatchStride = inference_PatchStride
         self.inference_PatchAccumulateDevice = inference_PatchAccumulateDevice
+        self.allow_pbar = allow_pbar
         
         if use_half:
             self.half()
@@ -475,9 +477,9 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         )
         
         # 滑动窗口推理
-        for z_idx in tqdm(range(z_grids), desc='Slide Win. Infer. Z', disable=not is_main_process(), dynamic_ncols=True, position=0, leave=False):
-            for y_idx in tqdm(range(y_grids), desc='Slide Win. Infer. Y', disable=not is_main_process(), dynamic_ncols=True, position=1, leave=False):
-                for x_idx in tqdm(range(x_grids), desc='Slide Win. Infer. X', disable=not is_main_process(), dynamic_ncols=True, position=2, leave=False):
+        for z_idx in tqdm(range(z_grids), desc='Slide Win. Infer. Z', disable=not (is_main_process() and self.allow_pbar), dynamic_ncols=True, position=0, leave=False):
+            for y_idx in tqdm(range(y_grids), desc='Slide Win. Infer. Y', disable=not (is_main_process() and self.allow_pbar), dynamic_ncols=True, position=1, leave=False):
+                for x_idx in tqdm(range(x_grids), desc='Slide Win. Infer. X', disable=not (is_main_process() and self.allow_pbar), dynamic_ncols=True, position=2, leave=False):
                     z1 = z_idx * z_stride
                     y1 = y_idx * y_stride
                     x1 = x_idx * x_stride

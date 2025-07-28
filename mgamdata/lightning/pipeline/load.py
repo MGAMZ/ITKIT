@@ -64,6 +64,6 @@ class LoadMHAFile(BaseTransform):
             label_mha = sitk.ReadImage(sample['label_mha_path'])
             label_mha = self._resample_itk(label_mha, field='label')
             label_mha = sitk.DICOMOrient(label_mha, 'LPI')
-            sample['label'] = sitk.GetArrayFromImage(label_mha)[None].astype(np.uint8)
+            sample['label'] = sitk.GetArrayFromImage(label_mha).astype(np.uint8)
         
         return sample

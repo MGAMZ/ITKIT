@@ -125,10 +125,10 @@ class SegVis3DCallback(Callback):
         
         # Take the first sample from the batch
         sample_idx = 0
-        image = images[sample_idx, 0].cpu().numpy()  # Shape: [Z, Y, X]
-        gt_label = gt_labels[sample_idx].cpu().numpy().astype(np.float32)  # Shape: [Z, Y, X]
-        prediction = predictions[sample_idx].cpu().numpy().astype(np.float32)  # Shape: [Z, Y, X]
-        confidence = confidence_map[sample_idx].cpu().numpy()  # Shape: [Z, Y, X]
+        image = images[sample_idx, 0].float().cpu().numpy()  # Shape: [Z, Y, X]
+        gt_label = gt_labels[sample_idx].float().cpu().numpy().astype(np.float32)  # Shape: [Z, Y, X]
+        prediction = predictions[sample_idx].float().cpu().numpy().astype(np.float32)  # Shape: [Z, Y, X]
+        confidence = confidence_map[sample_idx].float().cpu().numpy()  # Shape: [Z, Y, X]
         # masked segmentation map for transparency during matplotlib visualization
         gt_label[gt_label == self.ignore_class_idx] = np.nan
         prediction[prediction == self.ignore_class_idx] = np.nan
@@ -172,16 +172,15 @@ class SegVis3DCallback(Callback):
             im = axes[row, 3].imshow(confidence[slice_idx], cmap='hot', vmin=0, vmax=1, alpha=self.alpha)
             axes[row, 3].axis('off')
         
-        plt.tight_layout()
+        fig.tight_layout()
         
-        # NOTE Log to trainer's logger - only use TensorBoard's add_figure method
-        if (hasattr(trainer.logger, 'experiment') and 
-            hasattr(trainer.logger.experiment, 'add_figure')):
-            trainer.logger.experiment.add_figure(
-                f'{stage}_SegVis3D/batch_{batch_idx}',
-                fig,
-                trainer.current_epoch
-            )
+        for logger in trainer.loggers:
+            if hasattr(logger, 'log_figure'):
+                logger.log_figure(
+                    f'{stage}_SegVis3D/batch_{batch_idx}',
+                    fig,
+                    trainer.global_step
+                )
         
         plt.close(fig)
         self.samples_visualized_this_epoch += 1
