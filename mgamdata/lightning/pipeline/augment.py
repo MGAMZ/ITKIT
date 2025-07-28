@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing_extensions import Literal
 from collections.abc import Callable, Sequence
 import random
@@ -130,7 +131,6 @@ class AutoPad(BaseTransform):
                 )
 
         return sample
-
 
 
 class BatchAugment(BaseTransform):

@@ -1,6 +1,4 @@
-import os
-import re
-from typing import Literal
+import os, re, pdb
 from pathlib import Path
 from tqdm import tqdm
 
@@ -63,7 +61,24 @@ class MhaDataset(BaseDataset):
             })
 
     def __getitem__(self, index):
-        return self._preprocess(self.available_series[index])
+        return self._preprocess(self.available_series[index].copy())
 
     def __len__(self):
         return 10 if self.debug else len(self.available_series)
+
+
+class MhaPatchedDataset(MhaDataset):
+    def index_dataset(self):
+        splited_series = set(self._split())
+        existed_series = [f for f in os.listdir(self.image_root) if os.path.isdir(self.image_root / f)]
+        self.available_series = []
+        for series in tqdm(splited_series.intersection(existed_series),
+                           desc=f"Indexing Dataset | Split {self.split}"):
+            for mha in (self.image_root / series).glob("*_image.mha"):
+                image_mha_path = str(self.image_root / series / mha.name)
+                label_mha_path = image_mha_path.replace("_image.mha", "_label.mha")
+                self.available_series.append({
+                    "series_uid": series,
+                    "image_mha_path": image_mha_path,
+                    "label_mha_path": label_mha_path
+                })

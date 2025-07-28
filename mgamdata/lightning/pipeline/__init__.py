@@ -1,7 +1,7 @@
 from .augment import BatchAugment, RandomPatch3D, AutoPad, RandomPatch3DIndexing
 from .load import LoadMHAFile
 from .radiology import WindowNorm, ITKResample
-from .utils import TypeConvert, ToOneHot, ToTensor
+from .utils import TypeConvert, ToOneHot, ToTensor, GCCollect
 
 __all__ = [
     'LoadMHAFile',
@@ -13,5 +13,6 @@ __all__ = [
     'TypeConvert',
     'AutoPad',
     'ToOneHot',
-    'ToTensor'
+    'ToTensor',
+    'GCCollect'
 ]

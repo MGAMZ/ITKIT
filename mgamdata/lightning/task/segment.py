@@ -5,10 +5,7 @@ from typing import Any
 
 import torch
 from torch import Tensor
-import numpy as np
 import pytorch_lightning as pl
-from tabulate import tabulate
-
 
 
 class SegmentationBase(pl.LightningModule):
@@ -78,8 +75,8 @@ class SegmentationBase(pl.LightningModule):
             return (logits > self.binary_segment_threshold).to(torch.uint8)
 
     def _parse_batch(self, batch: dict[str, Any]) -> tuple[Tensor, Tensor]:
-        image = batch['image'].to(device=torch.device(self.device), non_blocking=True)
-        label = batch[self.gt_sem_seg_key].to(device=torch.device(self.device), non_blocking=True)
+        image = batch['image'].to(torch.device(self.device), non_blocking=True).float()
+        label = batch[self.gt_sem_seg_key].to(torch.device(self.device), non_blocking=True)
         label = torch.nn.functional.one_hot(label.long(), num_classes=self.num_classes).permute(0,4,1,2,3).float() \
                 if self.to_one_hot else label
         return image, label
@@ -91,6 +88,7 @@ class SegmentationBase(pl.LightningModule):
             losses[loss_name] = criterion(logits, targets)
         return losses
 
+    @torch.no_grad()
     def _compute_metrics(self, predictions: Tensor, targets: Tensor) -> dict[str, Tensor]:
         """
         predictions: shape [N, ...]
@@ -138,9 +136,10 @@ class SegmentationBase(pl.LightningModule):
         losses = self._compute_losses(logits, gt_segs)
         total_loss = torch.stack(list(losses.values())).sum()
         
-        for loss_name, loss_value in losses.items():
-            self.log(f'train/{loss_name}', loss_value, on_step=True, on_epoch=True, logger=True)
-        self.log('train/total_loss', total_loss, on_step=True, on_epoch=True, logger=True)
+        with torch.no_grad():
+            for loss_name, loss_value in losses.items():
+                self.log(f'train/{loss_name}', loss_value.item(), on_step=True, on_epoch=True, logger=True)
+            self.log('train/total_loss', total_loss.item(), on_step=True, on_epoch=True, logger=True)
         
         return total_loss
 

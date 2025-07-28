@@ -1,4 +1,4 @@
-import pdb
+import pdb, gc
 import torch
 import numpy as np
 from .base import BaseTransform
@@ -35,4 +35,11 @@ class ToTensor(BaseTransform):
     def __call__(self, sample:dict) -> dict:
         for k in self.key:
             sample[k] = torch.from_numpy(sample[k])
+        return sample
+
+
+class GCCollect(BaseTransform):
+    """强制GC回收"""
+    def __call__(self, sample:dict) -> dict:
+        gc.collect()
         return sample

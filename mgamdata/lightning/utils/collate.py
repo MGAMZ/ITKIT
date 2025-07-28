@@ -1,5 +1,5 @@
 import pdb
-from typing import Sequence
+from collections.abc import Sequence
 from torch.utils.data.dataloader import default_collate
 
 
@@ -20,9 +20,8 @@ def multi_sample_collate(data_batch: Sequence[dict]):
             flattened.extend(item)
         else:
             flattened.append(item)
-    data_batch = flattened
-
-    return default_collate(data_batch)
+            
+    return default_collate(flattened)
 
 
 
