@@ -13,11 +13,15 @@ class TabulateLogger(Logger):
     def __init__(self,
                  root_dir:str,
                  name:str,
-                 version:str,):
+                 version:str,
+                 row_names:list[str],
+                 column_names:list[str]):
         super().__init__()
         self._root_dir = root_dir
         self._name = name
         self._version = version
+        self.row_names = row_names
+        self.column_names = column_names
 
     @property
     @override
@@ -46,38 +50,32 @@ class TabulateLogger(Logger):
             metrics[k.split('/')[-1]] = metrics[k]
             metrics.pop(k, None)
 
-        # 保持顺序的去重
-        criterion_names = list(dict.fromkeys([k.split('_')[0] for k in metrics.keys()]))
-        class_names = list(dict.fromkeys(['_'.join(k.split('_')[1:]) for k in metrics.keys()]))
-        if '' in criterion_names:
-            criterion_names.remove('')
-        if '' in class_names:
-            class_names.remove('')
-
         # try format a multi-colume tabulate to improve readability
         # majorly designed for validation results
+        exist_valid_value = False
         fmt = []
-        for class_name in class_names:
-            fmt_row:list = [class_name]
-            for criterion in criterion_names:
-                row_name = f'{criterion}_{class_name}'
-                if row_name in metrics:
-                    fmt_row.append(metrics[row_name])
-            fmt.append(fmt_row)
-            
-        table = tabulate(
-            fmt,
-            headers=['Metric'] + list(criterion_names),
-            tablefmt='grid',
-            floatfmt='.3f',
-        )
+        for row_name in self.row_names:
+            one_row:list = [row_name]
+            for col_name in self.column_names:
+                v = metrics.get(f"{col_name}_{row_name}", None)
+                one_row.append(v)
+                if v is not None:
+                    exist_valid_value = True
+            fmt.append(one_row)
 
-        tqdm.write(table)
-        with open(os.path.join(self.root_dir, self.name, self.version, 'tabulates.txt'), "a") as f:
-            f.write(table + "\n")
-            if step is not None:
-                f.write(f"Step: {step}\n")
-            f.write("\n")
+        if exist_valid_value:
+            table = tabulate(
+                fmt,
+                headers=['Metric'] + self.column_names,
+                tablefmt='grid',
+                floatfmt='.3f',
+            )
+            tqdm.write(table)
+            with open(os.path.join(self.root_dir, self.name, self.version, 'tabulates.txt'), "a") as f:
+                f.write(table + "\n")
+                if step is not None:
+                    f.write(f"Step: {step}\n")
+                f.write("\n")
 
     @override
     @rank_zero_only
