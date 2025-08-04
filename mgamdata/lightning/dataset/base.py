@@ -5,12 +5,14 @@ from typing_extensions import Literal
 from torch.utils.data import DataLoader, Dataset, Subset
 from pytorch_lightning import LightningDataModule
 
+from mgamdata.lightning.utils import multi_sample_collate
 
 class BaseDataModule(LightningDataModule):
     TRAIN_LOADER_ARGS = {
         "shuffle": True,
         "num_workers": 4,
         "pin_memory": True,
+        "collate_fn": multi_sample_collate,
         "persistent_workers": True,
     }
     VAL_TEST_LOADER_ARGS = {
@@ -18,6 +20,7 @@ class BaseDataModule(LightningDataModule):
         "shuffle": False,
         "num_workers": 4,
         "pin_memory": True,
+        "collate_fn": multi_sample_collate,
         "persistent_workers": True,
     }
     

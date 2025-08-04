@@ -40,9 +40,9 @@ class TabulateLogger(Logger):
 
     @override
     @rank_zero_only
-    def log_metrics(  # type: ignore[override]
-        self, metrics: dict[str, Tensor|float], step: int|None = None
-    ) -> None:
+    def log_metrics(self, metrics: dict[str, Tensor|float], step: int|None = None) -> None:
+        """metric naming rule: <col_name>_<row_name>"""
+        
         if not metrics:
             return
         
