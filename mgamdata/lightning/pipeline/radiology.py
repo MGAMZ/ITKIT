@@ -4,7 +4,7 @@ from mgamdata.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_
 
 
 class WindowNorm(BaseTransform):
-    def __init__(self, window_level: int = 0, window_width: int = 300):
+    def __init__(self, window_level:int, window_width:int):
         super().__init__()
         self.window_level = window_level
         self.window_width = window_width
