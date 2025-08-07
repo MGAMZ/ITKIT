@@ -463,6 +463,8 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         
         # 准备结果累加矩阵，根据指定的设备创建
         accumulate_device = torch.device(self.inference_PatchAccumulateDevice)
+        if accumulate_device.type == 'cuda':
+            torch.cuda.empty_cache()
         
         # 创建累加矩阵和计数矩阵在指定的设备上
         preds = torch.zeros(
