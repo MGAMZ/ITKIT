@@ -131,7 +131,7 @@ class SplitZ_Loss(torch.nn.Module):
         target_spatial_shape = target.shape[-3:]
         if pred_spatial_shape != target_spatial_shape:
              raise ValueError(f"Spatial dimensions of pred {pred.shape} and target {target.shape} must match.")
-        if self.monai_loss.to_onehot_y:
+        if self.to_onehot_y:
             target = target.unsqueeze(1) # ensure to [B, 1, Z, Y, X]
         
         if self.split_Z:
@@ -151,6 +151,7 @@ class DiceLoss_3D(SplitZ_Loss):
         super().__init__(split_Z=kwargs.pop("split_Z", False))
         self.loss_name = self._loss_name = loss_name
         self.monai_loss = DiceLoss(**kwargs)
+        self.to_onehot_y = kwargs.get('to_onehot_y', False)
 
 
 class DiceCELoss_3D(SplitZ_Loss):
@@ -159,6 +160,7 @@ class DiceCELoss_3D(SplitZ_Loss):
         super().__init__(split_Z=kwargs.pop("split_Z", False))
         self.loss_name = self._loss_name = loss_name
         self.monai_loss = DiceCELoss(**kwargs)
+        self.to_onehot_y = kwargs.get('to_onehot_y', False)
 
 
 class CrossEntropyLoss_3D(torch.nn.CrossEntropyLoss):
