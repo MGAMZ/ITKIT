@@ -59,6 +59,9 @@ pytorch = [
   "timm",
   "deepspeed",
 ]
+mm = [
+  "ftfy",
+]
 
 [project.scripts]
 mmrun = "mgamdata.mm.run:main"
