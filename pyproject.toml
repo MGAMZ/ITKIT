@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mgamdata"
-version = "2.1.4.250807"
-requires-python = ">= 3.10"
+version = "2.2.0.250810"
+requires-python = ">= 3.12"
 description = "mgam's data toolkit for a better world!"
 readme = "README.md"
 license = {file = "LICENSE"}
