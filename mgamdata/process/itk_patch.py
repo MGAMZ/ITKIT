@@ -169,6 +169,8 @@ def process_case(args):
 def main():
     args = parse_args()
     tasks = find_pairs(args.src_folder)
+    if len(tasks) == 0:
+        raise FileNotFoundError(f"No valid image-label pairs found in {args.src_folder}")
     task_args = [(
         img, lbl,
         args.dst_folder,
