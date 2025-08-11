@@ -19,6 +19,7 @@ def check_sample(args):
     name = os.path.basename(image_path)
     try:
         img = sitk.ReadImage(image_path)
+        img = sitk.DICOMOrient(img, "LPI")
     except Exception as e:
         return (name, [], [], [f"read error: {e}"])
 

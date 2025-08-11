@@ -74,9 +74,10 @@ class LoadAnnoFromOpenCV(BaseLoadBiomedicalData):
 
 
 class LoadFromMHA(BaseLoadBiomedicalData):
-    def __init__(self, resample_spacing=None, resample_size=None):
+    def __init__(self, resample_spacing=None, resample_size=None, debug:bool=False):
         self.resample_spacing = resample_spacing
         self.resample_size = resample_size
+        self.debug = debug
 
     def _process_mha(self, mha, field:Literal["image", "label"]):
         if self.resample_spacing is not None:
@@ -109,6 +110,8 @@ class LoadImageFromMHA(LoadFromMHA):
         results["img"] = img  # output: [Z, Y, X]
         results["img_shape"] = img.shape
         results["ori_shape"] = img.shape
+        if self.debug:
+            print(f"[LoadImageMHA] `{img_path}` shape: {img.shape}")
         return results
 
 
@@ -132,8 +135,12 @@ class LoadMaskFromMHA(LoadFromMHA):
             mask = self._process_mha(mask_mha, "label")
             if results.get("label_map", None) is not None:
                 mask = self._label_remap(mask, results["label_map"])
+            
             results["gt_seg_map"] = mask # output: [Z, Y, X]
             results["seg_fields"].append("gt_seg_map")
+            if self.debug:
+                print(f"[LoadMaskMHA] `{mask_path}` shape: {mask.shape}")
+        
         return results
 
 
