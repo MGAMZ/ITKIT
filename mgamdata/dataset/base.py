@@ -95,11 +95,19 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
     def __init__(self,
                  data_root_mha:str|None=None,
                  mode:Literal["semi", "sup"]="sup",
+                 min_spacing=(-1, -1, -1),
+                 min_size=(-1, -1, -1),
                  *args, **kwargs):
         # `Semi` mode will still include those samples without labels
         # `Sup` mode will exclude those samples without labels
         self.mode = mode
         self.data_root_mha = data_root_mha
+        self.min_spacing = min_spacing
+        self.min_size = min_size
+        if len(self.min_spacing) != 3 or len(self.min_size) != 3:
+            raise ValueError('min_spacing 与 min_size 必须长度为 3, 对应 Z Y X. 可用 -1 忽略某维度。')
+        self._series_meta_cache = None  # lazy load
+        
         super().__init__(*args, **kwargs)
         self.data_root: str
         if self.data_root_mha is None:
@@ -131,6 +139,71 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
             return all_series
         else:
             raise RuntimeError(f"Unsupported split: {self.split}")
+
+    def _load_series_meta(self):
+        if self._series_meta_cache is not None:
+            return self._series_meta_cache
+        meta_path = os.path.join(self.data_root_mha, 'series_meta.json')
+        
+        if not os.path.isfile(meta_path):
+            print_log(f'series_meta.json 未找到: {meta_path}. 将跳过 size/spacing 过滤。', MMLogger.get_current_instance(), logging.WARNING)
+            self._series_meta_cache = {}
+            return self._series_meta_cache
+        
+        try:
+            with open(meta_path, 'r') as f:
+                self._series_meta_cache = json.load(f)
+        except Exception as e:
+            print_log(f'读取 series_meta.json 失败 ({e}), 跳过过滤。', MMLogger.get_current_instance(), logging.ERROR)
+            self._series_meta_cache = {}
+        
+        return self._series_meta_cache
+
+    def _need_filtering(self):
+        return any(v != -1 for v in self.min_spacing) or any(v != -1 for v in self.min_size)
+
+    def _filter_by_meta(self, series_uids:list[str]):
+        if not self._need_filtering():
+            return series_uids
+        
+        meta = self._load_series_meta()
+        if not meta:
+            return series_uids
+        kept = []
+        dropped = []
+        for uid in series_uids:
+            key = uid + '.mha'  # meta 中包含扩展名
+            entry = meta.get(key)
+            
+            if entry is None:
+                dropped.append((uid, 'no_meta'))
+                continue
+            
+            size = entry.get('size', [])
+            spacing = entry.get('spacing', [])
+            if not (len(size) == 3 and len(spacing) == 3):
+                dropped.append((uid, 'invalid_meta_shape'))
+                continue
+            
+            reject_reason = []
+            for i, mn in enumerate(self.min_size):
+                if mn != -1 and size[i] < mn:
+                    reject_reason.append(f'size[{i}]={size[i]} < {mn}')
+            for i, mn in enumerate(self.min_spacing):
+                if mn != -1 and spacing[i] < mn:
+                    reject_reason.append(f'spacing[{i}]={spacing[i]} < {mn}')
+            if reject_reason:
+                dropped.append((uid, ';'.join(reject_reason)))
+            else:
+                kept.append(uid)
+        
+        if dropped:
+            print_log(f'Series Filter: Abandon {len(dropped)}/{len(series_uids)}。', MMLogger.get_current_instance(), logging.INFO)
+            preview = '\n'.join([f'  {u}: {r}' for u, r in dropped[:10]])
+            print_log(f'示例(前10条):\n{preview}', MMLogger.get_current_instance(), logging.DEBUG)
+        
+        return kept
+
 
 
 class mgam_2D_MhaVolumeSlices(mgam_SeriesVolume):

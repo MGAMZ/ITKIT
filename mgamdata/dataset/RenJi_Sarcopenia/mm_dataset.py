@@ -2,6 +2,7 @@ import os
 import pdb
 import re
 import logging
+import json  # added
 from pathlib import Path
 
 import pandas as pd
@@ -15,7 +16,19 @@ from ..base import (mgam_SemiSup_Precropped_Npz, mgam_SemiSup_3D_Mha, mgam_Serie
 class Sarcopenia_base(mgam_SeriesVolume):
     METAINFO = dict(classes=list(CLASS_MAP.values()))
 
-    def __init__(self, L3_anno_xlsx:str|None=None, ensure_L3_anno=None, *args, **kwargs):
+    def __init__(self,
+                 L3_anno_xlsx:str|None=None,
+                 ensure_L3_anno=None,
+                 *args, **kwargs):
+        """
+        Parameters
+        ----------
+        L3_anno_xlsx : str | None
+            Excel 标注文件路径。
+        ensure_L3_anno : bool | None
+            若 True 没有 L3 标注的样本将被抛弃；None 时依据是否提供 xlsx。
+        """
+        
         self.L3_anno_xlsx = L3_anno_xlsx
         self.ensure_L3_anno = ensure_L3_anno if (ensure_L3_anno is not None) else (L3_anno_xlsx is not None)
         self.L3_anno = pd.read_excel(L3_anno_xlsx, usecols=['序列编号', 'L3节段起始层数', 'L3节段终止层数', 'L3节段椎弓根层面层数']) \
@@ -43,6 +56,9 @@ class Sarcopenia_base(mgam_SeriesVolume):
         for i in sorted(exclusion_count, reverse=True):
             SeriesUIDs.pop(i)
         
+        # meta-based filtering
+        SeriesUIDs = self._filter_by_meta(SeriesUIDs)
+
         # Split and Return
         SeriesUIDs = sorted(SeriesUIDs, key=lambda x: abs(int(re.search(r"\d+", x).group())))
         train_end = int(len(SeriesUIDs) * self.SPLIT_RATIO[0])
