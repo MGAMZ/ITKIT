@@ -129,12 +129,35 @@ def find_pairs(src_folder: Path):
 def process_case(args):
     img_path, lbl_path, dst_folder, patch_size, patch_stride, min_fg, still_save = args
     case_name = img_path.stem
+
+    def is_valid_sample(itk_img:sitk.Image, itk_lbl:sitk.Image):
+        img_size = itk_img.GetSize()
+        lbl_size = itk_lbl.GetSize()
+        if not np.allclose(img_size, lbl_size, atol=1.5):
+            tqdm.write(f"Skipping {case_name} for Size mismatch img size {img_size} | lbl size {lbl_size}.")
+            return False
+        
+        img_spacing = itk_img.GetSpacing()
+        lbl_spacing = itk_lbl.GetSpacing()
+        if not np.allclose(img_spacing, lbl_spacing, atol=0.01):
+            tqdm.write(f"Skipping {case_name} for Spacing mismatch img spacing {img_spacing} | lbl spacing {lbl_spacing}.")
+            return False
+        
+        if img_size[0] != img_size[1]:
+            tqdm.write(f"Skipping {case_name} for Non-isotropic size img size {img_size}.")
+            return False
+        
+        return True
+    
     try:
         out_case = dst_folder / case_name
         out_case.mkdir(parents=True, exist_ok=True)
         image = sitk.ReadImage(str(img_path))
         label = sitk.ReadImage(str(lbl_path))
         img_arr = sitk.GetArrayFromImage(image)
+        
+        if not is_valid_sample(image, label):
+            return None
         
         class_within_patch = {}
         patches = extract_patches(image, label, patch_size, patch_stride, min_fg, still_save)
@@ -162,7 +185,7 @@ def process_case(args):
         return case_name, len(patches)
     
     except Exception as e:
-        print(f"Failed processing case {case_name}: {e}")
+        tqdm.write(f"Failed processing case {case_name}: {e}")
         return None
 
 
@@ -193,7 +216,8 @@ def main():
             for t in task_args:
                 results.append(process_case(t))
                 pbar.update(1)
-    # removed summary prints
+    
+    # removed summary print
     # filter out failed cases
     valid_results = [r for r in results if r is not None]
     # write overall crop metadata
