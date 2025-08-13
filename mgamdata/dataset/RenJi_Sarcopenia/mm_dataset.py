@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 from mmengine.logging import print_log, MMLogger
 
-from . import CLASS_MAP, TEST_SERIES_UIDS, CLASS_MAP_AFTER_POSTSEG
+from . import CLASS_MAP, TEST_SERIES_UIDS, CLASS_MAP_AFTER_POSTSEG, ABNORMAL_SAMPLE_UIDS
 from ..base import (mgam_SemiSup_Precropped_Npz, mgam_SemiSup_3D_Mha, mgam_SeriesPatched_Structure, 
                     mgam_SeriesVolume, mgam_2D_MhaVolumeSlices)
 
@@ -35,15 +35,7 @@ class Sarcopenia_base(mgam_SeriesVolume):
                        if L3_anno_xlsx is not None else None
         super().__init__(*args, **kwargs)
 
-    def _split(self):
-        # Indexing `SeriesUIDs` according to original mha files.
-        split_at = "label" if self.mode == "sup" else "image"
-        SeriesUIDs = [
-            file.replace(".mha", "")
-            for file in os.listdir(os.path.join(self.data_root_mha, split_at))
-            if file.endswith(".mha")
-        ]
-        
+    def _exclude_invalid_series(self, SeriesUIDs:list[str]):
         # Exclude Test Series
         exclusion_count = []
         for i, SeriesUID in enumerate(SeriesUIDs):
@@ -56,7 +48,37 @@ class Sarcopenia_base(mgam_SeriesVolume):
         for i in sorted(exclusion_count, reverse=True):
             SeriesUIDs.pop(i)
         
-        # meta-based filtering
+        # Exclude abnormal samples matched by regex patterns in ABNORMAL_SAMPLE_UIDS
+        abnormal_indices = []
+        for i, SeriesUID in enumerate(SeriesUIDs):
+            for pattern in ABNORMAL_SAMPLE_UIDS:
+                try:
+                    if re.search(pattern, SeriesUID):
+                        abnormal_indices.append(i)
+                        break  # one pattern match is enough
+                except re.error as e:
+                    print_log(f"Invalid regex pattern '{pattern}': {e}", MMLogger.get_current_instance(), logging.WARNING)
+        if len(abnormal_indices) > 0:
+            print_log(
+                f"Excluding abnormal series by regex ({len(abnormal_indices)} / {len(SeriesUIDs)}) from {self.split} set.",
+                MMLogger.get_current_instance(),
+                logging.INFO
+            )
+            for i in sorted(set(abnormal_indices), reverse=True):
+                SeriesUIDs.pop(i)
+
+        return SeriesUIDs
+
+    def _split(self):
+        # Indexing `SeriesUIDs` according to original mha files.
+        split_at = "label" if self.mode == "sup" else "image"
+        SeriesUIDs = [
+            file.replace(".mha", "")
+            for file in os.listdir(os.path.join(self.data_root_mha, split_at))
+            if file.endswith(".mha")
+        ]
+        
+        SeriesUIDs = self._exclude_invalid_series(SeriesUIDs)
         SeriesUIDs = self._filter_by_meta(SeriesUIDs)
 
         # Split and Return
