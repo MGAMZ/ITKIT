@@ -74,9 +74,8 @@ class BaseDataset(Dataset):
     def __init__(self,
                  split:Literal['train', 'val', 'test']|None = None,
                  pipeline:list[Callable]=[],
-                 debug:bool=False, 
-                 **kwargs):
-        super().__init__(**kwargs)
+                 debug:bool=False):
+        super().__init__()
         self.split = split
         self.pipeline = pipeline
         self.debug = debug

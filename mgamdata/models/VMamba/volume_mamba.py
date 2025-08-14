@@ -10,7 +10,6 @@ Components:
 This file is intentionally light-touch and does not modify vmamba.py.
 """
 
-from __future__ import annotations
 import math
 
 import torch
