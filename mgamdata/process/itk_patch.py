@@ -204,18 +204,19 @@ def main():
     ) for img, lbl in tasks]
     
     results = []
+    pbar = tqdm(total=len(task_args), desc="Processing cases", dynamic_ncols=True)
     
     if args.mp:
-        with Pool(cpu_count()) as pool, tqdm(total=len(task_args), desc="Processing cases (mp)") as pbar:
+        with Pool(cpu_count()) as pool:
             for res in pool.imap_unordered(process_case, task_args):
                 results.append(res)
                 pbar.update(1)
-    
     else:
-        with tqdm(total=len(task_args), desc="Processing cases") as pbar:
-            for t in task_args:
-                results.append(process_case(t))
-                pbar.update(1)
+        for t in task_args:
+            results.append(process_case(t))
+            pbar.update(1)
+    
+    pbar.close()
     
     # removed summary print
     # filter out failed cases

@@ -409,14 +409,20 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         """
         # 检查是否需要滑动窗口推理
         if self.inference_PatchSize is not None and self.inference_PatchStride is not None:
-            seg_logits = self.slide_inference(inputs, data_samples)
+            try:
+                seg_logits = self.slide_inference(inputs, data_samples)
+            except torch.OutOfMemoryError as e:
+                torch.cuda.empty_cache()
+                print_log("OOM during slide inference, trying cpu accumulate.", 'current', logging.WARNING)
+                seg_logits = self.slide_inference(inputs, data_samples, force_cpu=True)
+        
         else:
             # 整体推理
             seg_logits = self._forward(inputs, data_samples)
             
         return seg_logits
 
-    def slide_inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
+    def slide_inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None, force_cpu:bool=False) -> Tensor:
         """使用重叠的滑动窗口进行推理。
         
         Args:
@@ -462,7 +468,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         x_grids = max(x_padded - x_crop + x_stride - 1, 0) // x_stride + 1
         
         # 准备结果累加矩阵，根据指定的设备创建
-        accumulate_device = torch.device(self.inference_PatchAccumulateDevice)
+        accumulate_device = torch.device('cpu') if force_cpu else torch.device(self.inference_PatchAccumulateDevice)
         if accumulate_device.type == 'cuda':
             torch.cuda.empty_cache()
         
