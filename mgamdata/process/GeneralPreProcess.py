@@ -1,22 +1,20 @@
-import os
-import random
-import pdb
+import os, random, pdb, math, warnings
 from numbers import Number
 from collections.abc import Sequence
 from functools import partial
-import warnings
 from colorama import Fore, Style
 from typing_extensions import Literal
 
 import torch
 import numpy as np
 import cv2
+import albumentations as A
 from torch.nn import functional as F
 from scipy.ndimage import gaussian_filter, map_coordinates
 from scipy.spatial.transform import Rotation as R
-import albumentations as A
+from kornia.geometry.conversions import quaternion_from_euler, quaternion_to_rotation_matrix, axis_angle_to_rotation_matrix
 
-from mmcv.transforms import Resize, BaseTransform
+from mmcv.transforms import BaseTransform
 from mmengine.registry import TRANSFORMS
 
 
@@ -406,45 +404,6 @@ class RandomFlip(BaseTransform):
                     results["gt_seg_map"], axis=self.axis
                 ).copy()
         return results
-
-
-class Resize3D(Resize):
-    @staticmethod
-    def scale_2D_or_3D(original_shape: list[int], target_shape: list[int]):
-        if len(original_shape) == len(target_shape) + 1:
-            return [original_shape[0], *target_shape]
-        elif len(original_shape) == len(target_shape):
-            return target_shape
-        else:
-            raise ValueError(
-                "The dimension of the segmentation map should be equal "
-                "to the scale dimension or the scale dimension plus 1, "
-                f"but got {original_shape} and {target_shape}"
-            )
-
-    def _resize_seg(self, results: dict) -> None:
-        """Resize semantic segmentation map with ``results['scale']``."""
-        for seg_key in results.get("seg_fields", []):
-            if results.get(seg_key, None) is not None:
-                scale = self.scale_2D_or_3D(results[seg_key].shape, results["scale"])
-                original = torch.from_numpy(results[seg_key])
-                results[seg_key] = F.interpolate(
-                    original[None, None], size=scale, mode="nearest"
-                )[0, 0].numpy()
-
-    def _resize_img(self, results: dict) -> None:
-        """Resize images with ``results['scale']``."""
-        if results.get("img", None) is not None:
-            scale = self.scale_2D_or_3D(results["img"].shape, results["scale"])
-            original = torch.from_numpy(results["img"].astype(np.float32))
-            img = F.interpolate(original[None, None], size=scale, mode="trilinear")
-
-            results["img"] = img[0, 0].numpy().astype(results["img"].dtype)
-            results["img_shape"] = img.shape
-            results["scale_factor"] = [
-                new / ori
-                for new, ori in zip(results["img_shape"], results["ori_shape"])
-            ]
 
 
 class RandomCrop3D(BaseTransform):
@@ -890,6 +849,82 @@ class RandomRotate3D(BaseTransform):
             for key in results.get("seg_fields", []):
                 results[key] = self._rotate_volume(results[key], rot, 0)
         return results
+
+
+def RandomRotate3D_GPU(
+    image: torch.Tensor,                 # [N, C, Z, Y, X]
+    label: torch.Tensor,                 # [N, Z, Y, X]
+    angle_ranges_zyx: Sequence[float],   # [Z, Y, X] in degrees
+    align_corners: bool = True,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    使用 PyTorch 3D grid_sample 实现随机 3D 旋转（欧拉角顺序 Z->Y->X），
+    - image: 三线性插值 + 边界填充（padding_mode='border'）
+    - label: 最近邻插值 + 边界填充（padding_mode='border'）
+    - 整个 batch 共享同一随机角度
+    - 旋转中心为体素中心 [(Z-1)/2, (Y-1)/2, (X-1)/2]
+    返回: (rot_image [N,C,Z,Y,X], rot_label [N,Z,Y,X])
+    """
+    import math, random
+    import torch
+    import torch.nn.functional as F
+
+    # 形状与设备检查（统一 Z,Y,X 语义）
+    if image.ndim != 5:
+        raise ValueError(f"image must be [N,C,Z,Y,X], got {tuple(image.shape)}")
+    if label.ndim != 4:
+        raise ValueError(f"label must be [N,Z,Y,X], got {tuple(label.shape)}")
+    N, C, Z, Y, X = image.shape
+    if tuple(label.shape) != (N, Z, Y, X):
+        raise ValueError(f"label shape {tuple(label.shape)} must equal [N,Z,Y,X]=[{N},{Z},{Y},{X}]")
+    if len(angle_ranges_zyx) != 3:
+        raise ValueError("angle_ranges_zyx must be length-3 in [Z, Y, X] order.")
+    if image.device != label.device:
+        raise ValueError("image and label must be on the same device.")
+    if align_corners and min(Z, Y, X) <= 1:
+        raise ValueError("All spatial dims must be > 1 when align_corners=True.")
+
+    device = image.device
+    img_dtype_in = image.dtype
+    lbl_dtype_in = label.dtype
+    img = image.to(torch.float32)
+    lbl = label.to(torch.float32)
+
+    # 整批共享的随机欧拉角（弧度；顺序 [Z, Y, X]）
+    ang_z = math.radians(random.uniform(-angle_ranges_zyx[0], angle_ranges_zyx[0]))
+    ang_y = math.radians(random.uniform(-angle_ranges_zyx[1], angle_ranges_zyx[1]))
+    ang_x = math.radians(random.uniform(-angle_ranges_zyx[2], angle_ranges_zyx[2]))
+
+    # 构造旋转矩阵 R（作用于 [x,y,z]^T），严格遵循 Z->Y->X：R = Rz @ Ry @ Rx
+    # 优先使用 kornia.axis_angle_to_rotation_matrix 以获得数值稳定性；失败则回退手写矩阵。
+    zero = torch.tensor(0.0, device=device, dtype=torch.float32)
+    vx = torch.tensor([[ang_x, 0.0, 0.0]], device=device, dtype=torch.float32)
+    vy = torch.tensor([[0.0, ang_y, 0.0]], device=device, dtype=torch.float32)
+    vz = torch.tensor([[0.0, 0.0, ang_z]], device=device, dtype=torch.float32)
+    Rx = axis_angle_to_rotation_matrix(vx)[0]  # [3,3]
+    Ry = axis_angle_to_rotation_matrix(vy)[0]
+    Rz = axis_angle_to_rotation_matrix(vz)[0]
+    R = Rz @ (Ry @ Rx)  # [3,3]
+
+    # 将 R 映射为 affine_grid 归一化仿射 θ，绕体素中心旋转
+    # 注意 grid_sample 网格顺序为 (x, y, z)，因此尺度为 [X,Y,Z]
+    A_diag    = torch.tensor([2.0 / (X - 1), 2.0 / (Y - 1), 2.0 / (Z - 1)], device=device, dtype=torch.float32)
+    Ainv_diag = torch.tensor([(X - 1) / 2.0, (Y - 1) / 2.0, (Z - 1) / 2.0], device=device, dtype=torch.float32)
+    center_xyz = Ainv_diag.clone()
+    M = R * Ainv_diag                  # 按列缩放（A^{-1}）
+    M = A_diag.view(3, 1) * M          # 按行缩放（A）
+    t = A_diag * (center_xyz - (R @ center_xyz))
+    theta = torch.cat([M, t.view(3, 1)], dim=1)  # [3,4]
+    theta = theta.unsqueeze(0).expand(N, 3, 4).contiguous()
+
+    # 生成网格与采样
+    grid = F.affine_grid(theta, size=(N, C, Z, Y, X), align_corners=align_corners)  # [N,Z,Y,X,3]
+    # 图像：三线性 + 边界填充（border）
+    rot_img = F.grid_sample(img, grid, mode="bilinear", padding_mode="border", align_corners=align_corners)
+    # 标签：最近邻 + 边界填充（border）
+    rot_lbl = F.grid_sample(lbl.unsqueeze(1), grid, mode="nearest", padding_mode="border", align_corners=align_corners).squeeze(1)
+
+    return rot_img.to(img_dtype_in), rot_lbl.to(lbl_dtype_in)
 
 
 class CenterCrop3D(BaseTransform):

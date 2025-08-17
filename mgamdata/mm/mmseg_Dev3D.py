@@ -24,6 +24,7 @@ from mmseg.visualization.local_visualizer import SegLocalVisualizer
 from mmseg.structures.seg_data_sample import SegDataSample, PixelData
 
 from ..criterions.segment import DiceLoss_3D
+from ..process.GeneralPreProcess import RandomRotate3D_GPU
 
 
 
@@ -841,6 +842,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         size_divisor: int | None = None,
         pad_val: int | float = 0,
         seg_pad_val: int | float = 255,
+        rot3D_angle: Sequence|None = None,
         test_cfg: dict | None = None,
         non_blocking: bool = True,
     ):
@@ -850,6 +852,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         self.size_divisor = size_divisor
         self.pad_val = pad_val
         self.seg_pad_val = seg_pad_val
+        self.rot3D_angle = rot3D_angle
 
         if mean is not None:
             assert std is not None, (
@@ -960,6 +963,18 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
 
         return torch.stack(padded_inputs, dim=0), padded_samples
 
+    def _rotate_augment(self, data: dict):
+        img = data['inputs']
+        lbl = torch.stack([sample.gt_sem_seg.data for sample in data['data_samples']])
+        
+        rot_img, rot_lbl = RandomRotate3D_GPU(img, lbl, self.rot3D_angle)
+        
+        data['inputs'] = rot_img
+        for i, one_rot_lbl in enumerate(rot_lbl):
+            data['data_samples'][i].gt_sem_seg.data = one_rot_lbl
+        
+        return data
+
     def forward(self, data: dict, training: bool = False) -> dict[str, Any]:
         """
         Args:
@@ -1008,8 +1023,13 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
                     seg_pad_val=self.seg_pad_val)
             else:
                 inputs = torch.stack(inputs, dim=0)
-        
-        return dict(inputs=inputs, data_samples=data_samples)
+
+        data = dict(inputs=inputs, data_samples=data_samples)
+
+        if self.rot3D_angle is not None:
+            data = self._rotate_augment(data)
+
+        return data
 
 
 class PixelUnshuffle1D(torch.nn.Module):
