@@ -346,43 +346,48 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                 - pred_sem_seg (VolumeData): Prediction of semantic segmentation.
                 - seg_logits (VolumeData): Predicted logits of semantic segmentation.
         """
-        # 前向传播
-        seg_logits = self.inference(inputs, data_samples) # [N, C, Z, Y, X]
         
-        # 处理结果
-        batch_size = inputs.shape[0]
-        out_channels = seg_logits.shape[1]
-        
-        # 验证二分类阈值与模型输出通道数的一致性
-        if out_channels > 1 and self.binary_segment_threshold is not None:
-            raise ValueError(f"多分类模型(输出通道数={out_channels})不应设置binary_segment_threshold，"
-                            f"当前值为{self.binary_segment_threshold}，应设置为None")
-        if out_channels == 1 and self.binary_segment_threshold is None:
-            raise ValueError(f"二分类模型(输出通道数={out_channels})必须设置binary_segment_threshold，"
-                            "当前值为None")
-        
-        if data_samples is None:
-            data_samples = [BaseDataElement() for _ in range(batch_size)]
-        
-        for i in range(batch_size):
-            # 处理单个样本
-            i_seg_logits = seg_logits[i] # [C, Z, Y, X]
+        def _predict(force_cpu:bool=True):
+            seg_logits = self.inference(inputs, data_samples, force_cpu) # [N, C, Z, Y, X]
             
-            # 生成预测结果
-            if out_channels > 1:  # 多分类情况
-                i_seg_pred = i_seg_logits.argmax(dim=0, keepdim=True)
-            else:  # 二分类情况
-                assert self.binary_segment_threshold is not None, \
-                    f"二分类模型(输出通道数={out_channels})必须设置binary_segment_threshold，" \
-                    f"当前值为None"
-                i_seg_logits_sigmoid = i_seg_logits.sigmoid()
-                i_seg_pred = (i_seg_logits_sigmoid > self.binary_segment_threshold).to(i_seg_logits)
+            batch_size = inputs.shape[0]
+            out_channels = seg_logits.shape[1]
             
-            # 将结果保存到data_samples中
-            data_samples[i].seg_logits = VolumeData(**{"data": i_seg_logits})
-            data_samples[i].pred_sem_seg = VolumeData(**{"data": i_seg_pred})
+            if out_channels > 1 and self.binary_segment_threshold is not None:
+                raise ValueError(f"多分类模型(输出通道数={out_channels})不应设置binary_segment_threshold，"
+                                f"当前值为{self.binary_segment_threshold}，应设置为None")
+            if out_channels == 1 and self.binary_segment_threshold is None:
+                raise ValueError(f"二分类模型(输出通道数={out_channels})必须设置binary_segment_threshold，"
+                                "当前值为None")
             
-        return data_samples
+            if data_samples is None:
+                data_samples = [BaseDataElement() for _ in range(batch_size)]
+            
+            for i in range(batch_size):
+                # 处理单个样本
+                i_seg_logits = seg_logits[i] # [C, Z, Y, X]
+                
+                # 生成预测结果
+                if out_channels > 1:  # 多分类情况
+                    i_seg_pred = i_seg_logits.argmax(dim=0, keepdim=True)
+                else:  # 二分类情况
+                    assert self.binary_segment_threshold is not None, \
+                        f"二分类模型(输出通道数={out_channels})必须设置binary_segment_threshold，" \
+                        f"当前值为None"
+                    i_seg_logits_sigmoid = i_seg_logits.sigmoid()
+                    i_seg_pred = (i_seg_logits_sigmoid > self.binary_segment_threshold).to(i_seg_logits)
+                
+                # 将结果保存到data_samples中
+                data_samples[i].seg_logits = VolumeData(**{"data": i_seg_logits})
+                data_samples[i].pred_sem_seg = VolumeData(**{"data": i_seg_pred})
+            
+            return data_samples
+        
+        try:
+            return _predict()
+        except torch.OutOfMemoryError as e:
+            print_log("OOM during slide inference, trying cpu accumulate.", 'current', logging.WARNING)
+            return _predict(force_cpu=True)
 
     def _forward(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
         """Network forward process.
@@ -397,7 +402,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         return self.backbone(inputs)
 
     @torch.inference_mode()
-    def inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
+    def inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None, force_cpu:bool=True) -> Tensor:
         """执行推理，支持滑动窗口或整体推理。
         
         Args:
@@ -407,17 +412,10 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         Returns:
             Tensor: 分割结果的logits
         """
-        # 检查是否需要滑动窗口推理
         if self.inference_PatchSize is not None and self.inference_PatchStride is not None:
-            try:
-                seg_logits = self.slide_inference(inputs, data_samples)
-            except torch.OutOfMemoryError as e:
-                torch.cuda.empty_cache()
-                print_log("OOM during slide inference, trying cpu accumulate.", 'current', logging.WARNING)
-                seg_logits = self.slide_inference(inputs, data_samples, force_cpu=True)
-        
+            seg_logits = self.slide_inference(inputs, data_samples, force_cpu=force_cpu)
+
         else:
-            # 整体推理
             seg_logits = self._forward(inputs, data_samples)
             
         return seg_logits
