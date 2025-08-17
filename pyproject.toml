@@ -29,7 +29,8 @@ dependencies = [
   "jupyter",
   "colored",
   "albumentations",
-  "ftfy"
+  "ftfy",
+  "kornia",
 ]
 
 [project.optional-dependencies]
