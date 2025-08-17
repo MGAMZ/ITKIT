@@ -348,6 +348,8 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         """
         
         def _predict(force_cpu:bool=True):
+            nonlocal data_samples
+            
             seg_logits = self.inference(inputs, data_samples, force_cpu) # [N, C, Z, Y, X]
             
             batch_size = inputs.shape[0]
