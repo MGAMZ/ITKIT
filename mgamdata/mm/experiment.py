@@ -12,18 +12,17 @@ from mmengine.logging import print_log
 from mmengine.config import Config
 from mmengine.runner.checkpoint import find_latest_checkpoint
 
-from mgamdata.mm.mmeng_PlugIn import DynamicRunnerSelection
+from mgamdata.mm.mmeng_PlugIn import DynamicRunnerGenerator
 
 
 class experiment:
-
-    def __init__(self, 
-                 config, 
-                 work_dir, 
-                 test_work_dir, 
-                 cfg_options, 
-                 test_mode, 
-                 detect_anomaly, 
+    def __init__(self,
+                 config,
+                 work_dir,
+                 test_work_dir,
+                 cfg_options,
+                 test_mode,
+                 detect_anomaly,
                  test_use_last_ckpt):
         self.config = config
         self.work_dir = work_dir
@@ -57,7 +56,7 @@ class experiment:
                 'current', logging.INFO)
 
         else:
-            runner = DynamicRunnerSelection(self.cfg)  # 建立Runner
+            runner = DynamicRunnerGenerator(self.cfg)  # 建立Runner
             print_log(f"{Fore.BLUE}训练开始: {self.work_dir}{Style.RESET_ALL}",
                       'current', logging.INFO)
             runner.train()
@@ -70,9 +69,7 @@ class experiment:
         cfg.work_dir = self.work_dir  # set work dir
         if self.cfg_options is not None:
             cfg = cfg.merge_from_dict(self.cfg_options)  # cfg override
-
-        # 实验没有结束，初始化模型，调整mmseg配置参数
-        print_log(f"启动中，初始化模型: {self.work_dir}", 'current', logging.INFO)
+        print_log(f"Experiment work dir: {self.work_dir}", 'current', logging.INFO)
         self.cfg = cfg
 
     def _direct_to_test(self):
@@ -132,8 +129,7 @@ class experiment:
             work_dir_path = cfg.work_dir
             if not os.path.exists(os.path.join(work_dir_path, "last_checkpoint")):
                 return False
-            last_ckpt = open(os.path.join(work_dir_path, "last_checkpoint"),
-                            'r').read()
+            last_ckpt = open(os.path.join(work_dir_path, "last_checkpoint"), 'r').read()
             last_ckpt = re.findall(r"iter_(\d+)", last_ckpt)[0].strip(r'iter_')
         else:
             target_iters = cfg.epochs

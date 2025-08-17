@@ -38,7 +38,7 @@ from ..utils.DevelopUtils import measure_time, InjectVisualize
 
 
 
-def DynamicRunnerSelection(cfg: ConfigType) -> Runner:
+def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
     if cfg.get("dist", False) is True and cfg.get("MP_mode", None) != "ddp":
         RunnerChoice = FlexibleRunner
     else:
@@ -106,26 +106,23 @@ def DynamicRunnerSelection(cfg: ConfigType) -> Runner:
             return cfg
 
         def load_or_resume(self) -> None:
-            """Load or resume checkpoint."""
             if self._has_loaded:
                 return None
 
-            # decide to load from checkpoint or resume from checkpoint
-            resume_from = None
-            if self._resume and self._load_from is None:
-                # auto resume from the latest checkpoint
+            # Resume has higher priority than `load_from`
+            if self._resume:
                 resume_from = find_latest_checkpoint(self.work_dir)
-                self.logger.info(f"Auto resumed from the latest checkpoint {resume_from}.")
-            elif self._resume and self._load_from is not None:
-                # resume from the specified checkpoint
-                resume_from = self._load_from
-
-            if resume_from is not None:
-                self.resume(filename=resume_from,
-                            resume_optimizer=self.resume_optimizer,
-                            resume_param_scheduler=self.resume_param_scheduler)
-                self._has_loaded = True
-            elif self._load_from is not None:
+                if resume_from is not None:
+                    self.logger.info(f"Resuming from the latest checkpoint {resume_from}.")
+                    self.resume(filename=resume_from,
+                                resume_optimizer=self.resume_optimizer,
+                                resume_param_scheduler=self.resume_param_scheduler)
+                    self.logger.info(f"Resumed from the latest checkpoint {resume_from}.")
+                    self._has_loaded = True
+                    return
+            
+            # When resume checkpoint can not be found, `load_from` as needed.
+            if self._load_from is not None:
                 self.load_checkpoint(self._load_from)
                 self._has_loaded = True
     
