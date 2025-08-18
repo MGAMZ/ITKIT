@@ -12,7 +12,7 @@ import albumentations as A
 from torch.nn import functional as F
 from scipy.ndimage import gaussian_filter, map_coordinates
 from scipy.spatial.transform import Rotation as R
-from kornia.geometry.conversions import quaternion_from_euler, quaternion_to_rotation_matrix, axis_angle_to_rotation_matrix
+from kornia.geometry.conversions import axis_angle_to_rotation_matrix
 
 from mmcv.transforms import BaseTransform
 from mmengine.registry import TRANSFORMS

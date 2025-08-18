@@ -10,14 +10,15 @@ Components:
 This file is intentionally light-touch and does not modify vmamba.py.
 """
 
-import math
+import pdb, math
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from selective_scan import selective_scan_fn
-from vmamba import mamba_init, Backbone_VSSM # pyright: ignore[reportMissingImports]
+import torch.utils.checkpoint
+from vmamba import mamba_init # pyright: ignore[reportMissingImports]
 
 
 class MambaAggregator1D(nn.Module, mamba_init):
@@ -128,27 +129,34 @@ class MambaAggregator1D(nn.Module, mamba_init):
 
 
 class SliceFeatureExtractor(nn.Module):
-    """Wrap Backbone_VSSM to produce per-slice pooled embeddings.
-
-    forward(x): x (B_slices, C, H, W) -> (B_slices, C_feat)
-    """
-    def __init__(self, backbone: Backbone_VSSM, pool: str = "gap"):
+    def __init__(self, backbone: torch.nn.Module, pool: str = "gap", use_torch_ckpt:bool=False):
         super().__init__()
         self.backbone = backbone
         self.pool = pool
+        self.use_torch_ckpt = use_torch_ckpt
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        feats = self.backbone(x)  # list of (B,C,H,W)
+        B, C, Z, Y, X = x.shape
+        slices = x.permute(0, 2, 1, 3, 4).reshape(B * Z, C, Y, X) # [N, C, Z, Y, X] -> [N*Z, C, Y, X]
+        
+        if self.use_torch_ckpt:
+            feats = torch.utils.checkpoint.checkpoint(self.backbone, slices, use_reentrant=False)  # list of [N*Z, latent, Y, X]
+        else:
+            feats = self.backbone(slices)  # list of [N*Z, latent, Y, X]
         if isinstance(feats, (list, tuple)):
             f = feats[-1]
-        else:  # backbone may directly return final feature map
+        else:
             f = feats
+        
+        _, C, Y, X = f.shape
+        
+        f = f.reshape(B, Z, C, Y, X).permute(0, 2, 1, 3, 4)  # [N*Z, C, Y, X] -> [N, C, Z, Y, X]
         if self.pool == 'gap':
-            return f.mean(dim=[2, 3])
-        elif self.pool == 'max':
-            return F.adaptive_max_pool2d(f, 1).flatten(1)
+            f = f.mean(dim=[-1, -2])
         else:
             raise ValueError(f"Unsupported pool {self.pool}")
+        
+        return f # [N, C, Z]
 
 
 class VolumeVSSM(nn.Module):
@@ -164,35 +172,20 @@ class VolumeVSSM(nn.Module):
     """
     def __init__(
         self,
-        backbone_kwargs: dict | None = None,
-        aggregator_kwargs: dict | None = None,
-        slice_pool: str = 'gap',
+        slice_extractor_backbone: torch.nn.Module,
+        aggregator: MambaAggregator1D,
     ):
         super().__init__()
-        backbone_kwargs = backbone_kwargs or {}
-        if 'out_indices' not in backbone_kwargs:
-            backbone_kwargs['out_indices'] = (3,)  # only last stage to reduce cost
-        self.backbone = Backbone_VSSM(**backbone_kwargs)
-        self.slice_extractor = SliceFeatureExtractor(self.backbone, pool=slice_pool)
-
-        self.embed_dims = getattr(self.backbone, 'dims', None)
-        if self.embed_dims is None:
-            raise RuntimeError('Backbone_VSSM missing dims attribute.')
-        slice_emb_dim = self.embed_dims[-1]
-
-        aggregator_kwargs = aggregator_kwargs or {}
-        if 'd_model' not in aggregator_kwargs:
-            aggregator_kwargs['d_model'] = slice_emb_dim
-        self.aggregator = MambaAggregator1D(**aggregator_kwargs)
+        self.slice_extractor = SliceFeatureExtractor(slice_extractor_backbone)
+        self.embed_dims = self.slice_extractor.backbone.dims
+        self.aggregator = aggregator
 
     def forward(self, vol: torch.Tensor):
         assert vol.dim() == 5, 'Volume must be (B,C,D,H,W)'
         B, C, D, H, W = vol.shape
         
-        slices = vol.permute(0, 2, 1, 3, 4).reshape(B * D, C, H, W)
-        slice_emb = self.slice_extractor(slices)  # (B*D, C_feat)
-        slice_emb = slice_emb.view(B, D, -1)  # (B, D, C_feat)
-        vol_emb = self.aggregator(slice_emb)  # (B, C_out)
+        slice_emb = self.slice_extractor(vol)  # return: [B, C, Z]
+        vol_emb = self.aggregator(slice_emb.permute(0,2,1))  # (B, C_out)
         
         return (vol_emb, )
 
