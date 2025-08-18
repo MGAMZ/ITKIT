@@ -852,7 +852,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         self.size_divisor = size_divisor
         self.pad_val = pad_val
         self.seg_pad_val = seg_pad_val
-        self.rot3D_angle = rot3D_angle
+        self.rot3D_aug = RandomRotate3D_GPU(rot3D_angle) if rot3D_angle is not None else None
 
         if mean is not None:
             assert std is not None, (
@@ -966,9 +966,11 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
     def _rotate_augment(self, data: dict):
         img = data['inputs']
         lbl = torch.stack([sample.gt_sem_seg.data for sample in data['data_samples']])
-        
-        rot_img, rot_lbl = RandomRotate3D_GPU(img, lbl, self.rot3D_angle)
-        
+
+        grid = self.rot3D_aug._gen_grid(img)
+        rot_img = self.rot3D_aug.warp(img, grid, 'bilinear')
+        rot_lbl = self.rot3D_aug.warp(lbl, grid, 'nearest')
+        pdb.set_trace()
         data['inputs'] = rot_img
         for i, one_rot_lbl in enumerate(rot_lbl):
             data['data_samples'][i].gt_sem_seg.data = one_rot_lbl
@@ -1026,7 +1028,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
 
         data = dict(inputs=inputs, data_samples=data_samples)
 
-        if self.rot3D_angle is not None:
+        if self.rot3D_aug is not None:
             data = self._rotate_augment(data)
 
         return data
