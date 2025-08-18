@@ -870,13 +870,11 @@ def RandomRotate3D_GPU(
     import torch.nn.functional as F
 
     # 形状与设备检查（统一 Z,Y,X 语义）
-    if image.ndim != 5:
-        raise ValueError(f"image must be [N,C,Z,Y,X], got {tuple(image.shape)}")
-    if label.ndim != 4:
-        raise ValueError(f"label must be [N,Z,Y,X], got {tuple(label.shape)}")
+    if image.ndim != 5 or label.ndim != 5:
+        raise ValueError(f"image and label must be [N,C,Z,Y,X], got {image.shape} and {label.shape}")
     N, C, Z, Y, X = image.shape
-    if tuple(label.shape) != (N, Z, Y, X):
-        raise ValueError(f"label shape {tuple(label.shape)} must equal [N,Z,Y,X]=[{N},{Z},{Y},{X}]")
+    if tuple(label.shape) != (N, C, Z, Y, X):
+        raise ValueError(f"label shape {tuple(label.shape)} must equal [N,C,Z,Y,X]=[{N},{C},{Z},{Y},{X}]")
     if len(angle_ranges_zyx) != 3:
         raise ValueError("angle_ranges_zyx must be length-3 in [Z, Y, X] order.")
     if image.device != label.device:
@@ -923,7 +921,7 @@ def RandomRotate3D_GPU(
     # 图像：三线性 + 边界填充（border）
     rot_img = F.grid_sample(img, grid, mode="bilinear", padding_mode="border", align_corners=True)
     # 标签：最近邻 + 边界填充（border）
-    rot_lbl = F.grid_sample(lbl.unsqueeze(1), grid, mode="nearest", padding_mode="border", align_corners=True).squeeze(1)
+    rot_lbl = F.grid_sample(lbl, grid, mode="nearest", padding_mode="border", align_corners=True).squeeze(1)
 
     return rot_img.to(img_dtype_in), rot_lbl.to(lbl_dtype_in)
 
