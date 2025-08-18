@@ -921,7 +921,7 @@ def RandomRotate3D_GPU(
     # 图像：三线性 + 边界填充（border）
     rot_img = F.grid_sample(img, grid, mode="bilinear", padding_mode="border", align_corners=True)
     # 标签：最近邻 + 边界填充（border）
-    rot_lbl = F.grid_sample(lbl, grid, mode="nearest", padding_mode="border", align_corners=True).squeeze(1)
+    rot_lbl = F.grid_sample(lbl, grid, mode="nearest", padding_mode="border", align_corners=True)
 
     return rot_img.to(img_dtype_in), rot_lbl.to(lbl_dtype_in)
 
