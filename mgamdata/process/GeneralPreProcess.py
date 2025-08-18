@@ -454,7 +454,7 @@ class RandomCrop3D(BaseTransform):
         self.std_threshold = std_threshold
         self.ignore_index = ignore_index
 
-    def crop_bbox(self, results: dict) -> tuple:
+    def crop_bbox(self, results: dict) -> tuple | None:
         """get a crop bounding box.
 
         Args:
