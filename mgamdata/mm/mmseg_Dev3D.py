@@ -852,7 +852,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         self.size_divisor = size_divisor
         self.pad_val = pad_val
         self.seg_pad_val = seg_pad_val
-        self.rot3D_angle = rot3D_angle
+        self.rot3D_aug = RandomRotate3D_GPU(rot3D_angle) if rot3D_angle is not None else None
 
         if mean is not None:
             assert std is not None, (
@@ -963,17 +963,17 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
 
         return torch.stack(padded_inputs, dim=0), padded_samples
 
-    def _rotate_augment(self, data: dict):
-        img = data['inputs']
-        lbl = torch.stack([sample.gt_sem_seg.data for sample in data['data_samples']])
-        
-        rot_img, rot_lbl = RandomRotate3D_GPU(img, lbl, self.rot3D_angle)
-        
-        data['inputs'] = rot_img
+    def _rotate_augment(self, inputs, data_samples):
+        lbl = torch.stack([sample.gt_sem_seg.data for sample in data_samples])
+
+        grid = self.rot3D_aug._gen_grid(inputs)
+        rot_inputs = self.rot3D_aug.warp(inputs, grid, 'bilinear')
+        rot_lbl = self.rot3D_aug.warp(lbl, grid, 'nearest')
+
         for i, one_rot_lbl in enumerate(rot_lbl):
-            data['data_samples'][i].gt_sem_seg.data = one_rot_lbl
+            data_samples[i].gt_sem_seg.data = one_rot_lbl
         
-        return data
+        return rot_inputs, data_samples
 
     def forward(self, data: dict, training: bool = False) -> dict[str, Any]:
         """
@@ -1008,6 +1008,8 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
                 pad_val=self.pad_val,
                 seg_pad_val=self.seg_pad_val,
             )
+            if self.rot3D_aug is not None:
+                inputs, data_samples = self._rotate_augment(inputs, data_samples)
         
         else:
             vol_size = inputs[0].shape[1:]
@@ -1024,12 +1026,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
             else:
                 inputs = torch.stack(inputs, dim=0)
 
-        data = dict(inputs=inputs, data_samples=data_samples)
-
-        if self.rot3D_angle is not None:
-            data = self._rotate_augment(data)
-
-        return data
+        return dict(inputs=inputs, data_samples=data_samples)
 
 
 class PixelUnshuffle1D(torch.nn.Module):

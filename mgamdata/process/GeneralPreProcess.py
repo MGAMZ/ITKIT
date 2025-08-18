@@ -12,7 +12,6 @@ import albumentations as A
 from torch.nn import functional as F
 from scipy.ndimage import gaussian_filter, map_coordinates
 from scipy.spatial.transform import Rotation as R
-from kornia.geometry.conversions import axis_angle_to_rotation_matrix
 
 from mmcv.transforms import BaseTransform
 from mmengine.registry import TRANSFORMS
@@ -851,80 +850,48 @@ class RandomRotate3D(BaseTransform):
         return results
 
 
-def RandomRotate3D_GPU(
-    image: torch.Tensor,                 # [N, C, Z, Y, X]
-    label: torch.Tensor,                 # [N, Z, Y, X]
-    angle_ranges_zyx: Sequence[float],   # [Z, Y, X] in degrees
-    align_corners: bool = True,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """
-    使用 PyTorch 3D grid_sample 实现随机 3D 旋转（欧拉角顺序 Z->Y->X），
-    - image: 三线性插值 + 边界填充（padding_mode='border'）
-    - label: 最近邻插值 + 边界填充（padding_mode='border'）
-    - 整个 batch 共享同一随机角度
-    - 旋转中心为体素中心 [(Z-1)/2, (Y-1)/2, (X-1)/2]
-    返回: (rot_image [N,C,Z,Y,X], rot_label [N,Z,Y,X])
-    """
-    import math, random
-    import torch
-    import torch.nn.functional as F
+class RandomRotate3D_GPU:
+    def __init__(self, angle_range:Sequence[float]):
+        self.angle_range = angle_range # degrees
 
-    # 形状与设备检查（统一 Z,Y,X 语义）
-    if image.ndim != 5:
-        raise ValueError(f"image must be [N,C,Z,Y,X], got {tuple(image.shape)}")
-    if label.ndim != 4:
-        raise ValueError(f"label must be [N,Z,Y,X], got {tuple(label.shape)}")
-    N, C, Z, Y, X = image.shape
-    if tuple(label.shape) != (N, Z, Y, X):
-        raise ValueError(f"label shape {tuple(label.shape)} must equal [N,Z,Y,X]=[{N},{Z},{Y},{X}]")
-    if len(angle_ranges_zyx) != 3:
-        raise ValueError("angle_ranges_zyx must be length-3 in [Z, Y, X] order.")
-    if image.device != label.device:
-        raise ValueError("image and label must be on the same device.")
-    if align_corners and min(Z, Y, X) <= 1:
-        raise ValueError("All spatial dims must be > 1 when align_corners=True.")
+    def _gen_grid(self, sample):
+        N, C, Z, Y, X = sample.shape
+        device = sample.device
+        
+        # 整批共享的随机欧拉角（弧度；顺序 [Z, Y, X]）
+        ang_z = math.radians(random.uniform(-self.angle_range[0], self.angle_range[0]))
+        ang_y = math.radians(random.uniform(-self.angle_range[1], self.angle_range[1]))
+        ang_x = math.radians(random.uniform(-self.angle_range[2], self.angle_range[2]))
 
-    device = image.device
-    img_dtype_in = image.dtype
-    lbl_dtype_in = label.dtype
-    img = image.to(torch.float32)
-    lbl = label.to(torch.float32)
+        # 旋转矩阵
+        cz, sz = math.cos(ang_z), math.sin(ang_z)
+        cy, sy = math.cos(ang_y), math.sin(ang_y)
+        cx, sx = math.cos(ang_x), math.sin(ang_x)
+        R = torch.tensor([
+            [cz * cy,                          cz * sy * sx - sz * cx,  cz * sy * cx + sz * sx],
+            [sz * cy,                          sz * sy * sx + cz * cx,  sz * sy * cx - cz * sx],
+            [-sy,                               cy * sx,                 cy * cx               ],
+        ], device=device, dtype=torch.float32)
 
-    # 整批共享的随机欧拉角（弧度；顺序 [Z, Y, X]）
-    ang_z = math.radians(random.uniform(-angle_ranges_zyx[0], angle_ranges_zyx[0]))
-    ang_y = math.radians(random.uniform(-angle_ranges_zyx[1], angle_ranges_zyx[1]))
-    ang_x = math.radians(random.uniform(-angle_ranges_zyx[2], angle_ranges_zyx[2]))
+        # 将 R 映射为 affine_grid 归一化仿射 θ
+        # 注意：在 align_corners=True 且输入输出尺寸一致时，绕体素中心旋转对应于规范化空间绕原点旋转，
+        # 因此平移项应为 0，θ = A @ R @ A^{-1}（无额外平移）。
+        # 同时 grid_sample 的网格顺序为 (x, y, z)，尺度向量为 [X, Y, Z]。
+        A_diag    = torch.tensor([2.0 / (X - 1), 2.0 / (Y - 1), 2.0 / (Z - 1)], device=device, dtype=torch.float32)
+        Ainv_diag = torch.tensor([(X - 1) / 2.0, (Y - 1) / 2.0, (Z - 1) / 2.0], device=device, dtype=torch.float32)
+        M = R * Ainv_diag                  # 按列缩放（A^{-1}）
+        M = A_diag.view(3, 1) * M          # 按行缩放（A）
+        t = torch.zeros(3, device=device, dtype=torch.float32)
+        theta = torch.cat([M, t.view(3, 1)], dim=1)  # [3,4]
+        theta = theta.unsqueeze(0).expand(N, 3, 4).contiguous()
 
-    # 构造旋转矩阵 R（作用于 [x,y,z]^T），严格遵循 Z->Y->X：R = Rz @ Ry @ Rx
-    # 优先使用 kornia.axis_angle_to_rotation_matrix 以获得数值稳定性；失败则回退手写矩阵。
-    zero = torch.tensor(0.0, device=device, dtype=torch.float32)
-    vx = torch.tensor([[ang_x, 0.0, 0.0]], device=device, dtype=torch.float32)
-    vy = torch.tensor([[0.0, ang_y, 0.0]], device=device, dtype=torch.float32)
-    vz = torch.tensor([[0.0, 0.0, ang_z]], device=device, dtype=torch.float32)
-    Rx = axis_angle_to_rotation_matrix(vx)[0]  # [3,3]
-    Ry = axis_angle_to_rotation_matrix(vy)[0]
-    Rz = axis_angle_to_rotation_matrix(vz)[0]
-    R = Rz @ (Ry @ Rx)  # [3,3]
+        return F.affine_grid(theta, size=(N, C, Z, Y, X), align_corners=True)  # [N,Z,Y,X,3]
 
-    # 将 R 映射为 affine_grid 归一化仿射 θ，绕体素中心旋转
-    # 注意 grid_sample 网格顺序为 (x, y, z)，因此尺度为 [X,Y,Z]
-    A_diag    = torch.tensor([2.0 / (X - 1), 2.0 / (Y - 1), 2.0 / (Z - 1)], device=device, dtype=torch.float32)
-    Ainv_diag = torch.tensor([(X - 1) / 2.0, (Y - 1) / 2.0, (Z - 1) / 2.0], device=device, dtype=torch.float32)
-    center_xyz = Ainv_diag.clone()
-    M = R * Ainv_diag                  # 按列缩放（A^{-1}）
-    M = A_diag.view(3, 1) * M          # 按行缩放（A）
-    t = A_diag * (center_xyz - (R @ center_xyz))
-    theta = torch.cat([M, t.view(3, 1)], dim=1)  # [3,4]
-    theta = theta.unsqueeze(0).expand(N, 3, 4).contiguous()
-
-    # 生成网格与采样
-    grid = F.affine_grid(theta, size=(N, C, Z, Y, X), align_corners=align_corners)  # [N,Z,Y,X,3]
-    # 图像：三线性 + 边界填充（border）
-    rot_img = F.grid_sample(img, grid, mode="bilinear", padding_mode="border", align_corners=align_corners)
-    # 标签：最近邻 + 边界填充（border）
-    rot_lbl = F.grid_sample(lbl.unsqueeze(1), grid, mode="nearest", padding_mode="border", align_corners=align_corners).squeeze(1)
-
-    return rot_img.to(img_dtype_in), rot_lbl.to(lbl_dtype_in)
+    def warp(self, x:torch.Tensor, grid:torch.Tensor, interp_mode:str) -> tuple[torch.Tensor, torch.Tensor]:
+        if x.ndim != 5:
+            raise ValueError(f"image and label must be [N,C,Z,Y,X], got {x.shape}")
+        dtype_in = x.dtype
+        return F.grid_sample(x.to(torch.float32), grid, mode=interp_mode, padding_mode="border", align_corners=True).to(dtype=dtype_in)
 
 
 class CenterCrop3D(BaseTransform):

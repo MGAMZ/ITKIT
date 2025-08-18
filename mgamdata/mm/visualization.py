@@ -66,7 +66,7 @@ class BaseVisHook(Hook):
                 window_name = f'ValVis/Batch{batch_idx}Item{i}_{os.path.basename(outputs[i].img_path)}'
                 self._visualizer.add_datasample(
                     window_name,
-                    data_batch['inputs'][i], # dict with keys 'inputs' and 'data_samples'
+                    data_batch['inputs'][i],
                     data_sample=outputs[i],
                     step=runner.iter)
 
@@ -161,9 +161,9 @@ class SegViser(BaseViser):
         self.plt_invert = plt_invert
 
     def _parse_datasample(self, 
-                         image:np.ndarray|torch.Tensor,
-                         data_sample:BaseDataElement|None=None
-                         ) -> tuple[np.ndarray|None, np.ndarray|None, np.ndarray|None, np.ndarray|None]:
+                          image:np.ndarray|torch.Tensor,
+                          data_sample:BaseDataElement|None=None
+                          ) -> tuple[np.ndarray|None, np.ndarray|None, np.ndarray|None, np.ndarray|None]:
         """Parse data sample.
         
         Arg:
