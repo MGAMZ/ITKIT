@@ -174,9 +174,10 @@ class VolumeVSSM(nn.Module):
         self,
         slice_extractor_backbone: torch.nn.Module,
         aggregator: MambaAggregator1D,
+        use_torch_ckpt: bool = False
     ):
         super().__init__()
-        self.slice_extractor = SliceFeatureExtractor(slice_extractor_backbone)
+        self.slice_extractor = SliceFeatureExtractor(slice_extractor_backbone, use_torch_ckpt=use_torch_ckpt)
         self.embed_dims = self.slice_extractor.backbone.dims
         self.aggregator = aggregator
 
