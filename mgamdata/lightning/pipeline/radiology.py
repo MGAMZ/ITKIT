@@ -1,6 +1,7 @@
 import numpy as np
 from .base import BaseTransform
-from mgamdata.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size
+
+from ...io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size
 
 
 class WindowNorm(BaseTransform):

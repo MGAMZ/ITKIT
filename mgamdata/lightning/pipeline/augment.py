@@ -1,9 +1,13 @@
-from copy import deepcopy
+import random
+from typing import Dict, List, Tuple
 from typing_extensions import Literal
 from collections.abc import Callable, Sequence
-import random
+
 import numpy as np
+
 from .base import BaseTransform
+from ...process.GeneralPreProcess import RandomRotate3D as mm_RandomRotate3D
+
 
 
 class RandomPatch3D(BaseTransform):
@@ -66,6 +70,20 @@ class RandomPatch3DIndexing(BaseTransform):
             indices.append((z1, y1, x1))
 
         sample['patch_indices'] = np.array(indices, dtype=np.int32)
+        return sample
+
+
+class RandomRotate3D(mm_RandomRotate3D):
+    def __init__(self, keys:list[str], interp_orders:list[int], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.keys = keys if isinstance(keys, list) else [keys]
+        self.interp_orders = interp_orders if isinstance(interp_orders, list) else [interp_orders]
+
+    def __call__(self, sample: dict) -> dict:
+        if np.random.rand() < self.prob:
+            rot = self._sample_rotation_matrix()
+            for key, interp_order in zip(self.keys, self.interp_orders):
+                sample[key] = self._rotate_volume(sample[key], rot, interp_order)
         return sample
 
 

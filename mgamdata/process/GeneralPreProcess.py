@@ -817,24 +817,44 @@ class RandomRotate3D(BaseTransform):
         return R.from_rotvec(np.deg2rad(angle) * axis).as_matrix()
 
     def _rotate_volume(self, array: np.ndarray, rot: np.ndarray, order: int):
-        z, y, x = array.shape
-        center = np.array([z/2, y/2, x/2])
+        if array.ndim not in (3, 4):
+            raise ValueError(f"Unsupported input array ndim={array.ndim}. Expected 3 or 4.")
+        if array.ndim == 3:
+            z, y, x = array.shape
+        else:  # array.ndim == 4
+            c, z, y, x = array.shape
 
+        # 坐标变换
+        center = np.array([z / 2.0, y / 2.0, x / 2.0], dtype=np.float32)
         dz, dy, dx = np.indices((z, y, x))
-        coords = np.stack([dz, dy, dx], axis=0).reshape(3, -1).astype(np.float32)
+        coords = np.stack([dz, dy, dx], axis=0).reshape(3, -1).astype(np.float32)  # (3, N)
+        coords_centered = coords.T - center  # (N, 3)
+        coords_rotated = (rot @ coords_centered.T).T + center  # (N, 3)
+        coords_list = [coords_rotated[:, 0], coords_rotated[:, 1], coords_rotated[:, 2]]
 
-        coords_centered = coords.T - center
-        coords_rotated = (rot @ coords_centered.T).T + center
+        def _map_single_channel(vol3: np.ndarray) -> np.ndarray:
+            mapped = map_coordinates(
+                vol3,
+                coords_list,
+                order=order,
+                mode="constant",
+                cval=self.pad_val,
+                prefilter=self.resample_prefilter,
+            ).reshape(z, y, x)
+            # 尽量保持原始 dtype（例如 label 使用整数）
+            try:
+                return mapped.astype(vol3.dtype, copy=False)
+            except Exception:
+                return mapped
 
-        rotated = map_coordinates(
-            array,
-            [coords_rotated[:, 0], coords_rotated[:, 1], coords_rotated[:, 2]],
-            order=order,
-            mode="constant",
-            cval=self.pad_val,
-            prefilter=self.resample_prefilter,
-        ).reshape(z, y, x)
-        return rotated
+        if array.ndim == 3:
+            return _map_single_channel(array)
+        else:
+            # 4D: per-channel map
+            out = np.empty_like(array)
+            for ch in range(array.shape[0]):
+                out[ch] = _map_single_channel(array[ch])
+            return out
 
     def _center_crop(self, array: np.ndarray, bounds):
         zmin, zmax, ymin, ymax, xmin, xmax = bounds

@@ -14,7 +14,6 @@ import pdb, math
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from selective_scan import selective_scan_fn
 import torch.utils.checkpoint
@@ -96,7 +95,8 @@ class MambaAggregator1D(nn.Module, mamba_init):
         dts = self.dt_proj(dts)  # (B,D,d_inner)
 
         u = x  # (B,d_inner,D)
-        delta = dts.transpose(1, 2)
+        delta = dts.transpose(1, 2)  # (B,d_inner,D)
+
         Bs = Bs.transpose(1, 2).unsqueeze(1)  # (B,1,d_state,D)
         Cs = Cs.transpose(1, 2).unsqueeze(1)
         As = -torch.exp(self.A_logs.float())  # (d_inner,d_state)
@@ -104,13 +104,13 @@ class MambaAggregator1D(nn.Module, mamba_init):
         dt_bias = self.dt_proj.bias.float()
 
         y = selective_scan_fn(
-            u,          # u: (B, d_inner, D)
-            delta,      # delta: (B, d_inner, D)
-            As,         # A: (d_inner, d_state)
-            Bs,         # B: (B, 1, d_state, D)
-            Cs,         # C: (B, 1, d_state, D)
-            Ds,         # D: (d_inner,)
-            delta_bias=dt_bias,
+            u,          # (B, d_inner, D)
+            delta,      # (B, d_inner, D)
+            As,         # (d_inner, d_state)
+            Bs,         # (B, 1, d_state, D)
+            Cs,         # (B, 1, d_state, D)
+            Ds,         # (d_inner,)
+            delta_bias = dt_bias,
             delta_softplus=True,
         )  # (B, d_inner, D)
         y = y.transpose(1, 2)  # (B, D, d_inner)
@@ -189,16 +189,3 @@ class VolumeVSSM(nn.Module):
         vol_emb = self.aggregator(slice_emb.permute(0,2,1))  # (B, C_out)
         
         return (vol_emb, )
-
-
-if __name__ == '__main__':
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = VolumeVSSM(
-        backbone_kwargs=dict(in_chans=1, depths=[1,1,2,1], dims=[32,64,128,256], norm_layer='ln'),
-        aggregator_kwargs=dict(d_model=256, ssm_ratio=2.0, d_state=16, pool='mean'),
-    ).to(device)
-    
-    with torch.no_grad():
-        vol = torch.randn(1,1,12,128,128, device=device) # [N, C, Z, Y, X]
-        outputs = model(vol)
-        print('Embedding shape:', outputs.shape)
