@@ -83,7 +83,7 @@ class experiment:
         self.modify_cfg_to_set_test_work_dir()
 
         # 模型初始化
-        runner = DynamicRunnerSelection(self.cfg)
+        runner = DynamicRunnerGenerator(self.cfg)
         if self.test_use_last_ckpt:
             ckpt_path = find_latest_checkpoint(self.work_dir)
         else:
