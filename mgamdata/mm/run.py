@@ -1,7 +1,5 @@
-import os
-import re
-import argparse
-import pdb
+import os, re, argparse, pdb
+from pathlib import Path
 from bdb import BdbQuit
 from os import path as osp
 from colorama import Fore, Style
@@ -11,7 +9,7 @@ from mmengine.config import DictAction
 
 from mgamdata.mm import MM_WORK_DIR_ROOT, MM_TEST_DIR_ROOT, MM_CONFIG_ROOT
 
-SUPPORTED_MODELS = os.environ["supported_models"].split(",")
+SUPPORTED_MODELS = os.environ.get("supported_models", "").split(",")
 
 
 def is_in_torch_distributed_mode():
@@ -19,7 +17,6 @@ def is_in_torch_distributed_mode():
 
 
 class auto_runner:
-
     def __init__(
         self,
         exp_names,
@@ -104,6 +101,17 @@ class auto_runner:
     def experiment_queue(self):
         print("实验队列启动, 正在import依赖...")
         from mgamdata.mm.experiment import experiment
+        
+        def search_available_model_configs(exp_cfg_folder:Path):
+            available_model_cfgs = [
+                py_file
+                for py_file in exp_cfg_folder.glob("*.py")
+                if py_file.name != "mgam.py"
+            ]
+            if len(available_model_cfgs) == 0:
+                raise FileNotFoundError(f"在{exp_cfg_folder}目录下，未找到可用的模型配置文件")
+            else:
+                return available_model_cfgs
 
         for exp in self.exp_names:
             exp = self.find_full_exp_name(exp)
@@ -111,7 +119,8 @@ class auto_runner:
                 continue
             print(f"{exp} 实验启动")
 
-            for model in self.model_names:
+            # 如果没有指定模型名称，则自行寻找
+            for model in self.model_names or search_available_model_configs(Path(self.config_root, exp)):
                 # 确定配置文件路径和保存路径
                 config_path = os.path.join(self.config_root, f"{exp}/{model}.py")
                 if not os.path.exists(config_path):
