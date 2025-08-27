@@ -45,9 +45,13 @@ class BaseDataModule(LightningDataModule):
         train_end_idx = int(len(self.dataset) * self.dataset.SPLIT_RATIO[0])
         val_end_idx = train_end_idx + max(1, int(len(self.dataset) * self.dataset.SPLIT_RATIO[1]))
         test_end_idx = len(self.dataset)
-        self.train = Subset(self.dataset, range(train_end_idx))
-        self.val = Subset(self.dataset, range(train_end_idx, val_end_idx))
-        self.test = Subset(self.dataset, range(val_end_idx, test_end_idx))
+        
+        if stage == 'predict':
+            self.train = self.val = self.test = self.dataset
+        else:
+            self.train = Subset(self.dataset, range(train_end_idx))
+            self.val = Subset(self.dataset, range(train_end_idx, val_end_idx))
+            self.test = Subset(self.dataset, range(val_end_idx, test_end_idx))
 
     def teardown(self, stage: Literal['fit', 'validate', 'test', 'predict']) -> None:
         """
