@@ -19,5 +19,6 @@ class AbdomenCT_1K_Semi_Mha(AbdomenCT_1K_base, mgam_SemiSup_3D_Mha):
 class AbdomenCT_1K_Sup_2D(AbdomenCT_1K_base, mgam_Standard_2D):
     pass
 
+
 class AbdomenCT_1K_Patch(AbdomenCT_1K_base, mgam_SeriesPatched_Structure):
     ...
