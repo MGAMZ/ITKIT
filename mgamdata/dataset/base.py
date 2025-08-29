@@ -3,15 +3,12 @@ import re
 import pdb
 import json
 import logging
+import orjson
 from abc import abstractmethod
 from collections.abc import Generator, Iterable
 from tqdm import tqdm
-from typing_extensions import Literal, deprecated
+from typing_extensions import Literal
 
-import orjson
-import numpy as np
-
-from mmcv.transforms import BaseTransform
 from mmengine.registry import DATASETS
 from mmengine.logging import print_log, MMLogger
 from mmengine.dataset import ConcatDataset, BaseDataset

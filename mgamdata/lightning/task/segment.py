@@ -50,7 +50,7 @@ class SegmentationBase(pl.LightningModule):
         self.inference_patch_size = inference_patch_size
         self.inference_patch_stride = inference_patch_stride
         self.inference_patch_accumulate_device = inference_patch_accumulate_device
-        self.class_names = list(range(num_classes)) if class_names is None else class_names
+        self.class_names = class_names or list(range(num_classes))
         self.eps = eps
 
     def forward(self, x: Tensor) -> Tensor:
@@ -179,7 +179,6 @@ class SegmentationBase(pl.LightningModule):
     @abstractmethod
     def slide_inference(self, inputs: Tensor) -> Tensor:
         raise NotImplementedError("Subclasses must implement slide_inference method")
-
 
 
 class Segmentation3D(SegmentationBase):
