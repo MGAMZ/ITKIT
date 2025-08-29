@@ -3,7 +3,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mgamdata"
+name = "itkit"
 version = "2.3.3.250829"
 requires-python = ">= 3.12"
 description = "mgam's itk toolkit for better medical image analysis practice."
