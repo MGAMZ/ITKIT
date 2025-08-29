@@ -9,15 +9,17 @@ tags:
 authors:
   - name: Yiqin Zhang
     orcid: 0000-0003-2099-2687
+    corresponding: true
     equal-contrib: false
     affiliation: 1
   - name: Meiling Chen
+    orcid: 0009-0002-9574-3861
     equal-contrib: false
     affiliation: 2
 affiliations:
  - name: University of Shanghai for Science and Technology, Shanghai, China
    index: 1
- - name: formal-tech, Shanghai, China
+ - name: Independent Researcher, China
    index: 2
 date: 29 August 2025
 bibliography: paper.bib
@@ -85,7 +87,7 @@ Some of the functions in this section rely on MONAI[@MONAI]. The supported datas
 The supported neural network architectures include:
 
 - DA_TransUnet[@DA_Trans]
-- DconnNet[@Dconn]
+- DconnNet[@DconnNet]
 - DSNet[@DSNet]
 - EfficientFormer[@EffiFormer]
 - EfficientNet[@EffiNet]
