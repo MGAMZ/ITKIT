@@ -1,5 +1,5 @@
 ---
-title: 'ITKIT: Feasible Common Operation based on SimpleITK API'
+title: 'mgam-ITKIT: Feasible medical Image Operation based on SimpleITK API'
 tags:
   - Python
   - Medical Image
