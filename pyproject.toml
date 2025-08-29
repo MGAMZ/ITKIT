@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mgamdata"
-version = "2.3.2.250827"
+version = "2.3.3.250829"
 requires-python = ">= 3.12"
-description = "mgam's data toolkit for a better world!"
+description = "mgam's itk toolkit for better medical image analysis practice."
 readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
@@ -79,4 +79,4 @@ itk_aug = "mgamdata.process.itk_aug:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["mgamdata"]
+include = ["mgamdata*"]

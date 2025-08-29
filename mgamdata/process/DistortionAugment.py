@@ -17,19 +17,18 @@ from mmcv.transforms.base import BaseTransform
 import cv2
 
 
-
 def rectangular_to_polar(x, y, center_x, center_y):
     """
-    直角坐标由0开始计数
-    标准直角坐标系输入: x,y
-    极点的直角坐标: center_x, center_y
+    Rectangular coordinates start from 0
+    Standard rectangular coordinate system input: x, y
+    Rectangular coordinates of the pole: center_x, center_y
     
-    radius: 极径
-    angle: 极角 弧度制
+    radius: polar radius
+    angle: polar angle in radians
     """
-    # 使用numpy计算半径
+    # Use numpy to compute radius
     radius = np.sqrt((x - center_x)**2 + (y - center_y)**2)
-    # 使用scipy计算角度
+    # Use scipy to compute angle
     angle = np.arctan2(y - center_y, x - center_x)
     
     return radius, angle
@@ -37,12 +36,12 @@ def rectangular_to_polar(x, y, center_x, center_y):
 
 def polar_to_rectangular(radius, angle, center_x, center_y):
     """
-    直角坐标由0开始计数
-    radius: 极径
-    angle: 极角 弧度制
-    center_x, center_y: 极点的直角坐标
+    Rectangular coordinates start from 0
+    radius: polar radius
+    angle: polar angle in radians
+    center_x, center_y: rectangular coordinates of the pole
 
-    x,y: 直角坐标
+    x, y: rectangular coordinates
     """
     x = center_x + radius * math.cos(angle)
     y = center_y + radius * math.sin(angle)
@@ -74,18 +73,18 @@ class ScanTableRemover(BaseTransform):
                 raise ValueError("If 2D array, only square shape is supported")
         pixel_spacing = pixel_spacing * self.PixelSpacing_offset
 
-        # Slice中央垂直各要素距离计算
+        # Calculate distance of various elements in the vertical center of the slice
         Position_MaskCenter = table_height + self.MaskOffset - self.TableIntrinsicCircleRadius
         Distance_MaskCenter_ReconCenter = recon_center_cord[0] - Position_MaskCenter
 
-        # 物理单位(mm) -> 图像单位(pixel)
+        # Physical unit (mm) -> Image unit (pixel)
         PixelCord_MaskCenter = (self.pixel_array_shape//2 - Distance_MaskCenter_ReconCenter/pixel_spacing,
                                 self.pixel_array_shape//2 - recon_center_cord[1]           /pixel_spacing)
         PixelDistance_MaskRadius = self.TableIntrinsicCircleRadius / pixel_spacing
 
         # print(f"Pixel Mask Param: center {PixelCord_MaskCenter}, radius {PixelDistance_MaskRadius}")
         # print(f"Pixel Dist Param: MaskCenter_ReconCenter {Distance_MaskCenter_ReconCenter} ReconCenter_ScanBed {Distance_ReconCenter_ScanBed} MaskCenter_ScanBed {Distance_MaskCenter_ScanBed}")
-        # 执行mask
+        # Execute mask
         for x in range(self.pixel_array_shape):
             for y in range(self.pixel_array_shape):
                 if (x-PixelCord_MaskCenter[0])**2+(y-PixelCord_MaskCenter[1])**2 > PixelDistance_MaskRadius**2:
@@ -95,7 +94,8 @@ class ScanTableRemover(BaseTransform):
 
 
     def transform(self, results: dict) -> dict:
-        # 某些没有完整dcm序列的病例不可以进行床体移除，因为其所依赖的相关Metadata不存在。
+        # Some cases without complete dcm sequences cannot perform bed removal 
+        # because their dependent metadata does not exist.
         if results['dcm_meta']:
             results['img'] = self.process(
                 pixel_array=results['img'], 
@@ -119,28 +119,29 @@ class Distortion(BaseTransform):
                  use_cv2:bool=True,
                  const:bool=False,
                  ) -> None:
-        self.global_rotate = global_rotate  # 随机全局旋转
-        self.amplitude = amplitude  # 振幅
-        self.frequency = frequency  # 频率
-        self.img_shape = in_array_shape  # 输入矩阵的尺寸
-        self.grid_dense = grid_dense  # 网格密度
-        self.refresh_interval = refresh_interval  # 映射矩阵刷新间隔
+        self.global_rotate = global_rotate  # Random global rotation
+        self.amplitude = amplitude  # Amplitude
+        self.frequency = frequency  # Frequency
+        self.img_shape = in_array_shape  # Size of input matrix
+        self.grid_dense = grid_dense  # Grid density
+        self.refresh_interval = refresh_interval  # Mapping matrix refresh interval
         self.refresh_counter = 0
-        self.const = const # 控制是否要固定AF参数
+        self.const = const # Control whether to fix AF parameters
         self.use_cv2 = use_cv2
         self.pad_val = pad_val
         self.seg_pad_val = seg_pad_val
         super().__init__()
 
-    # 为分段仿射变换生成映射矩阵
-    # 有时候为了固定AF参数，需要使用const来关闭随机参数
+    # Generate mapping matrix for piecewise affine transformation
+    # Sometimes to fix AF parameters, const is used to disable random parameters
     def refresh_affine_map(self, const:bool):
         src_cols = np.linspace(0, self.img_shape[0], self.grid_dense)
         src_rows = np.linspace(0, self.img_shape[1], self.grid_dense)
-        # 构建网格, src_rows, src_cols形状为(grid_dense, grid_dense)
-        # src_rows为网格在源图中的行坐标, src_cols为网格在源图中的列坐标
+        # Build grid, src_rows, src_cols have shape (grid_dense, grid_dense)
+        # src_rows are row coordinates of grid points in source image
+        # src_cols are column coordinates of grid points in source image
         src_rows, src_cols = np.meshgrid(src_rows, src_cols)
-        # src包括所有网格点在源图像中的坐标，形状为(grid_dense, grid_dense, 2)
+        # src contains coordinates of all grid points in source image, shape (grid_dense, grid_dense, 2)
         src = np.stack([src_cols, src_rows], axis=2)
         dst = np.zeros_like(src)
 
@@ -150,22 +151,22 @@ class Distortion(BaseTransform):
         
         for x in range(self.grid_dense):
             for y in range(self.grid_dense):
-                # index转标准坐标
+                # Convert index to standard coordinates
                 y = self.grid_dense - y - 1
-                # 直角坐标转极坐标
+                # Convert rectangular to polar coordinates
                 radius, angle = rectangular_to_polar(x, y, self.grid_dense//2, self.grid_dense//2)
-                # 映射网格坐标系转换为源坐标系
+                # Convert mapping grid coordinate system to source coordinate system
                 radius *= self.img_shape[0] / self.grid_dense
-                # 极径扭曲
+                # Radial distortion
                 angle += math.pi/8 * amplitude * np.sin(radius/self.img_shape[0] * frequency * 2 * math.pi)
-                # 全局旋转
+                # Global rotation
                 angle += global_rotate * math.pi/2
-                # 极坐标转换为直角坐标
+                # Convert polar to rectangular coordinates
                 src_x, src_y = polar_to_rectangular(radius, angle, self.img_shape[0]/2, self.img_shape[1]/2)
-                # 标准坐标转index
+                # Convert standard coordinates to index
                 src_y = self.img_shape[0] - src_y - 1
                 y = self.grid_dense - y - 1
-                # 存入dst
+                # Store in dst
                 dst[x, y, :] = (src_x, src_y)
 
         def calc_cv2_map(img_shape, tform):
@@ -268,14 +269,14 @@ class RangeClipNorm(BaseTransform):
 
     @staticmethod
     def create_circle_in_square(size, radius):
-        # 创建一个全0的正方形ndarray
+        # Create a square ndarray filled with zeros
         square = np.zeros((size, size))
-        # 计算中心点的坐标
+        # Calculate center point coordinates
         center = size // 2
-        # 计算每个元素到中心的距离
+        # Calculate distance from each element to center
         y, x = np.ogrid[:size, :size]
         mask = (x - center)**2 + (y - center)**2 <= radius**2
-        # 如果距离小于或等于半径，将该元素设置为1
+        # If distance is less than or equal to radius, set element to 1
         square[mask] = 1
         return square
 
@@ -284,7 +285,7 @@ class RangeClipNorm(BaseTransform):
         assert Imgarray.shape == self.input_shape, f"HistogramEqualization Augmentation: input_shape expected{self.input_shape}, got {Imgarray.shape}"
         return equalize_hist(Imgarray, nbins=self.nbins, mask=self.mask)
 
-    # 定制算法
+    # Custom algorithm
     def _exec(self, Imgarray:np.ndarray):
         Imgarray = np.clip(Imgarray, -1024, 4096).astype(np.float32)
         # Normalize
@@ -297,7 +298,7 @@ class RangeClipNorm(BaseTransform):
 
         return Imgarray
     
-    # MMSegmentation 接口
+    # MMSegmentation interface
     def transform(self, results: dict) -> dict:
         ImgNdarray = results['img']
         assert isinstance(ImgNdarray, np.ndarray), "CTImageEnhance Augmentation: input img must be a numpy ndarray"

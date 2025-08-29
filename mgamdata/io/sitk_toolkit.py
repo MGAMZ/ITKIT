@@ -22,22 +22,24 @@ def sitk_resample_to_spacing(mha:sitk.Image,
                              spacing: list[float], 
                              field: Literal["image", "label"],
                              interp_method=None):
-    """改进后的重采样方法。
+    """Resample an image to a new spacing.
 
     Args:
-        mha (sitk.Image): 输入sitk.Image
-        spacing (tuple[float,float,float]): 新的spacing [Z,Y,X]
-        field (str, optional): 重采样的对象。 可选'image', 'label', 'mask'.
-                               本参数将决定插值方法和数据格式。
-        standardize (bool, optional): 是否标准化输出的origin和direction. Defaults to False.
+        mha (sitk.Image): input image.
+        spacing (tuple[float,float,float]): new spacing at [Z,Y,X] order.
+        field (str, optional): 
+            Processing field, Literal['image', 'label', 'mask'].
+            The parameter will affect the interpolation method and the output format.
+        standardize (bool, optional): Whether to reset origin and direction. Defaults to False.
 
     Returns:
-        sitk.Image: 重采样后的sitk.Image
+        sitk.Image: The resampled image.
     """
     assert field in ["image", "label"], "field must be one of ['image', 'label']"
     assert len(spacing) == 3, f"Spacing must be a 3-tuple, got {spacing}"
-    
-    # 计算重采样后的Spacing
+
+    # Calculate the resampled spacing. 
+    # The `None` values will be filled with original spacing.
     spacing = spacing[::-1]
     original_spacing = mha.GetSpacing()
     for i in range(3):
@@ -45,15 +47,17 @@ def sitk_resample_to_spacing(mha:sitk.Image,
             spacing[i] = original_spacing[i]
         else:
             assert spacing[i] > 0, f"Spacing must be positive or -1 (Not Changed), but got {spacing}"
-    
+
+    # Skip if original spacing is equal to target spacing
     if original_spacing == spacing:
         return mha
     
+    # Calculate the resampled size, required by `sitk.Resample` API.
     original_size = mha.GetSize()
     spacing_ratio = [original_spacing[i] / spacing[i] for i in range(3)]
     resampled_size = [int(original_size[i] * spacing_ratio[i]) for i in range(3)]
     
-    # 执行重采样
+    # Execute
     try:
         return sitk.Resample(
             image1=mha,
@@ -84,17 +88,16 @@ def sitk_resample_to_image(
     default_value=0.0,
     interp_method=None
 ):
-    """重采样一个sitk.Image，对齐到另一个sitk.Image。
+    """Resample a sitk.Image to align with a reference sitk.Image.
 
     Args:
-        image (sitk.Image): 输入的sitk.Image
-        reference_image (sitk.Image): 对齐目标
-        field (str, optional): 重采样的对象。 可选'image', 'label', 'mask'.
-                               本参数将决定插值方法和数据格式.
-        default_value (float, optional): 重采样时填充值. Defaults to 0.
+        image (sitk.Image): Input image.
+        reference_image (sitk.Image): Reference image to align to.
+        field (str, optional): Processing target, choose from 'image', 'label', 'mask'. Determines interpolation and output pixel type.
+        default_value (float, optional): Fill value used during resampling. Defaults to 0.
 
     Returns:
-        sitk.Image: 重采样后的sitk.Image
+        sitk.Image: Resampled sitk.Image.
     """
     return sitk.Resample(
         image1=image,
@@ -114,16 +117,16 @@ def sitk_resample_to_size(
     field: Literal["image", "label"],
     interp_method=None
 ):
-    """
+    """Resample a sitk.Image to a new size.
+
     Args:
-        image (sitk.Image): 输入的sitk.Image
-        new_size (list[float]): 新的大小
-        field (str, optional): 重采样的对象。 可选'image', 'label', 'mask'.
-                               本参数将决定插值方法和数据格式.
-        standardize (bool, optional): 是否标准化输出的origin和direction. Defaults to False.
+        image (sitk.Image): Input image.
+        new_size (list[float]): New size [Z, Y, X]; use -1 to keep original for a dimension.
+        field (str, optional): Processing target, choose from 'image', 'label', 'mask'. Determines interpolation and output pixel type.
+        interp_method: Custom interpolation method (overrides default). 
 
     Returns:
-        sitk.Image: 重采样后的sitk.Image
+        sitk.Image: Resampled sitk.Image.
     """
     assert len(new_size) == 3, f"Size must be a 3-tuple, got {new_size}"
     
@@ -358,7 +361,7 @@ def LoadDcmAsSitkImage_JianYingOrder(dcm_case_path, spacing) -> tuple[
     else:
         original_spacing = sitk_image.GetSpacing()
         original_size = sitk_image.GetSize()
-        spacing = spacing[::-1]  # 对外接口尽量保持[D, H, W] 不要搞~~
+        spacing = spacing[::-1]  # Keep external API order as [D, H, W]; do not change.
         spacing_ratio = [original_spacing[i] / spacing[i] for i in range(3)]
         resampled_size = [
             int(original_size[i] * spacing_ratio[i]) - 1 for i in range(3)
@@ -418,11 +421,11 @@ def LoadMhaAnno(mha_root, patient, ori_spacing, out_spacing, resampled_size):
 
 def merge_masks(mhas: list[str]|list[sitk.Image], dtype=np.uint8) -> sitk.Image:
     """
-    将所有类的掩码合并到一个掩码中并返回SimpleITK图像。
+    Merge all class-wise binary masks into a single multi-class mask and return as a SimpleITK image.
 
-    :param mha_paths: 所有mha文件的路径列表
-    :param class_index_map: 类名到索引的映射字典
-    :return: 合并后的SimpleITK图像
+    :param mhas: List of mask file paths or sitk.Image objects.
+    :param dtype: Output data type.
+    :return: Merged SimpleITK image (voxel value = class index, background=0).
     """
     # 初始化一个空的掩码图像
     merged_mask = None
@@ -454,13 +457,16 @@ def merge_masks(mhas: list[str]|list[sitk.Image], dtype=np.uint8) -> sitk.Image:
 
 def split_image_label_pairs_to_2d(image: sitk.Image, label: sitk.Image):
     """
-    将image和label在最高维度上进行切分，迭代式返回slice-pair。
+    Split a 3D image and its label volume into 2D slice pairs along the first (Z) axis.
 
-    :param image: SimpleITK图像
-    :param label: SimpleITK图像
-    :yield: (image_slice, label_slice) 对
+    Args:
+        image (sitk.Image): Image volume.
+        label (sitk.Image): Label volume.
+
+    Yields:
+        tuple[np.ndarray, np.ndarray]: (image_slice, label_slice)
     """
-    # 一致性检查
+    # Consistency checks
     assert (
         image.GetSize() == label.GetSize()
     ), f"Image size {image.GetSize()} != Label size {label.GetSize()}"

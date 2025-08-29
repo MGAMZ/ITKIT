@@ -67,11 +67,11 @@ class PreCropper3D:
 
     @staticmethod
     def _draw_cropped_center(cropped_center, save_folder):
-        # 创建画布和网格布局
+        # Create figure and grid layout
         fig = plt.figure(figsize=(15, 10))
         gs = plt.GridSpec(3, 2)
         
-        # 左侧3D散点图 - 占据整个左列
+        # Left 3D scatter plot - occupies entire left column
         ax1 = fig.add_subplot(gs[:, 0], projection='3d')
         z_coords = [center[0] for center in cropped_center]
         y_coords = [center[1] for center in cropped_center]
@@ -83,7 +83,7 @@ class PreCropper3D:
         ax1.set_zlabel('Z axis')
         ax1.set_title('3D Distribution')
         
-        # 右上 - XY投影
+        # Top-right - XY projection
         ax2 = fig.add_subplot(gs[0, 1])
         ax2.scatter(x_coords, y_coords, c='r', marker='o')
         ax2.set_xlabel('X axis')
@@ -91,7 +91,7 @@ class PreCropper3D:
         ax2.set_title('XY Projection')
         ax2.grid(True)
         
-        # 右中 - YZ投影
+        # Middle-right - YZ projection
         ax3 = fig.add_subplot(gs[1, 1])
         ax3.scatter(y_coords, z_coords, c='g', marker='o')
         ax3.set_xlabel('Y axis')
@@ -99,7 +99,7 @@ class PreCropper3D:
         ax3.set_title('YZ Projection')
         ax3.grid(True)
         
-        # 右下 - XZ投影
+        # Bottom-right - XZ projection
         ax4 = fig.add_subplot(gs[2, 1])
         ax4.scatter(x_coords, z_coords, c='purple', marker='o')
         ax4.set_xlabel('X axis')
@@ -107,10 +107,10 @@ class PreCropper3D:
         ax4.set_title('XZ Projection')
         ax4.grid(True)
         
-        # 调整布局
+        # Adjust layout
         plt.tight_layout()
         
-        # 保存图像
+        # Save figure
         plt.savefig(
             os.path.join(save_folder, "CroppedCenter.png"), 
             dpi=300, 
@@ -340,7 +340,7 @@ class StandardMhaCropper3D(PreCropper3D):
 
 
 class SemiSupervisedMhaCropper3D(PreCropper3D):
-    """Use this class when there are some sample with no annoatations."""
+    """Use this class when there are some samples without annotations."""
 
     def parse_task(self):
         task_list = []
@@ -369,5 +369,5 @@ class SemiSupervisedMhaCropper3D(PreCropper3D):
 
     @staticmethod
     def main_entry():
-        """Entry point for command line interface"""
+        """Entry point for command line interface."""
         cropper = SemiSupervisedMhaCropper3D()

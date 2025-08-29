@@ -1,4 +1,4 @@
-# 暮光霭明的万能工具包
+# mgam-ITKIT: Feasible medical Image Operation based on SimpleITK API
 
 This repo is now only for **preview**, I am still working on it. I hope it will help more researchers with easy APIs one day. If you are eager to use several functions, I am happy to offer some help through [my Email](mailto:312065559@qq.com).
 

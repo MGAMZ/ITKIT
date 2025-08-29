@@ -7,10 +7,21 @@ from tqdm import tqdm
 
 import numpy as np
 import SimpleITK as sitk
-from mgamdata.io.sitk_toolkit import PIXEL_TYPE, INTERPOLATOR
+from mgamdata.io.sitk_toolkit import INTERPOLATOR
 
 
 def random_3d_rotate(image:sitk.Image, label:sitk.Image, angle_ranges:Sequence[float]):
+    """
+    Rotate one image-label pair.
+    
+    Args:
+        image (sitk.Image): The input image to rotate.
+        label (sitk.Image): The corresponding label image to rotate.
+        angle_ranges (Sequence[float]):
+            The range of angles (in degrees) for random rotation.
+            Should contain three values corresponding to `Z, Y, X` axis.
+    """
+    
     radian_angles = [np.deg2rad(random.uniform(-angle_range, angle_range)) 
                      for angle_range in angle_ranges][::-1]
     size = image.GetSize()
@@ -40,29 +51,25 @@ def random_3d_rotate(image:sitk.Image, label:sitk.Image, angle_ranges:Sequence[f
 
 
 def process_sample(args):
-    """处理单个样本的增强"""
+    """Processing one sample, act as a worker function."""
     filename, img_folder, lbl_folder, out_img_folder, out_lbl_folder, num, random_rots = args
     
-    # 读取图像和标签
+    # Paths
     img_path = os.path.join(img_folder, filename)
     lbl_path = os.path.join(lbl_folder, filename)
+    basename = os.path.splitext(filename)[0]
     
-    # 使用SimpleITK读取图像
+    # Read
     image = sitk.ReadImage(img_path)
     label = sitk.ReadImage(lbl_path)
     
-    basename = os.path.splitext(filename)[0]
-    
-    # 创建增强
+    # Multiple augmented samples from source sample.
     for i in range(num):
-        # 应用随机旋转
         rotated_image, rotated_label = random_3d_rotate(image, label, random_rots)
-        
-        # 保存增强文件
+        # save to mha
         if out_img_folder:
             aug_img_path = os.path.join(out_img_folder, f"{basename}_{i}.mha")
             sitk.WriteImage(rotated_image, aug_img_path, True)
-        
         if out_lbl_folder:
             aug_lbl_path = os.path.join(out_lbl_folder, f"{basename}_{i}.mha")
             sitk.WriteImage(rotated_label, aug_lbl_path, True)
@@ -71,14 +78,14 @@ def process_sample(args):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='ITK基于3D数据增强')
-    parser.add_argument('img_folder', type=str, help='包含图像MHA文件的文件夹')
-    parser.add_argument('lbl_folder', type=str, help='包含标签MHA文件的文件夹')
-    parser.add_argument('-oimg', '--out-img-folder', type=str, default=None, help='增强后图像的输出文件夹 (可选)')
-    parser.add_argument('-olbl', '--out-lbl-folder', type=str, default=None, help='增强后标签的输出文件夹 (可选)')
-    parser.add_argument('-n', '--num', type=int, default=1, help='每个样本的增强数量')
-    parser.add_argument('--mp', action='store_true', help='启用多进程处理')
-    parser.add_argument('--random-rot', type=int, nargs=3, default=None, help='最大随机旋转角度（度）')
+    parser = argparse.ArgumentParser(description='ITK data augmentation')
+    parser.add_argument('img_folder', type=str, help='Folder containing image mhas')
+    parser.add_argument('lbl_folder', type=str, help='Folder containing label mhas')
+    parser.add_argument('-oimg', '--out-img-folder', type=str, default=None, help='Optional folder for augmented output image mhas.')
+    parser.add_argument('-olbl', '--out-lbl-folder', type=str, default=None, help='Optional folder for augmented output label mhas.')
+    parser.add_argument('-n', '--num', type=int, default=1, help='Number of augmented samples of each source sample.')
+    parser.add_argument('--mp', action='store_true', help='Enable multiprocessing, the number of workers are `None`.')
+    parser.add_argument('--random-rot', type=int, nargs=3, default=None, help='Maximum ramdom rotation degree on `Z Y X` axis.')
     return parser.parse_args()
 
 
@@ -89,13 +96,13 @@ def main():
     if args.out_lbl_folder:
         os.makedirs(args.out_lbl_folder, exist_ok=True)
     
-    # 获取公共文件名
+    # Fetch files
     img_files = set(f for f in os.listdir(args.img_folder) if f.endswith('.mha'))
     lbl_files = set(f for f in os.listdir(args.lbl_folder) if f.endswith('.mha'))
     common_files = list(img_files.intersection(lbl_files))
-    print(f"找到 {len(common_files)} 对匹配的图像-标签对")
+    print(f"Found {len(common_files)} matching image-label pairs")
     
-    # 准备任务
+    # Prepare tasks
     process_args = [
         (
             filename,
@@ -121,8 +128,8 @@ def main():
                         desc="Augmenting",
                         dynamic_ncols=True):
             process_sample(arg)
-    
-    print("数据增强完成")
+
+    print("Data augmentation complete")
 
 
 if __name__ == "__main__":

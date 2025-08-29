@@ -18,7 +18,7 @@ LABEL_DTYPE = np.uint8
 
 
 def get_series_uids(input_folder):
-    """获取所有可用的SeriesUID列表"""
+    """Get all available SeriesUID list."""
     image_folder = os.path.join(input_folder, "image")
     series_uids = []
     for filename in os.listdir(image_folder):
@@ -34,8 +34,8 @@ def process_single_series(series_uid,
                           out_folder, 
                           resize:list[int]|None=None, 
                           foreground_ratio:float|None=None):
-    """处理单个Series的3D MHA文件，将其分割为2D切片并保存"""
-    # 校验
+    """Process a single Series: split 3D MHA into 2D slices and save."""
+    # Validation
     image_path = os.path.join(input_folder, "image", f"{series_uid}.mha")
     label_path = os.path.join(input_folder, "label", f"{series_uid}.mha")
     image_out_dir = os.path.join(out_folder, "image", series_uid)
@@ -44,7 +44,7 @@ def process_single_series(series_uid,
         print(f"Warning: Missing files for SeriesUID {series_uid}")
         return False
     
-    # 读取，创建目录
+    # Read and create directories
     try:
         image = sitk.ReadImage(image_path)
         label = sitk.ReadImage(label_path)
@@ -56,14 +56,14 @@ def process_single_series(series_uid,
     os.makedirs(image_out_dir, exist_ok=True)
     os.makedirs(label_out_dir, exist_ok=True)
     
-    # 切分并保存2D切片
+    # Split and save 2D slices
     for idx, (image_slice, label_slice) in enumerate(split_image_label_pairs_to_2d(image, label)):
-        # 如果只处理前景切片，且当前切片没有前景，则跳过
+        # Skip if only processing foreground slices and current slice has insufficient foreground
         if foreground_ratio is not None:
             r = ((label_slice > 0).astype(int).sum() / label_slice.size).astype(float)
             if r < foreground_ratio:
                 continue
-        # 可选缩放
+        # Optional resize
         if resize:
             image_slice = cv2.resize(image_slice, resize[::-1], interpolation=cv2.INTER_CUBIC)
             label_slice = cv2.resize(label_slice, resize[::-1], interpolation=cv2.INTER_NEAREST)
@@ -88,14 +88,14 @@ def main():
     os.makedirs(args.out_folder, exist_ok=True)
     json.dump(vars(args), open(os.path.join(args.out_folder, "SplitLog.json"), "w"), indent=4)
     
-    # 获取所有SeriesUID
+    # Get all SeriesUIDs
     series_uids = get_series_uids(args.input_folder)
     print(f"Found {len(series_uids)} series to process.")
     if not series_uids:
         print("No valid series found. Exiting.")
         return
     
-    # 处理所有Series
+    # Process all Series
     process_func = partial(process_single_series,
                            input_folder=args.input_folder,
                            out_folder=args.out_folder,
