@@ -17,16 +17,16 @@ from mmseg.datasets.transforms import PackSegInputs as _PackSegInputs
 
 def rectangular_to_polar(x, y, center_x, center_y):
     """
-    直角坐标由0开始计数
-    标准直角坐标系输入: x,y
-    极点的直角坐标: center_x, center_y
-    
-    radius: 极径
-    angle: 极角 弧度制
+    Rectangular coordinates start from 0.
+    Standard rectangular coordinate input: x, y
+    Rectangular coordinates of the pole: center_x, center_y
+
+    radius: radial distance
+    angle: polar angle in radians
     """
-    # 使用numpy计算半径
+    # Use numpy to compute radius
     radius = np.sqrt((x - center_x)**2 + (y - center_y)**2)
-    # 使用scipy计算角度
+    # Use scipy to compute angle
     angle = np.arctan2(y - center_y, x - center_x)
     
     return radius, angle
@@ -34,12 +34,12 @@ def rectangular_to_polar(x, y, center_x, center_y):
 
 def polar_to_rectangular(radius, angle, center_x, center_y):
     """
-    直角坐标由0开始计数
-    radius: 极径
-    angle: 极角 弧度制
-    center_x, center_y: 极点的直角坐标
+    Rectangular coordinates start from 0.
+    radius: radial distance
+    angle: polar angle in radians
+    center_x, center_y: pole position in rectangular coordinates
 
-    x,y: 直角坐标
+    x, y: rectangular coordinates
     """
     x = center_x + radius * math.cos(angle)
     y = center_y + radius * math.sin(angle)
@@ -55,79 +55,87 @@ class RadialStretch:
                  direction:str="out", 
                  mmseg_stretch_seg_map:bool=True,
                  stretch_num_workers:int=8):
+        # Controls corner stretch intensity
+        # Controls global scaling intensity
+        # Input matrix shape
+        # Stretch direction, 'out' means stretch outward
+        # Whether to stretch segmentation label map
+        # Worker count for internal multiprocessing stretch
         assert CornerFactor>=0 and GlobalFactor>=1, "[Dataset] Projection Map Init Error: CornerFactor must >=0, GlobalFactor must >=1"
         assert in_array_shape[0]==in_array_shape[1], "[Dataset] Projection Map Init Error: input image must be square"
         assert direction in ['out', 'in'], "[Dataset] Stretch Direction can only be out or in. Out mean Stretch out to a square. In is its reverse operation"
         
-        self.CornerFactor = CornerFactor            # 控制边角拉伸的强度
-        self.GlobalFactor = GlobalFactor            # 控制全局放大的强度
-        self.in_array_shape = in_array_shape        # 输入矩阵的尺寸
-        self.direction = direction                  # 控制拉伸或反拉伸, out为拉伸向外
-        self.mmseg_stretch_seg_map = mmseg_stretch_seg_map      # 是否拉伸标签图
-        self.stretch_num_workers = stretch_num_workers # 自带的多进程拉伸时的进程数
+        self.CornerFactor = CornerFactor            # Corner stretch intensity
+        self.GlobalFactor = GlobalFactor            # Global scaling intensity
+        self.in_array_shape = in_array_shape        # Input matrix shape
+        self.direction = direction                  # Stretch direction; 'out' means outward
+        self.mmseg_stretch_seg_map = mmseg_stretch_seg_map      # Whether to stretch segmentation label map
+        self.stretch_num_workers = stretch_num_workers # Worker count for internal multiprocessing
         self._cache_map()
 
     def _cache_map(self):
-        print_log("[Dataset] 正在缓冲拉伸映射矩阵", "current", logging.INFO)
-        # 输出矩阵对应每个点都有一个映射坐标
+        print_log("[Dataset] Caching stretch mapping matrix", "current", logging.INFO)
+        # Output matrix: each point has a mapping coordinate
         map_height, map_width = self.in_array_shape
         self.proj_map = np.zeros(shape=(map_height, map_width, 2), dtype=np.uint16)
-        # 遍历每个像素, 生成映射矩阵
+        # Traverse each pixel to generate mapping matrix
         for y in range(map_height):
             for x in range(map_width):
                 self.proj_map[y, x] = self.CoordinateMapping(y, x)
-        self.proj_map.setflags(write=False) # 锁定映射矩阵
-        print_log("[Dataset] 已缓冲拉伸映射矩阵", "current", logging.INFO)
+        self.proj_map.setflags(write=False) # Lock mapping matrix
+        print_log("[Dataset] Stretch mapping matrix cached", "current", logging.INFO)
 
-    # 计算该极角的拉伸倍数, 仅适用于正方形输入输出。
-    # 输入的是当前映射矩阵的极角, 弧度制。
-    # 输出该极角下映射矩阵的极径拉伸倍数，应当在外部与当前映射矩阵的极径相乘，得到source的极径。
+    # Calculate the stretch factor for this polar angle, only applicable to square input and output.
+    # Input is the polar angle of the current mapping matrix, in radians.
+    # Output the radial stretch factor of the mapping matrix at this polar angle, 
+    # which should be multiplied with the current mapping matrix's radius externally to get the source radius.
     def stretch_factor(self, map_radians):
-        # 输入为弧度制
-        map_radians = abs(map_radians) % (math.pi/2) # 以90为周期，关于Y轴对称
+        # Input is in radians
+        map_radians = abs(map_radians) % (math.pi/2) # Period 90°, symmetric about Y-axis
 
-        # Deprecated: 线性角度映射，有突变点
+        # Deprecated: Linear angle mapping with discontinuity points
         # if angle > 45:
-        #     angle = 90 - angle  # 周期内中心对称
+        #     angle = 90 - angle  # Central symmetry within period
 
-        # 渐进Cos角度映射，周期内中心对称，但对称模式改变。
-        # 设立直角坐标系，X轴及X轴上方有效，X轴代表源角度，Y轴代表映射角度（输出至形变参量的计算）
+        # Progressive Cos angle mapping, centrally symmetric within period, but symmetry mode changes.
+        # Establish Cartesian coordinate system, X-axis and above are valid, X-axis represents source angle, 
+        # Y-axis represents mapped angle (output to deformation parameter calculation)
         # 
         angle = (math.pi/8) * (1 - math.cos(4*map_radians))
 
-        # 形变参量
+        # Deformation parameter
         radial_factor = 1 / (math.cos(angle)**self.CornerFactor)
-        if self.direction == 'out':     # 图像拉伸方向为向外
+        if self.direction == 'out':     # Image stretch direction is outward
             radial_factor = 1 / radial_factor
             global_factor = 1 / self.GlobalFactor
-        elif self.direction == 'in':    # 图像拉伸方向为向内
+        elif self.direction == 'in':    # Image stretch direction is inward
             radial_factor = radial_factor
             global_factor = self.GlobalFactor
-        # 最终缩放参数 = 该方向上的形变 * 整体缩放
+        # Final scaling parameter = deformation in this direction * global scaling
         factor = radial_factor * global_factor
         
         return factor
 
     # 输入处理后矩阵索引，返回源矩阵索引
     def CoordinateMapping(self, map_Y, map_X):
-        # XY均由0开始计数
-        # 数组存储图片时，原点位于左上角，这里将Y轴坐标反置，使原点移动至左下角
+        # Both X and Y start from 0
+        # Image origin is top-left; invert Y so origin becomes bottom-left
         true_map_y = self.in_array_shape[0] - map_Y
-        # 映射矩阵极点默认为映射矩阵中心
+        # Mapping matrix pole defaults to its center
         map_center_y, map_center_x = self.in_array_shape[0]/2, self.in_array_shape[1]/2
-        # 输入图像极点默认为输入图像中心
+        # Input image pole defaults to its center
         source_center_y, source_center_x = self.in_array_shape[0]/2, self.in_array_shape[1]/2
-        # 获取该点在映射矩阵中的极坐标
+        # Obtain polar coordinates in mapping matrix
         radius, angle = rectangular_to_polar(map_X, true_map_y, map_center_y, map_center_x)
-        # 计算该极角的拉伸倍数
+        # Compute stretch factor for this polar angle
         stretch_factor_of_this_angle = self.stretch_factor(angle)
-        # 转换回直角坐标, 寻找源坐标
+        # Convert back to rectangular to find source coordinates
         source_x, true_source_y = polar_to_rectangular(radius*stretch_factor_of_this_angle, angle, source_center_x, source_center_y)
-        # 四舍五入, 坐标限制
+        # Round and clip coordinates
         source_x, true_source_y = np.clip(round(source_x), 1, self.in_array_shape[1]), np.clip(round(true_source_y), 1, self.in_array_shape[0])
-        # Y轴坐标反置的恢复，顺带恢复到索引值域
+        # Restore Y after inversion; also restore to index range
         source_y = self.in_array_shape[0] - true_source_y
-        # X轴恢复到索引值域
+        # Restore X to index range
         source_x -= 1
         return source_y, source_x
 
@@ -168,35 +176,35 @@ class RadialStretch:
 
     def calculate_density_factor_map(self):
         """
-        计算每个像素位置的信息密集度因子分布图
-        信息密集度因子为对应方向拉伸倍数的倒数
+        Compute the information density factor map for each pixel.
+        Information density factor = inverse of stretch factor along that direction.
         """
-        print_log("[Dataset] 正在计算信息密集度因子分布图", "current", logging.INFO)
+        print_log("[Dataset] Computing information density factor map", "current", logging.INFO)
         map_height, map_width = self.in_array_shape
         density_map = np.zeros(shape=(map_height, map_width), dtype=np.float32)
-        # 映射矩阵极点默认为映射矩阵中心
+        # Mapping matrix pole defaults to center
         map_center_y, map_center_x = self.in_array_shape[0]/2, self.in_array_shape[1]/2
-        # 遍历每个像素，计算其信息密集度因子
+        # Traverse each pixel to compute its information density factor
         for y in range(map_height):
             for x in range(map_width):
-                # 获取真实的Y坐标（坐标系转换）
+                # Get true Y (coordinate system conversion)
                 true_y = self.in_array_shape[0] - y
-                # 获取该点在映射矩阵中的极坐标
+                # Obtain polar coordinates in mapping matrix
                 radius, angle = rectangular_to_polar(x, true_y, map_center_x, map_center_y)
-                # 计算该极角的拉伸倍数
+                # Stretch factor for this angle
                 stretch_factor_value = self.stretch_factor(angle)
-                # 信息密集度因子为拉伸倍数的倒数
+                # Information density factor is inverse of stretch factor
                 density_factor = 1.0 / stretch_factor_value
-                # 存储到密度图中
+                # Store into density map
                 density_map[y, x] = density_factor
         
-        print_log("[Dataset] 信息密集度因子分布图计算完成", "current", logging.INFO)
+        print_log("[Dataset] Information density factor map completed", "current", logging.INFO)
         return density_map
 
     def get_density_factor_map(self):
         """
-        获取信息密集度因子分布图，如果不存在则计算
-        返回与输入图像同样大小的numpy数组
+        Get (or compute if absent) the information density factor map.
+        Returns a numpy array with same size as input image.
         """
         if not hasattr(self, '_density_map'):
             self._density_map = self.calculate_density_factor_map()

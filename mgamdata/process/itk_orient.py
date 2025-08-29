@@ -25,7 +25,7 @@ def process_files(src_dir, dst_dir, orient, use_mp=False):
         src_path = os.path.join(src_dir, rel_path)
         dst_path = os.path.join(dst_dir, rel_path)
         if os.path.exists(dst_path):
-            print(f"目标文件已存在，跳过: {dst_path}")
+            print(f"Target file already exists, skipping: {dst_path}")
             continue
         tasks.append((src_path, dst_path, orient))
 
@@ -45,19 +45,19 @@ def process_files(src_dir, dst_dir, orient, use_mp=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="将目录下所有mha文件转换为LPI方向，并保持原有目录结构。")
-    parser.add_argument('src_dir', help='源目录')
-    parser.add_argument('dst_dir', help='目标目录')
-    parser.add_argument('orient', help='目标方向')
-    parser.add_argument('--mp', action='store_true', help='是否使用多进程')
+    parser = argparse.ArgumentParser(description="Convert all .mha files under the source directory to the specified orientation (e.g. LPI) while preserving the original directory structure.")
+    parser.add_argument('src_dir', help='Source directory')
+    parser.add_argument('dst_dir', help='Destination directory')
+    parser.add_argument('orient', help='Target orientation (e.g. LPI)')
+    parser.add_argument('--mp', action='store_true', help='Use multiprocessing')
     args = parser.parse_args()
 
     if not os.path.isdir(args.src_dir):
-        print(f"源目录不存在: {args.src_dir}")
+        print(f"Source directory does not exist: {args.src_dir}")
         return
 
     if os.path.abspath(args.src_dir) == os.path.abspath(args.dst_dir):
-        print("源目录和目标目录不能相同！")
+        print("Source and destination directories cannot be the same!")
         return
 
     process_files(args.src_dir, args.dst_dir, args.orient, args.mp)
