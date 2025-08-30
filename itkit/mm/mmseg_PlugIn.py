@@ -131,7 +131,7 @@ class IoUMetric_PerClass(IoUMetric):
 
         return metrics
 
-@deprecated("mmseg_PlugIn's Vis module has been deprecated, please use `mgamdata.mm.visualization` instead.")
+@deprecated("mmseg_PlugIn's Vis module has been deprecated, please use `itkit.mm.visualization` instead.")
 class SegVisualizationHook_Base(SegVisualizationHook):
     @abstractmethod
     def _get_source_image(self, data_sample: SegDataSample) -> np.ndarray: ...
@@ -205,7 +205,7 @@ class SegVisualizationHook_Base(SegVisualizationHook):
                 step=self._test_index,
             )
 
-@deprecated("mmseg_PlugIn's Vis module has been deprecated, please use `mgamdata.mm.visualization` instead.")
+@deprecated("mmseg_PlugIn's Vis module has been deprecated, please use `itkit.mm.visualization` instead.")
 class SegViser(SegLocalVisualizer):
     def __init__(
         self,
@@ -315,7 +315,7 @@ class SegViser(SegLocalVisualizer):
                 with_labels,
             )
 
-@deprecated("mmseg_PlugIn's Vis module has been deprecated, please use `mgamdata.mm.visualization` instead.")
+@deprecated("mmseg_PlugIn's Vis module has been deprecated, please use `itkit.mm.visualization` instead.")
 class SegVisHook_Vanilla(SegVisualizationHook_Base):
     def _get_source_image(self, data_sample: SegDataSample) -> np.ndarray:
         img_path = data_sample.img_path
@@ -323,7 +323,7 @@ class SegVisHook_Vanilla(SegVisualizationHook_Base):
         img = mmcv.imfrombytes(img_bytes, channel_order="rgb")
         return img
 
-@deprecated("mmseg_PlugIn's Vis module has been deprecated, please use `mgamdata.mm.visualization` instead.")
+@deprecated("mmseg_PlugIn's Vis module has been deprecated, please use `itkit.mm.visualization` instead.")
 class SegVisHook_Npz(SegVisualizationHook_Base):
     def _get_source_image(self, data_sample: SegDataSample) -> np.ndarray:
         img = np.load(data_sample.img_path)["img"]

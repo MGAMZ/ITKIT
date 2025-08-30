@@ -1,4 +1,4 @@
-"""Lightning callbacks for mgamdata."""
+"""Lightning callbacks for itkit."""
 
 from .visualization import SegVis3DCallback
 
