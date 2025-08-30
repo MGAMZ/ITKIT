@@ -75,10 +75,10 @@ class SegmentationBase(pl.LightningModule):
             return (logits > self.binary_segment_threshold).to(torch.uint8)
 
     def _parse_batch(self, batch: dict[str, Any], device:torch.device) -> tuple[Tensor, Tensor]:
-        image = batch['image'].to(device, non_blocking=True).float()
-        label = batch[self.gt_sem_seg_key].to(device, non_blocking=True)
-        label = torch.nn.functional.one_hot(label.long(), num_classes=self.num_classes).permute(0,4,1,2,3).float() \
-                if self.to_one_hot else label
+        image = batch['image']
+        label = batch[self.gt_sem_seg_key].half()
+        if self.to_one_hot:
+            label = torch.nn.functional.one_hot(label.long(), num_classes=self.num_classes).permute(0,4,1,2,3).float()
         return image, label
 
     def _compute_losses(self, logits: Tensor, targets: Tensor) -> dict[str, Tensor]:
@@ -258,8 +258,8 @@ class Seg3D_SlideWindowTrain(Segmentation3D):
         assert self.patch_size is not None, "Patch size must be set for sliding window training"
         assert self.patch_stride is not None, "Patch stride must be set for sliding window training"
 
-        image_cpu: Tensor = batch['image']
-        label_cpu: Tensor = batch[self.gt_sem_seg_key] # (N, ...) without channel dim.
+        image_cpu = batch['image']
+        label_cpu = batch[self.gt_sem_seg_key].half() # (N, ...) without channel dim.
         if self.to_one_hot:
             classes = torch.arange(self.num_classes, device=label_cpu.device, dtype=label_cpu.dtype)
             shape = [1, self.num_classes] + [1] * (label_cpu.ndim - 1) # [1, C, 1, 1, ...], will be auto broadcasted
@@ -364,11 +364,8 @@ class Seg3D_SlideWindowTrain(Segmentation3D):
         # Generate neural network input batch and call flusher
         for b in range(batch_size):
             for (z1, z2, y1, y2, x1, x2) in slide_window_indices:
-                patch_host = image_cpu[b:b+1, :, z1:z2, y1:y2, x1:x2]
-                target_host = label_cpu[b:b+1, ..., z1:z2, y1:y2, x1:x2]
-
-                batch_patches.append(patch_host.to(self.device))
-                batch_targets.append(target_host.to(self.device))
+                batch_patches.append(image_cpu[b:b+1, :, z1:z2, y1:y2, x1:x2].to(self.device, non_blocking=True))
+                batch_targets.append(label_cpu[b:b+1, ..., z1:z2, y1:y2, x1:x2].to(self.device, non_blocking=True))
 
                 if len(batch_patches) >= self.batch_window:
                     flush_batch()

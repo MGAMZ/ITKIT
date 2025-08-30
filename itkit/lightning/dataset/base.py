@@ -2,6 +2,8 @@ import pdb
 from abc import abstractmethod
 from collections.abc import Callable
 from typing_extensions import Literal
+
+import torch
 from torch.utils.data import DataLoader, Dataset, Subset
 from pytorch_lightning import LightningDataModule
 
@@ -29,11 +31,26 @@ class BaseDataModule(LightningDataModule):
         dataset: Dataset,
         train_loader_args = {},
         val_test_loader_args = {},
+        override_transfer_batch_to_device:torch.device|None = None,
     ):
+        """
+        Args:
+            dataset (Dataset):
+                the whole dataset including train/val/test splits
+            train_loader_args (dict):
+                arguments for the training dataloader
+            val_test_loader_args (dict):
+                arguments for the validation and test dataloaders
+            override_transfer_batch_to_device (torch.device):
+                Override the device to transfer batch, 
+                maybe useful when wants to ignore lightning automatic data transfer after DataLoader.
+        """
+        
         super().__init__()
         self.dataset = dataset
         self.train_loader_args = {**self.TRAIN_LOADER_ARGS, **train_loader_args}
         self.val_test_loader_args = {**self.VAL_TEST_LOADER_ARGS, **val_test_loader_args}
+        self.override_transfer_batch_to_device = override_transfer_batch_to_device
 
     def prepare_data(self):
         """
@@ -70,6 +87,12 @@ class BaseDataModule(LightningDataModule):
 
     def test_dataloader(self) -> DataLoader:
         return DataLoader(self.test, **self.val_test_loader_args)
+    
+    def transfer_batch_to_device(self, batch, device: torch.device, dataloader_idx: int):
+        if self.override_transfer_batch_to_device is not None:
+            return super().transfer_batch_to_device(batch, self.override_transfer_batch_to_device, dataloader_idx)
+        else:
+            return super().transfer_batch_to_device(batch, device, dataloader_idx)
 
 
 class BaseDataset(Dataset):

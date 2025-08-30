@@ -1,8 +1,9 @@
+import pdb
+from typing import Any
+
 import matplotlib.pyplot as plt
-import torch
 import torch.nn.functional as F
 import numpy as np
-from typing import Any
 from pytorch_lightning import Callback
 import pytorch_lightning as pl
 
@@ -25,6 +26,7 @@ class SegVis3DCallback(Callback):
         self,
         log_every_n_batches: int = 10,
         log_every_n_epochs: int = 1,
+        gt_key: str = 'label',
         max_samples_per_epoch: int = 5,
         figsize: tuple[int, int] = (16, 12),
         cmap_image: str = 'gray',
@@ -37,6 +39,7 @@ class SegVis3DCallback(Callback):
         Args:
             log_every_n_batches: Log visualization every N batches
             log_every_n_epochs: Log visualization every N epochs
+            gt_key: Key in the batch dict for ground truth segmentation, with no channel dim.
             max_samples_per_epoch: Maximum number of samples to visualize per epoch
             figsize: Figure size for matplotlib plots
             cmap_image: Colormap for original images
@@ -48,6 +51,7 @@ class SegVis3DCallback(Callback):
         super().__init__()
         self.log_every_n_batches = log_every_n_batches
         self.log_every_n_epochs = log_every_n_epochs
+        self.gt_key = gt_key
         self.max_samples_per_epoch = max_samples_per_epoch
         self.figsize = figsize
         self.cmap_image = cmap_image
@@ -115,7 +119,7 @@ class SegVis3DCallback(Callback):
         
         # Extract data from batch and outputs
         images = batch['image']  # Shape: [N, C, Z, Y, X]
-        gt_labels = batch[pl_module.gt_sem_seg_key]  # Shape: [N, 1, Z, Y, X] or [N, Z, Y, X]
+        gt_labels = batch[self.gt_key]  # Shape: [N, 1, Z, Y, X] or [N, Z, Y, X]
         predictions = outputs['predictions']  # Shape: [N, Z, Y, X]
         logits = outputs['logits']  # Shape: [N, C, Z, Y, X]
         confidence_map = F.softmax(logits, dim=1).max(dim=1)[0]  # Shape: [N, Z, Y, X]
@@ -125,10 +129,10 @@ class SegVis3DCallback(Callback):
         
         # Take the first sample from the batch
         sample_idx = 0
-        image = images[sample_idx, 0].float().cpu().numpy()  # Shape: [Z, Y, X]
-        gt_label = gt_labels[sample_idx].float().cpu().numpy().astype(np.float32)  # Shape: [Z, Y, X]
-        prediction = predictions[sample_idx].float().cpu().numpy().astype(np.float32)  # Shape: [Z, Y, X]
-        confidence = confidence_map[sample_idx].float().cpu().numpy()  # Shape: [Z, Y, X]
+        image = images[sample_idx, 0].cpu().float().numpy()  # Shape: [Z, Y, X]
+        gt_label = gt_labels[sample_idx].cpu().float().numpy()  # Shape: [Z, Y, X]
+        prediction = predictions[sample_idx].cpu().float().numpy()  # Shape: [Z, Y, X]
+        confidence = confidence_map[sample_idx].cpu().float().numpy()  # Shape: [Z, Y, X]
         # masked segmentation map for transparency during matplotlib visualization
         gt_label[gt_label == self.ignore_class_idx] = np.nan
         prediction[prediction == self.ignore_class_idx] = np.nan

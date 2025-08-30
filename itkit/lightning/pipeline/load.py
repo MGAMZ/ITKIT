@@ -6,8 +6,8 @@ from itkit.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_siz
 
 class LoadMHAFile(BaseTransform):
     def __init__(self,
-                 size: tuple = (-1, -1, -1),
-                 spacing: tuple = (-1, -1, -1),):
+                 size: tuple = (None, None, None),
+                 spacing: tuple = (None, None, None),):
         super().__init__()
         self.size = size
         self.spacing = spacing
@@ -18,7 +18,7 @@ class LoadMHAFile(BaseTransform):
         # 验证每个维度的互斥性
         if len(self.spacing) == img_dim and len(self.size) == img_dim:
             for i in range(img_dim):
-                if self.spacing[i] != -1 and self.size[i] != -1:
+                if self.spacing[i] is not None and self.size[i] is not None:
                     raise ValueError(f"Dimension {i} cannot have both spacing and size specified for resampling.")
 
         # --- 阶段一：Spacing 重采样 ---
@@ -26,7 +26,7 @@ class LoadMHAFile(BaseTransform):
         effective_spacing = list(orig_spacing)
         needs_spacing_resample = False
         for i in range(img_dim):
-            if self.spacing[i] != -1:
+            if self.spacing[i] is not None:
                 effective_spacing[i] = self.spacing[i]
                 needs_spacing_resample = True
 
@@ -41,7 +41,7 @@ class LoadMHAFile(BaseTransform):
         effective_size = list(current_size)
         needs_size_resample = False
         for i in range(img_dim):
-            if self.size[i] != -1:
+            if self.size[i] is not None:
                 effective_size[i] = self.size[i]
                 needs_size_resample = True
 
