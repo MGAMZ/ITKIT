@@ -274,14 +274,14 @@ class mgam_SeriesPatched_Structure(mgam_SeriesVolume):
                            desc=f"Indexing {self.split} for {self.__class__.__name__}",
                            leave=False,
                            dynamic_ncols=True):
-            series_id = series.split('_')
-            if len(series_id) >= 3:
-                raise ValueError(
-                    f"Series ID {series} is not in the expected format. "
-                    "Expected format: <SeriesID>_<Optional augment idx>, "
-                    f"encountered {series}."
-                )
-            if series.split('_')[0] not in series_avail:
+            # series_id = series.split('_')
+            # if len(series_id) >= 3:
+            #     raise ValueError(
+            #         f"Series ID `{series}` is not in the expected format. "
+            #         "Expected format: <SeriesID>_<Optional augment idx>, "
+            #         f"encountered `{series}`."
+            #     )
+            if series not in series_avail:
                 continue
             if self.mode == "sup" and series not in self.precrop_meta["anno_available"]:
                 continue

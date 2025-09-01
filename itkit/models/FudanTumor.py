@@ -1,6 +1,4 @@
-import pdb
-import math
-from typing_extensions import Literal
+import pdb, math
 
 import numpy as np
 import torch
@@ -390,9 +388,12 @@ class GrouppedClser(BaseModel):
             with torch.inference_mode():
                 results = self.predict(feat, data_samples)
                 for i, data_sample in enumerate(data_samples):
+                    pred = {}
                     for sub_group in LABEL_GROUP.keys():
-                        if sub_group in data_sample.gt_label.keys():
-                            data_sample.set_field(results[sub_group][i], f"pred_label/{sub_group}") 
+                        if data_sample.gt_label is not None and sub_group in data_sample.gt_label.keys():
+                            pred[sub_group] = results[sub_group][i]
+                            # data_sample.set_field(results[sub_group][i], f"pred_label/{sub_group}")
+                    data_sample.set_field(pred, "pred")
             return data_samples
         
         if mode == "loss":
@@ -413,7 +414,7 @@ class GrouppedClser(BaseModel):
 
     def extract_feat(self, inputs: Tensor):
         return self.shared(inputs)
-    
+
     def loss(self, 
              feat, 
              data_samples: list[BaseDataElement]):
@@ -466,9 +467,9 @@ class GrouppedClser(BaseModel):
             results[sg] = batch_results
             
         return results
-    
-    def predict(self, 
-                feat: Tensor, 
+
+    def predict(self,
+                feat: Tensor,
                 data_samples: list[BaseDataElement]):
         """
         Args:
@@ -511,8 +512,7 @@ class GrouppedClser(BaseModel):
             
             # 调用对应分类器
             clser: SubGroupHead = getattr(self, f"clser_{sg}")
-            batch_results = clser.predict(sub_feats, sub_feat_annos)
-            results[sg] = batch_results
+            results[sg] = clser.predict(sub_feats, sub_feat_annos)
             
         return results
 

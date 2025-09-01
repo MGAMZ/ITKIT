@@ -4,7 +4,7 @@ from torch import Tensor
 
 def to_item(obj):
     if isinstance(obj, (Tensor, np.ndarray)):
-        return obj.item()
+        return obj.tolist()
     if isinstance(obj, dict):
         return {k: to_item(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple, set)):
