@@ -1,4 +1,4 @@
-# mgam-ITKIT: Feasible medical Image Operation based on SimpleITK API
+# mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API
 
 This repo is now only for **preview**, I am still working on it. I hope it will help more researchers with easy APIs one day. If you are eager to use several functions, I am happy to offer some help through [my Email](mailto:312065559@qq.com).
 
@@ -28,7 +28,9 @@ Currently, it includes the following modules:
 
 - utils: Other small utility tools.
 
-## Commands
+---
+
+## ITK Preprocessing Commands
 
 ### itk_check
 
@@ -50,13 +52,59 @@ Extract patches from ITK image-label sample pairs. This may be helpful for train
 
 Do augmentation on ITK image files, only supports `RandomRotate3D` now.
 
-## OpenMIM-compatible Neural Networks
+## OpenMMLab Extensions
+
+### Experiment Runner
+
+The repo provides an experiment runner based on `MMEngine`'s `Runner` class.
+For use of our private runner class, the following gloval variables need to be set:
+
+- `mm_workdir`: The working directory for the experiment, will be used to store logs, checkpoints, visualizations, and everything that the training procedure will produce.
+- `mm_testdir`: The directory to store the test results. Used when `mmrun` command is called with `--test` flag.
+- `mm_configdir`: The directory where the config file is located, we specify a structure for all experiment configs.
+
+```text
+mm_configdir
+├── 0.1.Config1
+│   ├── mgam.py (Requires exactly this name to store non-model configs)
+│   ├── <model1>.py (Model config, can be multiple)
+│   ├── <model2>.py
+│   └── ...
+│
+│   # The version prefix requires every element before the final dot to be numeric,
+│   # after the final dot, the suffix should not start with a number.
+├── 0.2.Config2
+├── 0.3.Config3
+├── 0.3.1.Config3
+├── 0.4.2.3.Config3
+└── ...
+```
+
+- `supported_models`(Optional): A list of string that the runner will automatically search the corresponding model config file in the `mm_configdir/<version>.<config_name>/` folder when no model name is specifed during `mmrun` command call. If not set, all `py` files except `mgam.py` will be treated as model config files.
+
+With all the above variables set, the experiment can be run with the following command:
+
+```bash
+# Single node start
+mmrun $experiment_prefix$
+# Multi node start example, requires specify the mmrun script path.
+export mmrun=".../itkit/itkit/mm/run.py"
+torchrun --nproc_per_node 4 $mmrun $experiment_prefix$
+```
+
+Please use `mmrun --help` to see more options.
+
+**Note**
+
+The configuration files' format aligns with the OpenMIM specification, we recommend pure-python style config. Official docs can be found [here](https://mmengine.readthedocs.io/zh-cn/latest/advanced_tutorials/config.html#python-beta).
+
+### Neural Networks
 
 The codes are at `models`.
 
-1. **DA_TransUnet**: DA-TransUNet: Integrating Positional and Channel Dual Attention with Transformer-Based U-Net for Enhanced Medical Image Segmentation (https://doi.org/10.3389/fbioe.2024.1398237)
+1. **[DA-TransUNet](https://doi.org/10.3389/fbioe.2024.1398237)**: Integrating Positional and Channel Dual Attention with Transformer-Based U-Net for Enhanced Medical Image Segmentation
 2. **DconnNet**: Z. Yang and S. Farsiu, "Directional Connectivity-based Segmentation of Medical Images," in CVPR, 2023, pp. 11525-11535.
-3. **LM_Net**: A Light-weight and Multi-scale Network for Medical Image Segmentation (https://doi.org/10.1016/j.compbiomed.2023.107717)
+3. **[LM_Net](https://doi.org/10.1016/j.compbiomed.2023.107717)**: A Light-weight and Multi-scale Network for Medical Image Segmentation
 4. **MedNeXt**: Roy, S., Koehler, G., Ulrich, C., Baumgartner, M., Petersen, J., Isensee, F., Jaeger, P.F. & Maier-Hein, K. (2023). MedNeXt: Transformer-driven Scaling of ConvNets for Medical Image Segmentation. International Conference on Medical Image Computing and Computer-Assisted Intervention (MICCAI), 2023.
 5. **SegFormer**: SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers. Enze Xie, Wenhai Wang, Zhiding Yu, Anima Anandkumar, Jose M. Alvarez, and Ping Luo. NeurIPS 2021.
 6. **SegFormer3D**: Perera, Shehan and Navard, Pouyan and Yilmaz, Alper. SegFormer3D: an Efficient Transformer for 3D Medical Image Segmentation. Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition.
@@ -71,13 +119,7 @@ The codes are at `models`.
 15. **UNet+++**: UNet 3+: A Full-Scale Connected UNet for Medical Image Segmentation
 16. **UNETR**: Hatamizadeh, et.al., Unetr: Transformers for 3d medical image segmentation.
 
-## IO toolkit
-
-1. **SimpleITK:** `io/sitk_toolkit.py`
-2. **DICOM:** `io/dcm_toolkit.py`
-3. **NIfTI:** `io/nii_toolkit.py`
-
-## Dataset
+### Dataset
 
 1. AdbdomenCT1K
 2. BraTs2024
@@ -92,8 +134,32 @@ The codes are at `models`.
 11. TCGA
 12. Totalsegmentator
 
-## OpenMIM Plugins
+### Other Plugins
 
-1. More multi-node training method (DDP, FSDP, deepspeed).
-2. 3D segmentation.
-3. Visualization.
+1. More multi-node training method (DDP, FSDP, deepspeed)
+2. 3D segmentation model class
+3. Segmentation visualization hooks
+
+## IO toolkit
+
+1. **SimpleITK:** `io/sitk_toolkit.py`
+2. **DICOM:** `io/dcm_toolkit.py`
+3. **NIfTI:** `io/nii_toolkit.py`
+
+## (Alpha) Lightning Extensions
+
+The repo is transferring the developping framework from OpenMIM to PyTorch Lightning, dur to the former is no longer maintained this years. PyTorch Lightning may be more useable in the future when dealing with specific training techniques.
+
+The codes are at `lightning/`.
+
+## Citation
+
+If you find this repo helpful in your research, please consider citing:
+
+```bibtex
+@misc{mgam-ITKIT,
+    author = {Yiqin Zhang},
+    title = {mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API},
+    year = {2025},
+}
+```
