@@ -1,0 +1,82 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "itkit"
+version = "2.4.1.250901"
+requires-python = ">= 3.12"
+description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API"
+readme = "readme.md"
+license = {file = "LICENSE"}
+dependencies = [
+  "numpy>=2.3",
+  "opencv-python-headless>=4.11",
+  "openpyxl",
+  "pandas",
+  "scikit-image",
+  "scikit-learn",
+  "scipy",
+  "future",
+  "tensorboard",
+  "orjson",
+  "tqdm",
+  "colorama",
+  "ml_collections",
+  "seaborn",
+  "matplotlib",
+  "matplotlib-inline",
+  "jupyter",
+  "colored",
+  "albumentations",
+  "ftfy",
+  "SimpleITK",
+]
+
+[project.optional-dependencies]
+dev = [
+  "h5py",
+  "pylint-django",
+  "HolisticTraceAnalysis",
+  "pynvml",
+]
+nvidia = [
+  "onnx",
+  "onnxruntime",
+  "onnxruntime-gpu",
+  "onnx_graphsurgeon",
+  "polygraphy",
+  "tensorrt",
+]
+medical_vision = [
+  "opensdpc",
+  "openslide-python",
+  "openslide-bin",
+  "pydicom",
+  "pynrrd",
+  "nibabel",
+]
+pytorch = [
+  "timm",
+  "deepspeed",
+]
+mm = [
+  "ftfy",
+  "regex",
+]
+
+[project.scripts]
+mmrun = "itkit.mm.run:main"
+mmconc = "itkit.mm.summarize:main"
+precrop = "itkit.process.PreCrop_3D:SemiSupervisedMhaCropper3D.main_entry"
+itk_resample = "itkit.process.itk_resample:main"
+itk_orient = "itkit.process.itk_orient:main"
+split3d = "itkit.process.Split3D:main"
+split2d = "itkit.process.Split2D:main"
+itk_patch = "itkit.process.itk_patch:main"
+itk_check = "itkit.process.itk_check:main"
+itk_aug = "itkit.process.itk_aug:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["itkit*"]
