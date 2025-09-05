@@ -1,10 +1,10 @@
 import warnings
+warnings.simplefilter('once', RuntimeWarning)
 from typing_extensions import Literal
 from colorama import Fore, Style
 
 import numpy as np
 
-warnings.simplefilter('once', RuntimeWarning)
 
 def unsafe_astype(
     array: np.ndarray, dtype: type, alarm_type: Literal["warn", "error"] = "warn"

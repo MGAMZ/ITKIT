@@ -1,15 +1,11 @@
-import os
-import pdb
-import pickle
-import socket
-import time
-import traceback
+import os, pdb, pickle, socket, time, traceback
 from copy import deepcopy
 from io import BytesIO
 from multiprocessing import Lock, Pool
 from multiprocessing.managers import BaseManager
 from typing import Any
 from abc import abstractmethod
+from functools import partial
 
 import cv2
 import numpy as np
@@ -26,7 +22,6 @@ from skimage.filters import gaussian
 from skimage.restoration import denoise_wavelet, denoise_tv_bregman, denoise_tv_chambolle, denoise_nl_means
 from scipy.ndimage import maximum_filter, median_filter
 
-from functools import partial
 
 '''
 mmseg与mmcv之间对于图像的通道定义有区别

@@ -6,12 +6,12 @@ build-backend = "setuptools.build_meta"
 name = "itkit"
 version = "2.4.1.250901"
 requires-python = ">= 3.12"
-description = "mgam's itk toolkit for better medical image analysis practice."
+description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API"
 readme = "readme.md"
 license = {file = "LICENSE"}
 dependencies = [
   "numpy>=2.3",
-  "opencv-python>=4.11",
+  "opencv-python-headless>=4.11",
   "openpyxl",
   "pandas",
   "scikit-image",
@@ -30,6 +30,7 @@ dependencies = [
   "colored",
   "albumentations",
   "ftfy",
+  "SimpleITK",
 ]
 
 [project.optional-dependencies]
@@ -51,7 +52,6 @@ medical_vision = [
   "opensdpc",
   "openslide-python",
   "openslide-bin",
-  "SimpleITK",
   "pydicom",
   "pynrrd",
   "nibabel",
