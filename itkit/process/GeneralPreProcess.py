@@ -18,10 +18,10 @@ from mmengine.registry import TRANSFORMS
 
 
 """
-NOTE 
-规范化：在进入神经网络之前，
-所有预处理的对外特性都应当遵循
-[Z,Y,X]或[D,H,W]的维度定义
+General Rule:
+Before entering the neural network,
+the channel dimension order should align with
+[Z,Y,X] or [D,H,W]
 """
 
 
@@ -56,18 +56,18 @@ class AutoPad(BaseTransform):
 
     def _get_pad_params(self, current_shape: tuple) -> tuple[tuple[int, int], ...]:
         pad_params = []
-        # 只处理最后n个维度，n由dim决定
+        # Only handle the last n dimensions, where n is determined by `dim`
         dims_to_pad = self.dim_map[self.dim]
-        
-        # 确保current_shape维度足够
+
+        # Ensure current_shape has enough dimensions
         if len(current_shape) < dims_to_pad:
             raise ValueError(f"Input shape {current_shape} has fewer dimensions than required {dims_to_pad}")
-        
-        # 处理不需要padding的前置维度
+
+        # Handle leading dimensions that don't need padding
         for _ in range(len(current_shape) - dims_to_pad):
             pad_params.append((0, 0))
             
-        # 处理需要padding的维度
+        # Handle dimensions that need padding
         for target_size, curr_size in zip(self.size, current_shape[-dims_to_pad:]):
             if curr_size >= target_size:
                 pad_params.append((0, 0))
@@ -119,7 +119,7 @@ class CropSlice_Foreground(BaseTransform):
 
     def __init__(self, num_slices: int, ratio: float = 0.9):
         self.num_slices = num_slices
-        self.ratio = ratio  # 一定几率下，本处理才会生效
+        self.ratio = ratio  # With a certain probability, this operation will be applied
 
     def _locate_possible_start_slice_with_non_background(self, mask):
         assert (
@@ -133,8 +133,8 @@ class CropSlice_Foreground(BaseTransform):
         )
         non_background_slices = np.arange(start_slice, end_slice, dtype=np.uint32)
 
-        # locate the range of possible start slice,
-        # which could ensure the selected slices are not all background
+        # locate the range of possible start slice
+        # which ensures the selected slices are not entirely background
         min_possible_start_slice = max(
             0, non_background_slices[0] - self.num_slices + 1
         )
@@ -237,13 +237,13 @@ class RandomRoll(BaseTransform):
         seg_pad_val: int = 0,
     ):
         """
-        根据指定的轴进行随机滚动
+        Perform random roll along specified axes.
 
-        :param axis: 指定滚动的轴
-        :param gap: 对应轴的最大滚动距离
-        :param erase: 是否擦除滚动后的部分
-        :param pad_val: 擦除的填充值
-        :param seg_pad_val: seg擦除的填充值
+        :param axis: Axis or axes to roll along.
+        :param gap: Maximum shift range for the corresponding axes.
+        :param erase: Whether to erase the rolled-over region.
+        :param pad_val: Padding value used when erasing image regions.
+        :param seg_pad_val: Padding value used when erasing segmentation regions.
         """
         if isinstance(axis, int):
             axis = [axis]
@@ -789,8 +789,8 @@ class SampleAugment(BaseTransform):
 
 
 class RandomRotate3D(BaseTransform):
-    """自由随机3D旋转"""
-    
+    """Free random 3D rotation"""
+
     def __init__(self,
                  degree: float,
                  prob: float = 1.0,
@@ -807,7 +807,7 @@ class RandomRotate3D(BaseTransform):
         self.resample_prefilter = resample_prefilter
         self.crop_to_valid_region = crop_to_valid_region
         self.img_keys = img_keys
-        # 预计算最大旋转角的余弦值
+        # Precompute cosine of the maximum rotation angle
         self.cos_theta = np.cos(np.deg2rad(degree))
 
     def _sample_rotation_matrix(self):
@@ -824,7 +824,7 @@ class RandomRotate3D(BaseTransform):
         else:  # array.ndim == 4
             c, z, y, x = array.shape
 
-        # 坐标变换
+        # Coordinate transformation
         center = np.array([z / 2.0, y / 2.0, x / 2.0], dtype=np.float32)
         dz, dy, dx = np.indices((z, y, x))
         coords = np.stack([dz, dy, dx], axis=0).reshape(3, -1).astype(np.float32)  # (3, N)
@@ -841,7 +841,7 @@ class RandomRotate3D(BaseTransform):
                 cval=self.pad_val,
                 prefilter=self.resample_prefilter,
             ).reshape(z, y, x)
-            # 尽量保持原始 dtype（例如 label 使用整数）
+            # Try to preserve original dtype (e.g., labels are integers)
             try:
                 return mapped.astype(vol3.dtype, copy=False)
             except Exception:
@@ -877,13 +877,13 @@ class RandomRotate3D_GPU:
     def _gen_grid(self, sample):
         N, C, Z, Y, X = sample.shape
         device = sample.device
-        
-        # 整批共享的随机欧拉角（弧度；顺序 [Z, Y, X]）
+
+        # Random Euler angles shared across the batch (radians; order [Z, Y, X])
         ang_z = math.radians(random.uniform(-self.angle_range[0], self.angle_range[0]))
         ang_y = math.radians(random.uniform(-self.angle_range[1], self.angle_range[1]))
         ang_x = math.radians(random.uniform(-self.angle_range[2], self.angle_range[2]))
 
-        # 旋转矩阵
+        # Rotation matrix
         cz, sz = math.cos(ang_z), math.sin(ang_z)
         cy, sy = math.cos(ang_y), math.sin(ang_y)
         cx, sx = math.cos(ang_x), math.sin(ang_x)
@@ -893,14 +893,16 @@ class RandomRotate3D_GPU:
             [-sy,                               cy * sx,                 cy * cx               ],
         ], device=device, dtype=torch.float32)
 
-        # 将 R 映射为 affine_grid 归一化仿射 θ
-        # 注意：在 align_corners=True 且输入输出尺寸一致时，绕体素中心旋转对应于规范化空间绕原点旋转，
-        # 因此平移项应为 0，θ = A @ R @ A^{-1}（无额外平移）。
-        # 同时 grid_sample 的网格顺序为 (x, y, z)，尺度向量为 [X, Y, Z]。
+        # Map R to the normalized affine theta for affine_grid
+        # Note: With align_corners=True and identical input/output sizes, rotation
+        # around voxel centers corresponds to rotation around the origin in
+        # normalized coordinates. Therefore the translation term should be 0,
+        # and theta = A @ R @ A^{-1} (no extra translation).
+        # Also, grid_sample expects grid order (x, y, z) and scale vector [X, Y, Z].
         A_diag    = torch.tensor([2.0 / (X - 1), 2.0 / (Y - 1), 2.0 / (Z - 1)], device=device, dtype=torch.float32)
         Ainv_diag = torch.tensor([(X - 1) / 2.0, (Y - 1) / 2.0, (Z - 1) / 2.0], device=device, dtype=torch.float32)
-        M = R * Ainv_diag                  # 按列缩放（A^{-1}）
-        M = A_diag.view(3, 1) * M          # 按行缩放（A）
+        M = R * Ainv_diag                  # scale columns (A^{-1})
+        M = A_diag.view(3, 1) * M          # scale rows (A)
         t = torch.zeros(3, device=device, dtype=torch.float32)
         theta = torch.cat([M, t.view(3, 1)], dim=1)  # [3,4]
         theta = theta.unsqueeze(0).expand(N, 3, 4).contiguous()

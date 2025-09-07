@@ -2,6 +2,7 @@ import os
 import argparse
 from glob import glob
 from tqdm import tqdm
+
 import SimpleITK as sitk
 
 

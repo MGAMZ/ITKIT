@@ -1,8 +1,4 @@
-import os
-import pdb
-import argparse
-import json
-import traceback
+import os, pdb, argparse, json, traceback
 from tqdm import tqdm
 from collections.abc import Sequence
 from multiprocessing import Pool

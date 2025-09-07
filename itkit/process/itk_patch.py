@@ -1,10 +1,10 @@
-import numpy as np
-import SimpleITK as sitk
-import argparse
+import argparse, json, pdb
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
-import json
+
+import numpy as np
+import SimpleITK as sitk
 
 
 def extract_patches(image: sitk.Image,

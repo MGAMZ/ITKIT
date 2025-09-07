@@ -10,10 +10,10 @@ from itkit.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_siz
 
 
 """
-NOTE
-规范化：在进入神经网络之前，
-所有预处理的对外特性都应当遵循
-[Z,Y,X]或[D,H,W]的维度定义
+General Rule:
+Before entering the neural network,
+the channel dimension order should align with
+[Z,Y,X] or [D,H,W]
 """
 
 
