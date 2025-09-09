@@ -1,12 +1,10 @@
-import logging
-import os
-import pdb
+import logging, os, pdb
 from abc import abstractmethod
-from typing_extensions import Sequence
+from collections.abc import Sequence
 
 import cv2
-import numpy as np
 import torch
+import numpy as np
 from matplotlib.figure import Figure
 from matplotlib import pyplot as plt
 

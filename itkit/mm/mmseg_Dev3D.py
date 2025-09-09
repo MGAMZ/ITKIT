@@ -1057,7 +1057,7 @@ class PixelShuffle3D(torch.nn.Module):
         elif isinstance(upscale_factor, Sequence) and len(upscale_factor) == 3:
             self.upscale_factor = tuple(upscale_factor)
         else:
-            raise ValueError(f"upscale_factor必须是一个整数或包含3个整数的序列, 但得到了{upscale_factor}")
+            raise ValueError(f"upscale_factor must be an int or a sequence of 3 ints, but got {upscale_factor}")
 
     def forward(self, inputs: Tensor):
         # validate
@@ -1066,7 +1066,7 @@ class PixelShuffle3D(torch.nn.Module):
         total_factor = rx * ry * rz
         out_channels = channels // total_factor
         if channels % total_factor != 0:
-            raise ValueError(f"输入通道数 ({channels}) 必须能被上采样因子的乘积 ({rx}*{ry}*{rz}={total_factor}) 整除。")
+            raise ValueError(f"Input channels ({channels}) must be divisible by the product of upscale factors ({rx}*{ry}*{rz}={total_factor}).")
         
         # execute
         mid = inputs.view(batch, out_channels, rx, ry, rz, x, y, z)
@@ -1085,7 +1085,7 @@ class PixelUnshuffle3D(torch.nn.Module):
         elif isinstance(downscale_factor, Sequence) and len(downscale_factor) == 3:
             self.downscale_factor = tuple(downscale_factor)
         else:
-            raise ValueError(f"downscale_factor必须是一个整数或包含3个整数的序列, 但得到了{downscale_factor}")
+            raise ValueError(f"downscale_factor must be an int or a sequence of 3 ints, but got {downscale_factor}")
 
     def forward(self, inputs: Tensor):
         # validate
@@ -1093,7 +1093,7 @@ class PixelUnshuffle3D(torch.nn.Module):
         rx, ry, rz = self.downscale_factor
         out_channels = channels * (rx * ry * rz)
         if x % rx != 0 or y % ry != 0 or z % rz != 0:
-            raise ValueError(f"输入维度 ({x}, {y}, {z}) 必须能被对应的缩放因子 ({rx}, {ry}, {rz}) 整除。")
+            raise ValueError(f"Input dimensions ({x}, {y}, {z}) must be divisible by the downscale factors ({rx}, {ry}, {rz}).")
         
         # execute
         mid = inputs.view(batch, channels, x // rx, rx, y // ry, ry, z // rz, rz)

@@ -31,22 +31,21 @@ class mgam_Seg_Lite(BaseModel):
                  inference_PatchAccumulateDevice:str='cuda',
                  allow_pbar:bool = False,
                  *args, **kwargs):
-        """mgam_Seg_Lite 是一个简化版的分割范式。
-        
-        与EncoderDecoder2D保持一致的接口，但实现更加简洁。这个类的主要特点：
-        1. 简化的前向推理过程，不包含aug_test
-        2. decode_head已合并入backbone，backbone直接返回logits
-        3. 支持二维滑动窗口推理，当inference_PatchSize和inference_PatchStride被指定时启用
+        """
+        mgam_Seg_Lite is a Lite form of `mmseg` core model implementation,
+        without decouple decoder_head, loss, neck design, allowing easier coding experiments.
+        Meanwhile, it provides several args to support sliding window inference for large image/volume,
+        especially useful for medical image segmentation tasks.
         
         Args:
-            backbone (ConfigDict): 主干网络的配置，包含已合并的decode_head。这个主干网络应当直接输出最终的分割logits。
-            criterion (ConfigDict): 用于计算损失的标准，通常是Dice或交叉熵损失等。
-            gt_sem_seg_key (str): ground truth分割掩码的键名，默认为'gt_sem_seg'。
-            use_half (bool): 是否使用半精度模型，默认为False。
-            binary_segment_threshold (float | None): 二分类分割的阈值。如果模型输出是单通道 (二分类)，则此参数必须提供；若模型输出是多通道(多分类)，则此参数必须为None。
-            inference_PatchSize (tuple | None): 推理时滑动窗口的大小，如果为None，则不使用滑动窗口推理。默认为None。
-            inference_PatchStride (tuple | None): 推理时滑动窗口的步长，如果为None，则不使用滑动窗口推理。默认为None。
-            inference_PatchAccumulateDevice (str): 推理时滑动窗口结果累加矩阵的存储位置，可以是'cpu'或'cuda'。当处理大图像数据时，选择'cpu'可以避免GPU内存不足。默认为'cuda'。
+            backbone (ConfigDict): Configuration of the backbone network, including the merged decode_head. This backbone should directly output the final segmentation logits.
+            criterion (ConfigDict): Criterion for computing loss, such as Dice loss or cross-entropy loss.
+            gt_sem_seg_key (str): The key name for the ground truth segmentation mask, default is 'gt_sem_seg'.
+            use_half (bool): Whether to use half-precision (fp16) for the model, default is False.
+            binary_segment_threshold (float | None): Threshold for binary segmentation. If the model outputs a single channel (binary), this must be provided; if the model outputs multiple channels (multi-class), this must be None.
+            inference_PatchSize (tuple | None): Size of the sliding window for inference. If None, sliding window inference is not used, default is None.
+            inference_PatchStride (tuple | None): Stride of the sliding window for inference. If None, sliding window inference is not used, default is None.
+            inference_PatchAccumulateDevice (str): Device to accumulate sliding window inference results, either 'cpu' or 'cuda'. For large images, 'cpu' can help avoid GPU OOM. Default is 'cuda'.
         """
         super().__init__(*args, **kwargs)
         self.backbone = MODELS.build(backbone)
@@ -130,10 +129,10 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         Returns:
             dict[str, Tensor]: A dictionary of loss components
         """
-        # 前向传播，获取预测结果
+        # Forward pass to get prediction logits
         seg_logits = self._forward(inputs, data_samples)
         
-        # 从data_samples中获取ground truth
+        # Extract ground truth masks from data_samples
         gt_segs = []
         for data_sample in data_samples:
             gt_segs.append(data_sample.get(self.gt_sem_seg_key).data)
@@ -156,29 +155,30 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
                 - pred_sem_seg (PixelData): Prediction of semantic segmentation.
                 - seg_logits (PixelData): Predicted logits of semantic segmentation.
         """
-        # 前向传播
+        # Forward pass
         seg_logits = self.inference(inputs, data_samples) # [N, C, H, W]
         
-        # 处理结果
+        # Process outputs
         batch_size = inputs.shape[0]
         out_channels = seg_logits.shape[1]
         
-        # 验证二分类阈值与模型输出通道数的一致性
+        # Validate consistency of binary threshold and output channels
         if out_channels > 1 and self.binary_segment_threshold is not None:
-            raise ValueError(f"多分类模型(输出通道数={out_channels})不应设置binary_segment_threshold，"
-                            f"当前值为{self.binary_segment_threshold}，应设置为None")
+            raise ValueError(
+                f"Multi-class model (out_channels={out_channels}) should not set binary_segment_threshold; "
+                f"current value is {self.binary_segment_threshold}, expected None"
+            )
         if out_channels == 1 and self.binary_segment_threshold is None:
-            raise ValueError(f"二分类模型(输出通道数={out_channels})必须设置binary_segment_threshold，"
-                            "当前值为None")
+            raise ValueError(f"Binary model (out_channels={out_channels}) must set binary_segment_threshold; current value is None")
         
         if data_samples is None:
             data_samples = [BaseDataElement() for _ in range(batch_size)]
         
         for i in range(batch_size):
-            # 处理单个样本
+            # Process each sample
             i_seg_logits = seg_logits[i] # [C, H, W]
             
-            # 生成预测结果
+            # Generate prediction mask
             if out_channels > 1:  # 多分类情况
                 i_seg_pred = i_seg_logits.argmax(dim=0, keepdim=True)
             else:  # 二分类情况
@@ -188,7 +188,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
                 i_seg_logits_sigmoid = i_seg_logits.sigmoid()
                 i_seg_pred = (i_seg_logits_sigmoid > self.binary_segment_threshold).to(i_seg_logits)
             
-            # 将结果保存到data_samples中
+            # Store results into data_samples
             data_samples[i].seg_logits = PixelData(data=i_seg_logits)
             data_samples[i].pred_sem_seg = PixelData(data=i_seg_pred)
         
@@ -208,14 +208,14 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
 
     @torch.inference_mode()
     def inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
-        """执行推理，支持滑动窗口或整体推理。
-        
+        """Perform inference, supporting sliding-window or full-image.
+
         Args:
-            inputs (Tensor): 输入张量，形状为(N, C, H, W)
-            data_samples (Sequence[BaseDataElement], optional): 数据样本
-            
+            inputs (Tensor): Input tensor of shape (N, C, H, W).
+            data_samples (Sequence[BaseDataElement], optional): Data samples.
+
         Returns:
-            Tensor: 分割结果的logits
+            Tensor: Segmentation logits.
         """
         # 检查是否需要滑动窗口推理
         if self.inference_PatchSize is not None and self.inference_PatchStride is not None:
@@ -227,30 +227,30 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         return seg_logits
 
     def slide_inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
-        """使用重叠的滑动窗口进行推理。
-        
+        """Perform sliding-window inference with overlapping patches.
+
         Args:
-            inputs (Tensor): 输入张量，形状为(N, C, H, W)
-            data_samples (Sequence[BaseDataElement], optional): 数据样本
-            
+            inputs (Tensor): Input tensor of shape (N, C, H, W).
+            data_samples (Sequence[BaseDataElement], optional): Data samples.
+
         Returns:
-            Tensor: 分割结果的logits
+            Tensor: Segmentation logits.
         """
-        # 获取滑动窗口参数
+        # Retrieve sliding-window parameters
         assert self.inference_PatchSize is not None and self.inference_PatchStride is not None, \
-            f"滑动窗口采样必须指定inference_PatchSize({self.inference_PatchSize})和inference_PatchStride({self.inference_PatchStride})"
+            f"Sliding-window inference requires inference_PatchSize({self.inference_PatchSize}) and inference_PatchStride({self.inference_PatchStride})"
         h_stride, w_stride = self.inference_PatchStride
         h_crop, w_crop = self.inference_PatchSize
         batch_size, _, h_img, w_img = inputs.size()
         h_img, w_img = int(h_img), int(w_img)
-        
-        # 检查是否需要padding
+
+        # Check if padding is needed for small images
         need_padding = h_img < h_crop or w_img < w_crop
         if need_padding:
-            # 计算padding大小
+            # Compute padding sizes
             pad_h = max(h_crop - h_img, 0)
             pad_w = max(w_crop - w_img, 0)
-            # 对称padding：(left, right, top, bottom)
+            # padding: (left, right, top, bottom)
             pad = (pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2)
             padded_inputs = torch.nn.functional.pad(inputs, pad, mode='replicate', value=0)
             h_padded, w_padded = padded_inputs.shape[2], padded_inputs.shape[3]
@@ -258,13 +258,13 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
             padded_inputs = inputs
             h_padded, w_padded = h_img, w_img
             pad = None
-        
-        # 计算网格数（基于padded size）
+
+        # Compute number of grids based on padded size
         h_grids = max(h_padded - h_crop + h_stride - 1, 0) // h_stride + 1
         w_grids = max(w_padded - w_crop + w_stride - 1, 0) // w_stride + 1
-        
+
         accumulate_device = torch.device(self.inference_PatchAccumulateDevice)
-        
+
         preds = torch.zeros(
             size=(batch_size, self.num_classes, h_padded, w_padded),
             dtype=torch.float32,
@@ -275,8 +275,8 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
             dtype=torch.uint8,
             device=accumulate_device
         )
-        
-        # 滑动窗口推理
+
+        # Sliding-window inference loop
         for h_idx in range(h_grids):
             for w_idx in range(w_grids):
                 h1 = h_idx * h_stride
@@ -285,27 +285,29 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
                 w2 = min(w1 + w_crop, w_padded)
                 h1 = max(h2 - h_crop, 0)
                 w1 = max(w2 - w_crop, 0)
-                
-                # 截取patch
+
+                # Extract patch
                 crop_img = padded_inputs[:, :, h1:h2, w1:w2]
-                
-                # 推理
+
+                # Run forward on patch
                 crop_seg_logit = self._forward(crop_img)
-                
-                # 将结果移到累加设备上并累加
+
+                # Move results to accumulation device and sum
                 crop_seg_logit_on_device = crop_seg_logit.to(accumulate_device)
                 preds[:, :, h1:h2, w1:w2] += crop_seg_logit_on_device
                 count_mat[:, :, h1:h2, w1:w2] += 1
-        
-        assert torch.min(count_mat).item() > 0, "存在未被滑动窗口覆盖的区域"
+
+        # Verify all regions are covered by sliding windows
+        assert torch.min(count_mat).item() > 0, "There are areas not covered by sliding windows"
+        # Compute average logits
         seg_logits = preds / count_mat
-        
-        # 如果有padding，需要裁剪回原始尺寸
+
+        # Crop back to original size if padding was applied
         if need_padding:
-            assert pad is not None, "Padding信息丢失，无法裁剪回原始尺寸"
+            assert pad is not None, "Missing padding info, cannot crop back to original size"
             pad_left, pad_right, pad_top, pad_bottom = pad
             seg_logits = seg_logits[:, :, pad_top:h_padded-pad_bottom, pad_left:w_padded-pad_right]
-        
+
         return seg_logits
 
 
@@ -320,10 +322,10 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         Returns:
             dict[str, Tensor]: A dictionary of loss components
         """
-        # 前向传播，获取预测结果
+        # Forward pass to get prediction logits
         seg_logits = self._forward(inputs, data_samples)
         
-        # 从data_samples中获取ground truth
+        # Extract ground truth volumes from data_samples
         gt_segs = []
         for data_sample in data_samples:
             gt_segs.append(data_sample.get(self.gt_sem_seg_key).data)
@@ -356,30 +358,31 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             out_channels = seg_logits.shape[1]
             
             if out_channels > 1 and self.binary_segment_threshold is not None:
-                raise ValueError(f"多分类模型(输出通道数={out_channels})不应设置binary_segment_threshold，"
-                                f"当前值为{self.binary_segment_threshold}，应设置为None")
+                raise ValueError(
+                    f"Multi-class model (out_channels={out_channels}) should not set binary_segment_threshold; "
+                    f"current value is {self.binary_segment_threshold}, expected None"
+                )
             if out_channels == 1 and self.binary_segment_threshold is None:
-                raise ValueError(f"二分类模型(输出通道数={out_channels})必须设置binary_segment_threshold，"
-                                "当前值为None")
+                raise ValueError(f"Binary model (out_channels={out_channels}) must set binary_segment_threshold; current value is None")
             
             if data_samples is None:
                 data_samples = [BaseDataElement() for _ in range(batch_size)]
             
             for i in range(batch_size):
-                # 处理单个样本
+                # Process each sample
                 i_seg_logits = seg_logits[i] # [C, Z, Y, X]
                 
-                # 生成预测结果
-                if out_channels > 1:  # 多分类情况
+                # Generate prediction volume
+                if out_channels > 1:  # Multi-class segmentation
                     i_seg_pred = i_seg_logits.argmax(dim=0, keepdim=True)
-                else:  # 二分类情况
+                else:  # Binary segmentation
                     assert self.binary_segment_threshold is not None, \
-                        f"二分类模型(输出通道数={out_channels})必须设置binary_segment_threshold，" \
-                        f"当前值为None"
+                        f"Binary segmentation model (out_channels={out_channels}) must set binary_segment_threshold，" \
+                        f"currently it's {self.binary_segment_threshold}"
                     i_seg_logits_sigmoid = i_seg_logits.sigmoid()
                     i_seg_pred = (i_seg_logits_sigmoid > self.binary_segment_threshold).to(i_seg_logits)
                 
-                # 将结果保存到data_samples中
+                # Store results into data_samples
                 data_samples[i].seg_logits = VolumeData(**{"data": i_seg_logits})
                 data_samples[i].pred_sem_seg = VolumeData(**{"data": i_seg_pred})
             
@@ -405,14 +408,14 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
 
     @torch.inference_mode()
     def inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None, force_cpu:bool=True) -> Tensor:
-        """执行推理，支持滑动窗口或整体推理。
-        
+        """Perform inference, supporting sliding-window or full-volume.
+
         Args:
-            inputs (Tensor): 输入张量，形状为(N, C, Z, Y, X)
-            data_samples (Sequence[BaseDataElement], optional): 数据样本
-            
+            inputs (Tensor): Input tensor of shape (N, C, Z, Y, X).
+            data_samples (Sequence[BaseDataElement], optional): Data samples.
+
         Returns:
-            Tensor: 分割结果的logits
+            Tensor: Segmentation logits.
         """
         if self.inference_PatchSize is not None and self.inference_PatchStride is not None:
             seg_logits = self.slide_inference(inputs, data_samples, force_cpu=force_cpu)
@@ -423,35 +426,36 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         return seg_logits
 
     def slide_inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None, force_cpu:bool=False) -> Tensor:
-        """使用重叠的滑动窗口进行推理。
-        
+        """Perform sliding-window inference with overlapping sub-volumes.
+
         Args:
-            inputs (Tensor): 输入张量，形状为(N, C, Z, Y, X)
-            data_samples (Sequence[BaseDataElement], optional): 数据样本
-            
+            inputs (Tensor): Input tensor of shape (N, C, Z, Y, X).
+            data_samples (Sequence[BaseDataElement], optional): Data samples.
+
         Returns:
-            Tensor: 分割结果的logits
+            Tensor: Segmentation logits.
         """
-        # 获取滑动窗口参数
+        # Retrieve sliding-window parameters
         assert self.inference_PatchSize is not None and self.inference_PatchStride is not None, \
-            f"滑动窗口采样必须指定inference_PatchSize({self.inference_PatchSize})和inference_PatchStride({self.inference_PatchStride})"
+            f"When using sliding window, inference_PatchSize({self.inference_PatchSize}) and inference_PatchStride({self.inference_PatchStride}) must be set," \
+            f"elsewise, please set both to `None` to disable sliding window."
         z_stride, y_stride, x_stride = self.inference_PatchStride
         z_crop, y_crop, x_crop = self.inference_PatchSize
         batch_size, _, z_img, y_img, x_img = inputs.size()
         
-        # 将尺寸转换为Python整数，避免tensor到boolean的转换
+        # Convert sizes to Python ints to avoid tensor-to-bool issues
         z_img = int(z_img)
         y_img = int(y_img)
         x_img = int(x_img)
         
-        # 检查是否需要padding
+        # Check if padding is needed for small volumes
         need_padding = z_img < z_crop or y_img < y_crop or x_img < x_crop
         if need_padding:
-            # 计算padding大小
+            # Compute padding sizes
             pad_z = max(z_crop - z_img, 0)
             pad_y = max(y_crop - y_img, 0)
             pad_x = max(x_crop - x_img, 0)
-            # 对称padding：(left, right, top, bottom, front, back)
+            # Apply symmetric padding: (left, right, top, bottom, front, back)
             pad = (pad_x // 2, pad_x - pad_x // 2, 
                    pad_y // 2, pad_y - pad_y // 2,
                    pad_z // 2, pad_z - pad_z // 2)
@@ -462,17 +466,18 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             z_padded, y_padded, x_padded = z_img, y_img, x_img
             pad = None
         
-        # 计算网格数（基于padded size）
+        # Compute grid counts based on padded size
         z_grids = max(z_padded - z_crop + z_stride - 1, 0) // z_stride + 1
         y_grids = max(y_padded - y_crop + y_stride - 1, 0) // y_stride + 1
         x_grids = max(x_padded - x_crop + x_stride - 1, 0) // x_stride + 1
         
-        # 准备结果累加矩阵，根据指定的设备创建
+        # Prepare accumulation and count tensors on target device
         accumulate_device = torch.device('cpu') if force_cpu else torch.device(self.inference_PatchAccumulateDevice)
         if accumulate_device.type == 'cuda':
+            # Clear CUDA cache if using GPU accumulation
             torch.cuda.empty_cache()
         
-        # 创建累加矩阵和计数矩阵在指定的设备上
+        # Create accumulation and count matrices on specified device
         preds = torch.zeros(
             size=(batch_size, self.num_classes, z_padded, y_padded, x_padded),
             dtype=torch.float16,
@@ -484,7 +489,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             device=accumulate_device
         )
         
-        # 滑动窗口推理
+        # Sliding-window inference loop
         for z_idx in tqdm(range(z_grids), desc='Slide Win. Infer. Z', disable=not (is_main_process() and self.allow_pbar), dynamic_ncols=True, position=0, leave=False):
             for y_idx in tqdm(range(y_grids), desc='Slide Win. Infer. Y', disable=not (is_main_process() and self.allow_pbar), dynamic_ncols=True, position=1, leave=False):
                 for x_idx in tqdm(range(x_grids), desc='Slide Win. Infer. X', disable=not (is_main_process() and self.allow_pbar), dynamic_ncols=True, position=2, leave=False):
@@ -498,21 +503,21 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                     y1 = max(y2 - y_crop, 0)
                     x1 = max(x2 - x_crop, 0)
                     
-                    # 推理
+                    # Run forward on sub-volume
                     crop_seg_logit = self._forward(padded_inputs[:, :, z1:z2, y1:y2, x1:x2])
-                    # 累加
+                    # Accumulate results
                     preds[:, :, z1:z2, y1:y2, x1:x2] += crop_seg_logit.to(accumulate_device)
                     count_mat[:, :, z1:z2, y1:y2, x1:x2] += 1
         
         # 使用tensor操作进行断言检查，避免tensor到boolean转换
         min_count = torch.min(count_mat)
-        assert min_count.item() > 0, "存在未被滑动窗口覆盖的区域"
+        assert min_count.item() > 0, "There are areas not covered by sliding windows"
         # 计算平均值
         seg_logits = (preds / count_mat).to(dtype=torch.float16)
         
-        # 如果有padding，需要裁剪回原始尺寸
+        # Crop back to original size if padding was applied
         if need_padding:
-            assert pad is not None, "Padding信息丢失，无法裁剪回原始尺寸"
+            assert pad is not None, "Missing padding info, cannot crop back to original size"
             pad_x_left, pad_x_right, pad_y_top, pad_y_bottom, pad_z_front, pad_z_back = pad
             seg_logits = seg_logits[:, :, 
                                    pad_z_front:z_padded-pad_z_back,
@@ -532,11 +537,11 @@ class MomentumAvgModel(torch.nn.Module):
                  update_buffers: bool = False) -> None:
         super().__init__()
         
-        # 检查分布式环境
+        # Check distributed environment
         self.is_distributed = hasattr(model, 'module')
         self.is_deepspeed = hasattr(model, 'module') and hasattr(model.module, 'deepspeed')
         
-        # DeepSpeed环境下获取完整模型
+        # For DeepSpeed, get the full underlying model parameters
         if self.is_deepspeed:
             with model.module.summon_full_params():
                 self.module = copy.deepcopy(model.module).requires_grad_(False)
@@ -562,7 +567,7 @@ class MomentumAvgModel(torch.nn.Module):
             self.avg_parameters = {k: v for k, v in params.items() 
                                    if v.numel() > 0}
             
-        # 动量参数检查
+        # Validate momentum parameter range
         assert 0.0 < momentum < 1.0, f'momentum must be in range (0.0, 1.0) but got {momentum}'
         if momentum > 0.5:
             print_log('The value of momentum in EMA is usually a small number,'

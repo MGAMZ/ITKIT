@@ -49,6 +49,8 @@ pip install ITKIT
 
 ## ITK Preprocessing Commands
 
+You may see `--help` to see more details for each command.
+
 ### itk_check
 
 Check ITK image-label sample pairs whether they meet the required spacing / size.
@@ -115,6 +117,12 @@ Please use `mmrun --help` to see more options.
 
 The configuration files' format aligns with the OpenMIM specification, we recommend pure-python style config. Official docs can be found [here](https://mmengine.readthedocs.io/zh-cn/latest/advanced_tutorials/config.html#python-beta).
 
+### Segmentation Framework
+
+`ITKIT` also provides several remastered implementation based on `mmengine` BaseModel, its design is inspired by `mmsegmentation` but more lightweight.
+
+See `itkit/mm/mgam_models.py` for details.
+
 ### Neural Networks
 
 The codes are at `models`.
@@ -153,11 +161,19 @@ The codes are at `models`.
 11. **[TCGA](https://www.cancer.gov/ccg/research/genome-sequencing/tcga)**
 12. **[Totalsegmentator](https://pubs.rsna.org/doi/10.1148/ryai.230024)**: Wasserthal Jakob, et al. TotalSegmentator: Robust Segmentation of 104 Anatomic Structures in CT Images. Radiology: Artificial Intelligence, 5, 5, 2023.
 
-### Other Plugins
+### MMEngine Plugins
 
-1. More multi-node training method (DDP, FSDP, deepspeed)
-2. 3D segmentation model class
-3. Segmentation visualization hooks
+These plugins are located in `itkit/mm/mmeng_PlugIn.py`. Some if the designs act as fixes to the original implementation. Due to `MMEngine` is less active, there exists many unresolved issues.
+
+1. A `TrainLoop` class that supports profiler: `IterBasedTrainLoop_SupportProfiler`
+2. A test-time logger to record the quantified metrics: `LoggerJSON`
+3. Remastered `DDP` and `FSDP` to inherit non-default `BaseModel` attributes: `RemasteredDDP`, `RemasteredFSDP`
+4. A FSDP runtime strategy based on mmengine design: `RemasteredFSDP_Strategy`
+5. A more stable runtime logger to prevent `lr` overflow and crashes the training due to display error: `RuntimeInfoHook`
+6. A collate function acts on `DataLoader` to collect multi samples from multi workers: `multi_sample_collate`
+7. A fixed OptimWarpper, which will no longer iterate parameters that do not require gradients, saving time in some specific senarios: `mgam_OptimWrapperConstructor`.
+
+*I personally dislike `MMEngine`'s implementations here, it's too convoluted and difficult to maintain.*
 
 ## IO toolkit
 

@@ -65,7 +65,6 @@ class SegInferencer(Inferencer):
     def Inference_FromITK(self, itk_image:sitk.Image) -> tuple[sitk.Image, sitk.Image]:
         image_array = sitk.GetArrayFromImage(itk_image) # [Z, Y, X]
         pred = self.Inference_FromNDArray(image_array) # [Class, Z, Y, X]
-        # 后处理
         pred = pred.argmax(dim=0).to(dtype=torch.uint8, device='cpu').numpy() # [Z, Y, X]
         itk_pred = sitk.GetImageFromArray(pred)
         itk_pred.CopyInformation(itk_image)
@@ -238,27 +237,25 @@ class Inferencer_3D_ONNX(SegInferencer):
         return self.model.run(['OUTPUT__0'], {'INPUT__0': patch_np})[0]
 
     def slide_inference(self, inputs: np.ndarray) -> np.ndarray:
-        """
-        滑动窗口推理，输入[N, C, Z, Y, X]，输出[N, C, Z, Y, X]
-        """
+        """Input [N, C, Z, Y, X], Output[N, C, Z, Y, X]"""
         assert self.inference_PatchSize is not None and self.inference_PatchStride is not None, \
-            f"滑动窗口采样必须指定inference_PatchSize({self.inference_PatchSize})和inference_PatchStride({self.inference_PatchStride})"
+            f"Slide window inference must specify Inference_PatchSize({self.inference_PatchSize}) and inference_PatchStride({self.inference_PatchStride})"
         z_stride, y_stride, x_stride = self.inference_PatchStride
         z_crop, y_crop, x_crop = self.inference_PatchSize
         batch_size, in_channels, z_img, y_img, x_img = inputs.shape
 
-        # 获取输出通道数（类别数）
+        # use one-time forward to get the output channels
         with torch.no_grad():
             temp_output = self._forward(inputs[:, :, :min(z_crop, z_img), :min(y_crop, y_img), :min(x_crop, x_img)])
             out_channels = temp_output.shape[1]
 
-        # 计算网格数
+        # Calculate the grid and initialize temperal array.
         z_grids = max(z_img - z_crop + z_stride - 1, 0) // z_stride + 1
         y_grids = max(y_img - y_crop + y_stride - 1, 0) // y_stride + 1
         x_grids = max(x_img - x_crop + x_stride - 1, 0) // x_stride + 1
-
         preds = np.zeros((batch_size, out_channels, z_img, y_img, x_img), dtype=np.float16)
         count_mat = np.zeros((batch_size, 1, z_img, y_img, x_img), dtype=np.uint8)
+        
         for z_idx in tqdm(range(z_grids),
                           desc="SlideWindow Infer",
                           disable=not self.allow_tqdm,
@@ -281,7 +278,7 @@ class Inferencer_3D_ONNX(SegInferencer):
                     preds[:, :, z1:z2, y1:y2, x1:x2] += crop_seg_logit
                     count_mat[:, :, z1:z2, y1:y2, x1:x2] += 1
 
-        assert np.all(count_mat > 0), "存在未被滑动窗口覆盖的区域"
+        assert np.all(count_mat > 0), "There exists some voxels not covered by any patch, check slide inference logic or report this issue plz."
         seg_logits = preds / count_mat
         return seg_logits
 

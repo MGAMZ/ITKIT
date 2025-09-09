@@ -301,7 +301,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
         super().__init__(*args, **kwargs)
     
     def _wrap_model(self, model: nn.Module) -> None:
-        """包装模型但不加载状态"""
+        """warp model but not load state."""
         try:
             from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import \
                 apply_activation_checkpointing
@@ -367,7 +367,6 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
         compile: dict|bool = False,
         dispatch_kwargs: dict|None = None,
     ):
-        """准备模型和组件,正确处理状态加载"""
         if self._prepared:
             return self._prepared_components()
         if dispatch_kwargs is not None:
@@ -378,7 +377,6 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
         self.optim_wrapper = self.build_optim_wrapper(optim_wrapper, self.model)
         self.model = self._wrap_model(self.model)
         
-        # 在包装后加载状态
         if hasattr(self, 'model_state_dict') and hasattr(self, 'optim_state_dict'):
             set_state_dict(
                 self.model,
@@ -415,7 +413,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
 
 
 class RatioSampler(DefaultSampler):
-    """随机激活一定比例的样本"""
+    """Use a ratio of the dataset."""
     def __init__(self, use_sample_ratio: float, **kwargs):
         super().__init__(**kwargs)
         self.use_sample_ratio = use_sample_ratio

@@ -1,13 +1,7 @@
-import os
-import os.path as osp
-import re
-import pdb
-import glob
-import logging
+import os, re, pdb, glob, logging
 from colorama import Fore, Style
 
 import torch
-
 from mmengine.logging import print_log
 from mmengine.config import Config
 from mmengine.runner.checkpoint import find_latest_checkpoint
@@ -39,29 +33,29 @@ class experiment:
     def _main_process(self):
         if self.IsTested(self.cfg):
             print_log(
-                f"{Fore.BLUE}测试已经完成, 跳过: {self.work_dir}{Style.RESET_ALL}",
+                f"{Fore.BLUE}Test has been done, skipping: {self.work_dir}{Style.RESET_ALL}",
                 'current', logging.INFO)
 
         elif self.test_mode is True:
-            print_log(f"{Fore.BLUE}测试开始: {self.work_dir}{Style.RESET_ALL}",
+            print_log(f"{Fore.BLUE}Test start: {self.work_dir}{Style.RESET_ALL}",
                       'current', logging.INFO)
             self._direct_to_test()
             # model_param_stat(cfg, runner)
-            print_log(f"{Fore.GREEN}测试完成: {self.work_dir}{Style.RESET_ALL}",
+            print_log(f"{Fore.GREEN}Test complete: {self.work_dir}{Style.RESET_ALL}",
                       'current', logging.INFO)
 
         elif self.IsTrained(self.cfg):
             print_log(
-                f"{Fore.BLUE}训练已经完成, 请在终端手动切换至单卡模式进行test: {self.work_dir}{Style.RESET_ALL}",
+                f"{Fore.BLUE}Train done, please use single mode to test the model: {self.work_dir}{Style.RESET_ALL}",
                 'current', logging.INFO)
 
         else:
-            runner = DynamicRunnerGenerator(self.cfg)  # 建立Runner
-            print_log(f"{Fore.BLUE}训练开始: {self.work_dir}{Style.RESET_ALL}",
+            runner = DynamicRunnerGenerator(self.cfg)  # build runner
+            print_log(f"{Fore.BLUE}Train start: {self.work_dir}{Style.RESET_ALL}",
                       'current', logging.INFO)
             runner.train()
             print_log(
-                f"{Fore.GREEN}训练已经完成, 请在终端手动切换至单卡模式进行test: {self.work_dir}{Style.RESET_ALL}",
+                f"{Fore.GREEN}Train done, please use single mode to test the model: {self.work_dir}{Style.RESET_ALL}",
                 'current', logging.INFO)
 
     def _prepare_basic_config(self):
@@ -73,32 +67,32 @@ class experiment:
         self.cfg = cfg
 
     def _direct_to_test(self):
-        # 检查是否处于torchrun模式
+        # Check if is at multi-GPU mode
         if os.getenv('LOCAL_RANK') is not None:
             print(f"Running with torchrun. Test mode requires single GPU mode.")
 
-        # 配置文件调整到test模式
+        # Override configurations for testing.
         self.modify_cfg_to_skip_train()
         self.modify_cfg_to_ensure_single_node()
         self.modify_cfg_to_set_test_work_dir()
 
-        # 模型初始化
+        # Initialize model.
         runner = DynamicRunnerGenerator(self.cfg)
         if self.test_use_last_ckpt:
             ckpt_path = find_latest_checkpoint(self.work_dir)
         else:
-            ckpt_path = glob.glob(osp.join(self.work_dir, 'best*.pth'))
-            assert len(ckpt_path) == 1, f"尝试在 {ckpt_path} 找到最佳模型，但不能确定最佳。"
+            ckpt_path = glob.glob(os.path.join(self.work_dir, 'best*.pth'))
+            assert len(ckpt_path) == 1, f"Tring to find best model at {ckpt_path}, but cannot determine which is the best one."
             ckpt_path = ckpt_path[0]
-        print_log(f"载入检查点: {self.work_dir}", 'current', logging.INFO)
+        print_log(f"Loading model checkpoint: {self.work_dir}", 'current', logging.INFO)
         runner.load_checkpoint(ckpt_path)
-        print_log(f"载入完成，执行测试: {self.work_dir}", 'current', logging.INFO)
+        print_log(f"Model checkpoint loaded, doing test now: {self.work_dir}", 'current', logging.INFO)
 
-        # 执行测试
+        # execute test
         runner.test()
 
-        # model_param_stat(cfg, runner) # 模型参数统计
-        print_log(f"测试完成: {self.work_dir}", 'current', logging.INFO)
+        # model_param_stat(cfg, runner)
+        print_log(f"Test complete: {self.work_dir}", 'current', logging.INFO)
 
     def modify_cfg_to_skip_train(self):
         # remove train and val cfgs

@@ -1,15 +1,11 @@
-import os
-import re
-import argparse
-import pdb
+import os, re, argparse, pdb
 from colorama import Fore, Style
 from datetime import datetime
 from copy import deepcopy
-from typing import List, Dict, Any
+from typing import Any
 from collections import OrderedDict
 from warnings import warn
 
-import openpyxl
 import openpyxl.styles
 import pandas as pd
 import numpy as np
@@ -18,8 +14,8 @@ from mmengine.config import Config
 
 
 MODELS = ['DATransUNet', 'DconnNet', 'LM_Net', 
-            'MedNext', 'Resnet50', 'SwinTransformer', 
-            'SwinUMamba', 'VMamba',]
+          'MedNext', 'Resnet50', 'SwinTransformer', 
+          'SwinUMamba', 'VMamba',]
 
 
 def parser():
@@ -33,31 +29,27 @@ def parser():
 
 def VersionToFullExpName(exp_name, search_dir):
     if exp_name[-1] == ".":
-        raise AttributeError(f"目标实验名不得以“.”结尾：{exp_name}")
+        raise AttributeError(f"Target experiment name must not end with '.': {exp_name}")
     exp_list = os.listdir(search_dir)
     for exp in exp_list:
         if exp == exp_name:
-            print(f"已找到实验：{exp_name} <-> {exp}")
+            print(f"Found experiment: {exp_name} <-> {exp}")
             return exp
         elif exp.startswith(exp_name):
-            pattern = r'\.[a-zA-Z]'    # 正则表达式找到第一次出现"."与字母连续出现的位置
+            pattern = r'\.[a-zA-Z]'    # Regex to find the first occurrence of '.' followed by a letter
             match = re.search(pattern, exp)
             if match is None:
-                raise FileNotFoundError(f"未找到与{exp_name}匹配的实验名")
+                raise FileNotFoundError(f"No matching experiment name found for {exp_name}")
             if exp[:match.start()] == exp_name:
-                print(f"已根据实验号找到实验：{exp_name} -> {exp}")
+                print(f"Found experiment by prefix: {exp_name} -> {exp}")
                 return exp
-            # if not "." in exp[len(args.exp_name)+1:]:       # 序列号后方不得再有“.”
-            #     if not exp[len(args.exp_name)+1].isdigit(): # 序列号若接了数字，说明该目录实验是目标实验的子实验
-                    # print(f"已根据实验号找到实验：{args.exp_name} -> {exp}")
-                    # return exp
-    raise RuntimeError(f"未找到与“ {exp_name} ”匹配的实验名")
+    raise RuntimeError(f"No matching experiment name found for '{exp_name}'")
 
 
 class ExcelFormatter:
     @staticmethod
-    def read_to_dict(exp_root:str, exps:List[str]
-        ) -> Dict[str,Dict[str,Dict[str,pd.DataFrame]]]:
+    def read_to_dict(exp_root:str, exps:list[str]
+        ) -> dict[str,dict[str,dict[str,pd.DataFrame]]]:
         
         print(f"Reading csvs from {exp_root}")
         all_results = {}
@@ -105,14 +97,11 @@ class ExcelFormatter:
                 # if there exists at least one log in a round, register it.
                 if len(models_results) != 0:
                     round_results[round] = models_results
+            
             # if there exists at least one log in a experiment, register it.
             if len(round_results) != 0:
                 all_results[exp] = round_results
-        # all_results structure:
-        # all_results[exp_name][round_foler_name][model_folder_name].keys() = {
-        #     "csv": dataframe,
-        #     "config": model_cfg,
-        # }
+
         return all_results
 
     @classmethod
@@ -137,7 +126,7 @@ class ExcelFormatter:
         xlsx_writer.close()
 
 
-    def convert_to_xlsx(self, all_csvs:Dict, xlsx_writer:pd.ExcelWriter) -> pd.ExcelWriter:
+    def convert_to_xlsx(self, all_csvs:dict, xlsx_writer:pd.ExcelWriter) -> pd.ExcelWriter:
         raise NotImplementedError
 
 
@@ -146,7 +135,7 @@ class DetailFormatter(ExcelFormatter):
     
     def __init__(self):
         self.num_columns_ahead_value = 3
-        self.dataset_heads:Dict[str, Dict[str, Any]] = OrderedDict()
+        self.dataset_heads:dict[str, dict[str, Any]] = OrderedDict()
 
 
     def _find_head_first_empty_column_index(self):
@@ -158,8 +147,8 @@ class DetailFormatter(ExcelFormatter):
             return last_column_index_in_use + 1
 
 
-    def get_dataset_head(self, modality:str, dataset:str, class_names:List[str]):
-        assert isinstance(class_names, List)
+    def get_dataset_head(self, modality:str, dataset:str, class_names:list[str]):
+        assert isinstance(class_names, list)
         head_name = f"{modality} - {dataset}"
         
         # Create New Dataset Head and Set Index Range.
@@ -175,7 +164,7 @@ class DetailFormatter(ExcelFormatter):
         return self.dataset_heads[head_name]
 
 
-    def format_experiment_rows(self, all_csvs:Dict[str,Dict[str,Dict[str,pd.DataFrame]]]):
+    def format_experiment_rows(self, all_csvs:dict[str,dict[str,dict[str,pd.DataFrame]]]):
         experiment_rows = []
         for exp_name, rounds in all_csvs.items():
             exp_temp = {'dataset_modality': [], 
@@ -229,7 +218,7 @@ class DetailFormatter(ExcelFormatter):
         return experiment_rows
 
 
-    def format_final(self, experiment_rows:List) -> List[List]:
+    def format_final(self, experiment_rows:list) -> list[list]:
         modality_and_dataset = []
         for name, info in self.dataset_heads.items():
             modality_and_dataset += [info['head_name']] * len(info['class_names'])
@@ -302,7 +291,7 @@ class DetailFormatter(ExcelFormatter):
         return xlsx_writer
 
 
-    def convert_to_xlsx(self, all_csvs:Dict, xlsx_writer:pd.ExcelWriter) -> pd.ExcelWriter:
+    def convert_to_xlsx(self, all_csvs:dict, xlsx_writer:pd.ExcelWriter) -> pd.ExcelWriter:
         print(f"Formatting as detailed sheet...")
         experiment_rows = self.format_experiment_rows(all_csvs)
         context = self.format_final(experiment_rows)
@@ -320,7 +309,7 @@ class ExpCompareFormatter(ExcelFormatter):
     SHEET_NAME = 'ExpCompare'
     METRICS = ('Dice', 'Precision', 'Recall') # 'Acc', 'Fscore'
     
-    def format_experiment_rows(self, all_csvs:Dict[str,Dict[str,Dict[str,pd.DataFrame]]]):
+    def format_experiment_rows(self, all_csvs:dict[str,dict[str,dict[str,pd.DataFrame]]]):
         experiment_rows = []
         for exp_name, rounds in all_csvs.items():
             exp_temp = {'dataset_modality': [], 
@@ -385,7 +374,7 @@ class ExpCompareFormatter(ExcelFormatter):
             worksheet.merge_cells(start_row=1, start_column=4+len(self.METRICS)*i, end_row=1, end_column=4+len(self.METRICS)*(i+1)-1)
 
 
-    def convert_to_xlsx(self, all_csvs: Dict, xlsx_writer: pd.ExcelWriter) -> pd.ExcelWriter:
+    def convert_to_xlsx(self, all_csvs: dict, xlsx_writer: pd.ExcelWriter) -> pd.ExcelWriter:
         print('Formatting as a comparable sheet...')
         rows_to_be_writen = self.format_experiment_rows(all_csvs)
 

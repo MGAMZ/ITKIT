@@ -43,19 +43,19 @@ class auto_runner:
 
     @classmethod
     def start_from_args(cls):
-        parser = argparse.ArgumentParser(description="暮光霭明的OpenMM实验运行器")
-        parser.add_argument("exp_name", type=str, nargs="+", help="实验名或实验版本号")
-        parser.add_argument("--VRamAlloc", type=str, default="pytorch", help="设置内存分配器")
-        parser.add_argument("--local-rank", type=int, default=0, help="节点数量")
-        parser.add_argument("--models", type=str, default=SUPPORTED_MODELS, help="选择实验", nargs="+")
-        parser.add_argument("--work-dir-root", type=str, default=MM_WORK_DIR_ROOT, help="存储实验结果的根目录")
-        parser.add_argument("--test-work-dir-root", type=str, default=MM_TEST_DIR_ROOT, help="测试时的工作目录")
-        parser.add_argument("--config-root", type=str, default=MM_CONFIG_ROOT, help="存储配置文件的根目录",)
+        parser = argparse.ArgumentParser(description="itkit OpenMM experiment runner")
+        parser.add_argument("exp_name", type=str, nargs="+", help="Experiment name or version")
+        parser.add_argument("--VRamAlloc", type=str, default="pytorch", help="Set memory allocator")
+        parser.add_argument("--local-rank", type=int, default=0, help="Number of nodes (local rank)")
+        parser.add_argument("--models", type=str, default=SUPPORTED_MODELS, help="Select models", nargs="+")
+        parser.add_argument("--work-dir-root", type=str, default=MM_WORK_DIR_ROOT, help="Root directory to store experiment results")
+        parser.add_argument("--test-work-dir-root", type=str, default=MM_TEST_DIR_ROOT, help="Working directory during testing")
+        parser.add_argument("--config-root", type=str, default=MM_CONFIG_ROOT, help="Root directory for configuration files",)
         parser.add_argument("--cfg-options", nargs="+", action=DictAction)
-        parser.add_argument("--test", default=False, action="store_true", help="仅测试模式")
-        parser.add_argument("--auto-retry", type=int, default=0, help="单个实验出错自动重试次数")
-        parser.add_argument("--detect-anomaly", default=False, action="store_true", help="PyTorch检测异常")
-        parser.add_argument("--test-use-last-ckpt", default=False, action="store_true", help="测试时使用最终权重而不是最佳权重")
+        parser.add_argument("--test", default=False, action="store_true", help="Test only mode")
+        parser.add_argument("--auto-retry", type=int, default=0, help="Number of auto retries for a failed experiment")
+        parser.add_argument("--detect-anomaly", default=False, action="store_true", help="Enable PyTorch anomaly detection")
+        parser.add_argument("--test-use-last-ckpt", default=False, action="store_true", help="Use final checkpoint instead of best during testing")
         args = parser.parse_args()
         return cls(
             exp_names=args.exp_name,
@@ -72,34 +72,34 @@ class auto_runner:
 
     def find_full_exp_name(self, exp_name):
         if exp_name[-1] == ".":
-            raise AttributeError(f"目标实验名不得以“.”结尾：{exp_name}")
+            raise AttributeError(f"Target experiment name must not end with '.': {exp_name}")
 
         exp_list = os.listdir(self.config_root)
         for exp in exp_list:
 
             if exp == exp_name:
-                print(f"已找到实验：{exp_name} <-> {exp}")
+                print(f"Found experiment: {exp_name} <-> {exp}")
                 return exp
 
             elif exp.startswith(exp_name):
                 pattern = (
-                    r"\.[a-zA-Z]"  # 正则表达式找到第一次出现"."与字母连续出现的位置
+                    r"\.[a-zA-Z]"  # Regex to find the first occurrence of '.' followed by a letter
                 )
                 match = re.search(pattern, exp)
 
                 if match is None:
-                    raise ValueError(f"在{self.config_root}目录下，无法匹配实验号：{exp}")
+                    raise ValueError(f"Cannot match experiment number under {self.config_root} directory: {exp}")
 
                 if exp[: match.start()] == exp_name:
-                    print(f"已根据实验号找到实验：{exp_name} -> {exp}")
+                    print(f"Found experiment by prefix: {exp_name} -> {exp}")
                     return exp
 
         else:
-            print(f"在{self.config_root}目录下，未找到实验：{exp_name}")
+            print(f"No experiment found under {self.config_root} directory: {exp_name}")
             return None
 
     def experiment_queue(self):
-        print("实验队列启动, 正在import依赖...")
+        print("Experiment queue started, importing dependencies...")
         from itkit.mm.experiment import experiment
         
         def search_available_model_configs(exp_cfg_folder:Path):
@@ -109,7 +109,7 @@ class auto_runner:
                 if py_file.name != "mgam.py"
             ]
             if len(available_model_cfgs) == 0:
-                raise FileNotFoundError(f"在{exp_cfg_folder}目录下，未找到可用的模型配置文件")
+                raise FileNotFoundError(f"No available model config files found in directory: {exp_cfg_folder}")
             else:
                 return available_model_cfgs
 
@@ -117,25 +117,25 @@ class auto_runner:
             exp = self.find_full_exp_name(exp)
             if exp is None:
                 continue
-            print(f"{exp} 实验启动")
+            print(f"{exp} experiment starting")
 
-            # 如果没有指定模型名称，则自行寻找
+            # If no model names specified, search automatically
             for model in self.model_names or search_available_model_configs(Path(self.config_root, exp)):
-                # 确定配置文件路径和保存路径
+                # Determine config file path and save directories
                 config_path = os.path.join(self.config_root, f"{exp}/{model}.py")
                 if not os.path.exists(config_path):
-                    print(f"配置文件不存在: {config_path}, 跳过该实验")
+                    print(f"Config file does not exist: {config_path}, skipping this experiment")
                     continue
                 work_dir_path = osp.join(self.work_dir_root, exp, model)
                 test_work_dir_path = osp.join(self.test_work_dir_root, exp, model)
 
-                # 设置终端标题
+                # Set terminal title
                 if os.name == "nt":
                     os.system(f"{model} - {exp} ")
                 else:
                     print(f"\n--------- {model} - {exp} ---------\n")
 
-                # 带有自动重试的执行
+                # Execute with auto-retry
                 remain_chance = self.auto_retry + 1
                 while remain_chance:
                     remain_chance -= 1
@@ -160,7 +160,7 @@ class auto_runner:
                         if remain_chance == 0:
                             print(
                                 Fore.RED
-                                + f"Exception，重试{self.auto_retry}失败，中止。错误原因:\n"
+                                + f"Exception, retried {self.auto_retry} times and failed, aborting. Error reason:\n"
                                 + Style.RESET_ALL,
                                 e,
                             )
@@ -168,13 +168,13 @@ class auto_runner:
                         else:
                             print(
                                 Fore.YELLOW
-                                + f"Exception，剩余重试次数：{remain_chance}，错误原因:\n"
+                                + f"Exception, remaining retry attempts: {remain_chance}, error reason:\n"
                                 + Style.RESET_ALL,
                                 e,
                             )
 
                     else:
-                        print(Fore.GREEN + f"实验完成: {work_dir_path}" + Style.RESET_ALL)
+                        print(Fore.GREEN + f"Experiment completed: {work_dir_path}" + Style.RESET_ALL)
                         if torch.distributed.is_initialized():
                             torch.distributed.destroy_process_group()
                         break
