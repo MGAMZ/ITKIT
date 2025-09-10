@@ -527,6 +527,8 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                 batch_patches.append(crop_img.to(self.inference_ForwardDevice, non_blocking=True))
             batch_patches = torch.cat(batch_patches, dim=0)  # [B, C, z_crop, y_crop, x_crop]
             
+            # torch.cuda.synchronize() # Optional: synchronize the data transfer from host to device
+            
             # run forward
             batch_seg_logits = self._forward(batch_patches)
 
@@ -534,6 +536,8 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             for j, (z_slice, y_slice, x_slice) in enumerate(batch_slices):
                 preds[:, :, z_slice, y_slice, x_slice] += batch_seg_logits[j:j+1].to(accumulate_device, non_blocking=True)
                 count_mat[:, :, z_slice, y_slice, x_slice] += 1
+            
+            # torch.cuda.synchronize() # Optional: synchronize the data transfer from device to host
 
         # 使用tensor操作进行断言检查，避免tensor到boolean转换
         min_count = torch.min(count_mat)
