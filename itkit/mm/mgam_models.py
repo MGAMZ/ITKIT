@@ -20,16 +20,17 @@ from .mmseg_Dev3D import VolumeData
 
 class mgam_Seg_Lite(BaseModel):
     def __init__(self,
-                 backbone:ConfigDict,
-                 criterion:ConfigDict|list[ConfigDict],
-                 num_classes:int,
-                 gt_sem_seg_key:str='gt_sem_seg',
-                 use_half:bool=False,
-                 binary_segment_threshold:float|None=None,
-                 inference_PatchSize:tuple|None=None,
-                 inference_PatchStride:tuple|None=None,
-                 inference_PatchAccumulateDevice:str='cuda',
-                 allow_pbar:bool = False,
+                 backbone: ConfigDict,
+                 criterion: ConfigDict|list[ConfigDict],
+                 num_classes: int,
+                 gt_sem_seg_key: str='gt_sem_seg',
+                 use_half: bool=False,
+                 binary_segment_threshold: float|None=None,
+                 inference_PatchSize: tuple|None=None,
+                 inference_PatchStride: tuple|None=None,
+                 inference_PatchAccumulateDevice: str='cuda',
+                 inference_ForwardDevice: str='cuda',
+                 allow_pbar: bool=False,
                  *args, **kwargs):
         """
         mgam_Seg_Lite is a Lite form of `mmseg` core model implementation,
@@ -57,6 +58,7 @@ class mgam_Seg_Lite(BaseModel):
         self.inference_PatchSize = inference_PatchSize
         self.inference_PatchStride = inference_PatchStride
         self.inference_PatchAccumulateDevice = inference_PatchAccumulateDevice
+        self.inference_ForwardDevice = inference_ForwardDevice
         self.allow_pbar = allow_pbar
         
         if use_half:
@@ -349,7 +351,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                 - seg_logits (VolumeData): Predicted logits of semantic segmentation.
         """
         
-        def _predict(force_cpu:bool=True):
+        def _predict(force_cpu:bool=False):
             nonlocal data_samples
             
             seg_logits = self.inference(inputs, data_samples, force_cpu) # [N, C, Z, Y, X]
@@ -407,12 +409,13 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         return self.backbone(inputs)
 
     @torch.inference_mode()
-    def inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None, force_cpu:bool=True) -> Tensor:
+    def inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None, force_cpu:bool=False) -> Tensor:
         """Perform inference, supporting sliding-window or full-volume.
 
         Args:
             inputs (Tensor): Input tensor of shape (N, C, Z, Y, X).
             data_samples (Sequence[BaseDataElement], optional): Data samples.
+            force_cpu (bool): Whether to force accumulation on CPU to avoid GPU OOM. Default is False.
 
         Returns:
             Tensor: Segmentation logits.
@@ -425,12 +428,18 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             
         return seg_logits
 
-    def slide_inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None, force_cpu:bool=False) -> Tensor:
+    def slide_inference(self,
+                        inputs: Tensor,
+                        data_samples: Sequence[BaseDataElement]|None=None,
+                        force_cpu: bool=False,
+                        batch_windows: int=1) -> Tensor:
         """Perform sliding-window inference with overlapping sub-volumes.
 
         Args:
             inputs (Tensor): Input tensor of shape (N, C, Z, Y, X).
             data_samples (Sequence[BaseDataElement], optional): Data samples.
+            force_cpu (bool): Whether to force accumulation on CPU to avoid GPU OOM. Default is False.
+            batch_windows (int): Number of sub-volumes to process in a batch. Default is 1.
 
         Returns:
             Tensor: Segmentation logits.
@@ -442,6 +451,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         z_stride, y_stride, x_stride = self.inference_PatchStride
         z_crop, y_crop, x_crop = self.inference_PatchSize
         batch_size, _, z_img, y_img, x_img = inputs.size()
+        assert batch_size == 1, "Currently only batch_size=1 is supported for 3D sliding-window inference"
         
         # Convert sizes to Python ints to avoid tensor-to-bool issues
         z_img = int(z_img)
@@ -465,18 +475,13 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             padded_inputs = inputs
             z_padded, y_padded, x_padded = z_img, y_img, x_img
             pad = None
-        
-        # Compute grid counts based on padded size
-        z_grids = max(z_padded - z_crop + z_stride - 1, 0) // z_stride + 1
-        y_grids = max(y_padded - y_crop + y_stride - 1, 0) // y_stride + 1
-        x_grids = max(x_padded - x_crop + x_stride - 1, 0) // x_stride + 1
-        
+
         # Prepare accumulation and count tensors on target device
         accumulate_device = torch.device('cpu') if force_cpu else torch.device(self.inference_PatchAccumulateDevice)
         if accumulate_device.type == 'cuda':
             # Clear CUDA cache if using GPU accumulation
             torch.cuda.empty_cache()
-        
+
         # Create accumulation and count matrices on specified device
         preds = torch.zeros(
             size=(batch_size, self.num_classes, z_padded, y_padded, x_padded),
@@ -488,11 +493,15 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             dtype=torch.uint8,
             device=accumulate_device
         )
-        
-        # Sliding-window inference loop
-        for z_idx in tqdm(range(z_grids), desc='Slide Win. Infer. Z', disable=not (is_main_process() and self.allow_pbar), dynamic_ncols=True, position=0, leave=False):
-            for y_idx in tqdm(range(y_grids), desc='Slide Win. Infer. Y', disable=not (is_main_process() and self.allow_pbar), dynamic_ncols=True, position=1, leave=False):
-                for x_idx in tqdm(range(x_grids), desc='Slide Win. Infer. X', disable=not (is_main_process() and self.allow_pbar), dynamic_ncols=True, position=2, leave=False):
+
+        # calculate window slices
+        window_slices = []
+        z_grids = max(z_padded - z_crop + z_stride - 1, 0) // z_stride + 1
+        y_grids = max(y_padded - y_crop + y_stride - 1, 0) // y_stride + 1
+        x_grids = max(x_padded - x_crop + x_stride - 1, 0) // x_stride + 1
+        for z_idx in range(z_grids):
+            for y_idx in range(y_grids):
+                for x_idx in range(x_grids):
                     z1 = z_idx * z_stride
                     y1 = y_idx * y_stride
                     x1 = x_idx * x_stride
@@ -502,13 +511,30 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                     z1 = max(z2 - z_crop, 0)
                     y1 = max(y2 - y_crop, 0)
                     x1 = max(x2 - x_crop, 0)
+                    window_slices.append((slice(z1, z2), slice(y1, y2), slice(x1, x2)))
                     
-                    # Run forward on sub-volume
-                    crop_seg_logit = self._forward(padded_inputs[:, :, z1:z2, y1:y2, x1:x2])
-                    # Accumulate results
-                    preds[:, :, z1:z2, y1:y2, x1:x2] += crop_seg_logit.to(accumulate_device)
-                    count_mat[:, :, z1:z2, y1:y2, x1:x2] += 1
-        
+        for i in tqdm(range(0, len(window_slices), batch_windows),
+                      desc="Slide Win. Infer.",
+                      disable=not (is_main_process() and self.allow_pbar),
+                      dynamic_ncols=True,
+                      leave=False):
+            batch_slices = window_slices[i:i+batch_windows]
+            
+            # prepare inference batch
+            batch_patches = []
+            for (z_slice, y_slice, x_slice) in batch_slices:
+                crop_img = padded_inputs[:, :, z_slice, y_slice, x_slice]
+                batch_patches.append(crop_img.to(self.inference_ForwardDevice, non_blocking=True))
+            batch_patches = torch.cat(batch_patches, dim=0)  # [B, C, z_crop, y_crop, x_crop]
+            
+            # run forward
+            batch_seg_logits = self._forward(batch_patches)
+
+            # accumulate results
+            for j, (z_slice, y_slice, x_slice) in enumerate(batch_slices):
+                preds[:, :, z_slice, y_slice, x_slice] += batch_seg_logits[j:j+1].to(accumulate_device, non_blocking=True)
+                count_mat[:, :, z_slice, y_slice, x_slice] += 1
+
         # 使用tensor操作进行断言检查，避免tensor到boolean转换
         min_count = torch.min(count_mat)
         assert min_count.item() > 0, "There are areas not covered by sliding windows"
