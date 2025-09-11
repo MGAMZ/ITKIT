@@ -73,6 +73,7 @@ itk_orient = "itkit.process.itk_orient:main"
 itk_patch = "itkit.process.itk_patch:main"
 itk_check = "itkit.process.itk_check:main"
 itk_aug = "itkit.process.itk_aug:main"
+itk_extract = "itkit.process.itk_extract:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
