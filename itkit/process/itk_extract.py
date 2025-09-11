@@ -1,10 +1,11 @@
 import os, pdb, argparse, json, traceback
 from tqdm import tqdm
-from collections.abc import Sequence
 from multiprocessing import Pool
 
 import numpy as np
 import SimpleITK as sitk
+
+DEFAULT_LABEL_DTYPE = np.uint8
 
 
 def extract_one_sample(args):
@@ -38,14 +39,14 @@ def extract_one_sample(args):
         image_array = sitk.GetArrayFromImage(image_itk)
         # Ensure uint dtype
         if not np.issubdtype(image_array.dtype, np.unsignedinteger):
-            image_array = image_array.astype(np.uint32)
+            image_array = image_array.astype(DEFAULT_LABEL_DTYPE)
     except Exception as e:
         traceback.print_exc()
         logs.append(f"Error converting image to array {image_itk_path}: {e}")
         return None, logs
 
     # Create output array with same shape, initialized with background (0)
-    output_array = np.zeros_like(image_array, dtype=np.uint32)
+    output_array = np.zeros_like(image_array, dtype=DEFAULT_LABEL_DTYPE)
 
     # Apply label mappings
     original_labels = set()
@@ -61,7 +62,6 @@ def extract_one_sample(args):
     # Convert back to SimpleITK image
     try:
         output_itk = sitk.GetImageFromArray(output_array)
-        # Copy metadata from original image
         output_itk.CopyInformation(image_itk)
     except Exception as e:
         traceback.print_exc()
