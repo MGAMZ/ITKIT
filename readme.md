@@ -31,8 +31,6 @@ Currently, it includes the following modules:
 
 - **utils:** Other small utility tools.
 
----
-
 ## Installation
 
 First, clone the repository:
@@ -47,6 +45,9 @@ Then, install the package:
 pip install ITKIT
 ```
 
+---
+
+
 ## ITK Preprocessing Commands
 
 You may see `--help` to see more details for each command.
@@ -55,21 +56,154 @@ You may see `--help` to see more details for each command.
 
 Check ITK image-label sample pairs whether they meet the required spacing / size.
 
+```bash
+python itk_check.py <mode> <sample_folder> [--output OUT] [--min-size Z Y X] [--max-size Z Y X] [--min-spacing Z Y X] [--max-spacing Z Y X] [--same-spacing A B] [--same-size A B] [--mp]
+```
+
+Parameters
+
+- **mode**: Operation mode: check | delete | copy | symlink
+  - **check**: Validate image/label pairs against size/spacing rules and report nonconforming samples (no file changes).  
+  - **delete**: Remove image and label files for samples that fail validation.  
+  - **copy**: Copy valid image/label pairs to the specified output directory (creates image/ and label/ subfolders).  
+  - **symlink**: Create symbolic links for valid image/label pairs in the specified output directory (creates image/ and label/ subfolders).
+- **sample_folder**: Root folder containing image/ and label/ subfolders  
+- **-o, --output** OUT: Output directory (required for copy and symlink)  
+- **--min-size** Z Y X: Minimum size per Z Y X (three ints; -1 = ignore)  
+- **--max-size** Z Y X: Maximum size per Z Y X (three ints; -1 = ignore)  
+- **--min-spacing** Z Y X: Minimum spacing per Z Y X (three floats; -1 = ignore)  
+- **--max-spacing** Z Y X: Maximum spacing per Z Y X (three floats; -1 = ignore)  
+- **--same-spacing** A B: Two dims (X|Y|Z) that must have equal spacing  
+- **--same-size** A B: Two dims (X|Y|Z) that must have equal size  
+- **--mp**: Enable multiprocessing
+
+**Note:** Triplet arguments use Z, Y, X order (Z→0, Y→1, X→2).
+
 ### itk_resample
 
 Resample ITK image-label sample pairs, according to the given spacing or size on any dimension.
+
+```bash
+python itk_resample.py <field> <source_folder> <dest_folder> [--spacing Z Y X] [--size Z Y X] [--target-folder PATH] [-r|--recursive] [--mp] [--workers N]
+```
+
+Parameters
+
+- **field**: "image" or "label", will determine the output dtype and interpolation method.
+- **source_folder**: Folder containing source image files (.mha/.nii/.nii.gz/.mhd).  
+- **dest_folder**: Destination folder for resampled files (created if missing).  
+- **--spacing** Z Y X: Target spacing per dimension (ZYX order). Use -1 to ignore a dimension.  
+- **--size** Z Y X: Target size per dimension (ZYX order). Use -1 to ignore a dimension.  
+- **--target-folder** PATH: Folder of reference images (must not combine with `--spacing/--size`).  
+- **-r, --recursive**: Recursively process subdirectories, preserving layout.  
+- **--mp**: Enable multiprocessing.  
+- **--workers** N: Number of worker processes for multiprocessing.
+
+Notes
+
+- `--target-folder` is mutually exclusive with `--spacing/--size`.  
+- Triplets use Z, Y, X order.  
+- Outputs: resampled files in dest_folder, plus `resample_configs.json` and `series_meta.json`.
 
 ### itk_orient
 
 Orient ITK image-label sample pairs to the specified orientation, e.g., `LPI`.
 
+```bash
+python itk_orient.py <src_dir> <dst_dir> <orient> [--mp]
+```
+
+Parameters
+
+- **src_dir**: Source directory containing .mha files (recursive scan).  
+- **dst_dir**: Destination directory (preserves relative directory structure; must differ from `src_dir`).  
+- **orient**: Target orientation string for SimpleITK.DICOMOrient (e.g., LPI).  
+- **--mp**: Use multiprocessing to convert files in parallel.
+
+Notes
+
+- Skips files already present in `dst_dir`.  
+- Preserves folder layout and writes converted .mha files to `dst_dir`.
+
 ### itk_patch
 
 Extract patches from ITK image-label sample pairs. This may be helpful for training, as train-time-patching can consume a lot of CPU resources.
 
+```bash
+python itk_patch.py <src_folder> <dst_folder> --patch-size PZ [PY PX] --patch-stride SZ [SY SX] [--minimum-foreground-ratio R] [--still-save-when-no-label] [--mp]
+```
+
+Parameters
+
+- **src_folder**: Source root containing `image/` and `label/` subfolders (Path).  
+- **dst_folder**: Destination root to save patches (Path).  
+- **--patch-size**: Patch size as single int or three ints (Z Y X).  
+- **--patch-stride**: Patch stride as single int or three ints (Z Y X).  
+- **--minimum-foreground-ratio**: Minimum label foreground ratio to keep a patch (float, default 0.0).  
+- **--still-save-when-no-label**: If set and label missing, save patches regardless.  
+- **--mp**: Use multiprocessing to process cases in parallel.
+
+Outputs
+
+- Patches saved under `dst_folder/<case_name>/` with image and label patch files.  
+- Per-dataset `crop_meta.json` summarizing extraction and available annotations.
+
+Notes
+
+- Triplets use Z, Y, X order.  
+- Only processes cases with paired image and label files of the same name.
+
 ### itk_aug
 
 Do augmentation on ITK image files, only supports `RandomRotate3D` now.
+
+```bash
+python itk_aug.py <img_folder> <lbl_folder> [-oimg OUT_IMG] [-olbl OUT_LBL] [-n N] [--mp] [--random-rot Z Y X]
+```
+
+Parameters
+
+- **img_folder**: Folder with source image .mha files.  
+- **lbl_folder**: Folder with source label .mha files.  
+- **-oimg, --out-img-folder** OUT_IMG: Optional folder to save augmented images.  
+- **-olbl, --out-lbl-folder** OUT_LBL: Optional folder to save augmented labels.  
+- **-n, --num** N: Number of augmented samples to generate per source sample (int).  
+- **--mp**: Enable multiprocessing.  
+- **--random-rot** Z Y X: Max random rotation degrees for Z Y X axes (three ints, order Z, Y, X).
+
+Notes
+
+- Only files present in both `img_folder` and `lbl_folder` are processed.  
+- Augmented files are written only if corresponding output folders are provided.
+
+### itk_extract
+
+Extract specified classes from ITK semetic map, this is useful when you want to focus on a subset of organs.
+
+```bash
+python itk_extract.py <source_folder> <dest_folder> <mappings...> [-r|--recursive] [--mp] [--workers N]
+```
+
+Parameters
+
+- **source_folder**: Folder containing source images (.mha/.nii/.nii.gz/.mhd).  
+- **dest_folder**: Destination folder to save extracted label files (created if missing).  
+- **mappings**: One or more label mappings in "source:target" format (e.g., "1:0" "5:1").  
+- **-r, --recursive**: Recursively process subdirectories and preserve relative paths.  
+- **--mp**: Enable multiprocessing.  
+- **--workers** N: Number of worker processes for multiprocessing (optional).
+
+Outputs
+
+- Remapped label files written to dest_folder (output extensions normalized to .mha).  
+- Per-sample metadata saved to `dest_folder/extract_meta.json`.  
+- Configuration saved to `dest_folder/extract_configs.json`.
+
+Notes
+
+- Mappings are parsed as integers; target labels must be unique.  
+- If no matching files are found, the script exits with a message.  
+- Safe to combine recursive and mp; progress shown via tqdm.
 
 ## OpenMMLab Extensions
 

@@ -1,10 +1,8 @@
-#!/usr/bin/env python3
-import os
-import argparse
-import json
+import os, argparse, json, pdb
 from pathlib import Path
 from multiprocessing import Pool
 from tqdm import tqdm
+
 import SimpleITK as sitk
 from itkit.process.meta_json import load_series_meta, get_series_meta_path
 
