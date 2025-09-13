@@ -1,15 +1,17 @@
 # mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API
 
+[![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 `mgam-ITKIT` is a user-friendly toolkit built on `SimpleITK` and `Python`, designed for common data preprocessing operations in data-driven CT medical image analysis. It assumes a straightforward data sample structure and offers intuitive functions for checking, resampling, pre-segmenting, aligning, and enhancing such data. Each operation is specified by a dedicated command-line entry with a clear parameter list.
 
 Feel free to reach out to me for any questions or suggestions at [my Email](mailto:312065559@qq.com).
 
 ## Preliminary
 
-The repo it only tested on:
+The repo it tested on:
 
-- Python >= 3.13
-- numpy >= 2.3.1
+- Python >= 3.10
+- numpy >= 2.2.6
 - SimpleITK >= 2.5.0
 
 Lower versions may work but are not guaranteed.

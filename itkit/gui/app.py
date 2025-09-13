@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, signal
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 
@@ -62,6 +62,9 @@ def main():
     _setup_qt_platform()
     # Prefer Fusion style for consistent look; fallback to platform default
     app = QtWidgets.QApplication(sys.argv)
+    # Restore default SIGINT handler so Ctrl-C immediately terminates the process.
+    # Without this, the Qt event loop may swallow SIGINT and prevent KeyboardInterrupt.
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     
     scr = app.primaryScreen()
     if scr is not None:

@@ -1,58 +1,38 @@
-#!/usr/bin/env bash
 set -euo pipefail
 
-# 要测试的 Python 版本（你可以自由调整）
-PY_VERSIONS=(3.10 3.11 3.12 3.13 3.14rc2)
+# 要测试的 Python 版本
+PY_VERSIONS=(3.10 3.11 3.12 3.13)
 DEBIAN_DISTRO="trixie"
-
-# pytest 额外参数
-PYTEST_ARGS="-q -k 'not gui'"
-
-# 可选：是否安装 GUI 依赖并运行 gui 测试（默认关闭）
-RUN_GUI_TESTS=false
-
-# 显示帮助
-if [[ "${1:-}" == "--help" ]]; then
-  echo "Usage: $0 [run-gui: true|false]"
-  exit 0
-fi
-if [[ "${1:-}" == "true" ]]; then
-  RUN_GUI_TESTS=true
-fi
-
+PYTEST_ARGS="-q"
 REPO_DIR="$(pwd)"
 
+# 解析 ITKIT 版本号（简化：单次 awk，若失败则由 set -e 直接失败）
+ITKIT_VERSION=${ITKIT_VERSION:-}
+if [[ -z "${ITKIT_VERSION}" ]]; then
+  ITKIT_VERSION=$(awk '
+    BEGIN{inproj=0}
+    /^\[project\]/{inproj=1; next}
+    /^\[/{if(inproj){exit}; next}
+    inproj && $1 ~ /^version/ {
+      sub(/version[[:space:]]*=[[:space:]]*"/, "", $0);
+      sub(/".*/, "", $0);
+      print $0; exit
+    }
+  ' pyproject.toml)
+fi
+
 for ver in "${PY_VERSIONS[@]}"; do
-  docker_image="python:$ver-$DEBIAN_DISTRO-ITKIT"
-  echo "=== Testing on docker image: $docker_image ==="
+  image_tag="itkit:${ITKIT_VERSION}-${ver}-${DEBIAN_DISTRO}"
+  echo "=== Testing on docker image: ${image_tag} ==="
 
   docker run --rm -t \
-    -v "$REPO_DIR":/src -w /src \
-    $docker_image bash -eux -o pipefail -c "
-      apt-get update -yq && apt-get install -yq --no-install-recommends \
-        build-essential git ca-certificates wget python3-dev \
-        # minimal libs that help Qt/SimpleITK wheels (optional)
-        libxcb1 libx11-6 libxkbcommon0 libfontconfig1 libgl1 fonts-dejavu-core || true
-
-      python -m pip install --upgrade pip setuptools wheel
-
-      # Install package. If you want optional extras (gui), change accordingly:
-      if [ \"$RUN_GUI_TESTS\" = true ]; then
-        python -m pip install -e .[gui]
-      else
-        python -m pip install -e .
-      fi
-
-      # Install test deps if any (pytest already expected)
-      python -m pip install pytest
-
-      # Ensure QT offscreen for headless GUI tests (if enabled)
-      export QT_QPA_PLATFORM=offscreen
-
-      # Run pytest; skip gui tests by default
-      python -m pytest $PYTEST_ARGS
+    -e QT_QPA_PLATFORM=offscreen \
+    -v "${REPO_DIR}":/src -w /src \
+    "${image_tag}" bash -eux -o pipefail -c "
+      python -m pytest ${PYTEST_ARGS}
     "
-  echo "=== python:$ver done ==="
+
+  echo "=== python:${ver} done ==="
 done
 
 echo "All done."
