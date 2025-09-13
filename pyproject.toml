@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "itkit"
 version = "3.0.0rc3"
-requires-python = ">= 3.12"
+requires-python = ">= 3.9"
 description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API"
 readme = "readme.md"
 license = {file = "LICENSE"}
@@ -39,6 +39,7 @@ dev = [
   "pylint-django",
   "HolisticTraceAnalysis",
   "pynvml",
+  "pytest"
 ]
 nvidia = [
   "onnx",

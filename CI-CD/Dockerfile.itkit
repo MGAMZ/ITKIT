@@ -1,0 +1,70 @@
+# syntax=docker/dockerfile:1.6
+# Build with: docker build --build-arg PYTHON_TAG=3.12-trixie -t itkit:3.12-trixie -f tools/Dockerfile.itkit .
+
+ARG PYTHON_TAG=3.12-trixie
+FROM python:${PYTHON_TAG}
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 2) Configure Debian apt sources (deb822 format) and install essentials
+RUN bash -eux <<'SCRIPT'
+mkdir -p /etc/apt/sources.list.d
+cat >/etc/apt/sources.list.d/debian.sources <<'EOF'
+Types: deb
+URIs: https://mirrors.tuna.tsinghua.edu.cn/debian
+Suites: trixie trixie-updates trixie-backports
+Components: main contrib non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+# Types: deb-src
+# URIs: https://mirrors.tuna.tsinghua.edu.cn/debian
+# Suites: trixie trixie-updates trixie-backports
+# Components: main contrib non-free non-free-firmware
+# Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+Types: deb
+URIs: https://security.debian.org/debian-security
+Suites: trixie-security
+Components: main contrib non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+# Types: deb-src
+# URIs: https://security.debian.org/debian-security
+# Suites: trixie-security
+# Components: main contrib non-free non-free-firmware
+# Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+EOF
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git ca-certificates
+update-ca-certificates || true
+rm -rf /var/lib/apt/lists/*
+SCRIPT
+
+# 3) Configure pip mirror
+RUN pip config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
+
+# 4) Prepare workspace
+WORKDIR /workspace
+
+# 5) Clone ITKIT (pin branch/ref via build-arg; auto uses default branch)
+ARG ITKIT_REF=auto
+ENV ITKIT_REF=${ITKIT_REF}
+RUN --mount=type=cache,target=/root/.cache/pip bash -eux <<'SCRIPT'
+URL="https://gitee.com/MGAM/ITKIT.git"
+REF="${ITKIT_REF:-auto}"
+if [ "${REF}" != "auto" ] && [ -n "${REF}" ]; then
+    echo "Cloning ITKIT branch/ref: ${REF}"
+    if ! git clone --depth 1 --branch "${REF}" "${URL}" ITKIT; then
+        echo "Warn: branch/ref ${REF} not found. Falling back to default branch." >&2
+        git clone --depth 1 "${URL}" ITKIT
+    fi
+else
+    echo "Cloning ITKIT default branch"
+    git clone --depth 1 "${URL}" ITKIT
+fi
+python -m pip install --upgrade pip
+pip install ./ITKIT[dev,medical_vision,mm,gui]
+SCRIPT
+
+# Default command
+CMD ["bash"]
