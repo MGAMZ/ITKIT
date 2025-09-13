@@ -3,7 +3,6 @@ set -euo pipefail
 
 # Build ITKIT images for multiple Python trixie tags using tools/Dockerfile.itkit
 TAGS=(
-  "3.9-trixie"
   "3.10-trixie"
   "3.11-trixie"
   "3.12-trixie"

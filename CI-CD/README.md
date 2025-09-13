@@ -10,7 +10,7 @@
 ## 文件清单
 
 - `Dockerfile.itkit`：参数化 Dockerfile，通过 `--build-arg PYTHON_TAG=<ver>-trixie` 选择基础镜像。
-- `build-images.sh`：批量构建 `itkit:<tag>` 镜像。默认 tags：`3.9-trixie .. 3.14rc2-trixie`。
+- `build-images.sh`：批量构建 `itkit:<tag>` 镜像。默认 tags：`3.10-trixie .. 3.14rc2-trixie`。
 - `run-container.sh`：使用已构建的 `itkit:<tag>` 镜像启动交互容器（可选挂载当前仓库）。
 - `prepare_itkit_containers.sh`：直接以官方 `python:<tag>` 起容器，在容器内配置 apt/pip/ITKIT。
 - `run-CI.sh`：示例 CI 运行脚本，演示在若干 Python 版本镜像中运行 pytest（默认跳过 GUI 测试）。

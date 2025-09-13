@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # 要测试的 Python 版本（你可以自由调整）
-PY_VERSIONS=(3.9 3.10 3.11 3.12 3.13 3.14rc2)
+PY_VERSIONS=(3.10 3.11 3.12 3.13 3.14rc2)
 DEBIAN_DISTRO="trixie"
 
 # pytest 额外参数

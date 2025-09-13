@@ -3,7 +3,6 @@ set -euo pipefail
 
 # Start ephemeral containers from python:<tag> and provision ITKIT inside each
 TAGS=(
-  "3.9-trixie"
   "3.10-trixie"
   "3.11-trixie"
   "3.12-trixie"
