@@ -6,14 +6,17 @@ Feel free to reach out to me for any questions or suggestions at [my Email](mail
 
 ## Preliminary
 
-- Python >= 3.12
+The repo it only tested on:
+
+- Python >= 3.13
 - numpy >= 2.3.1
+- SimpleITK >= 2.5.0
+
+Lower versions may work but are not guaranteed.
 
 ## Introduction
 
-Initially, this toolkit was developed primarily for my own convenience, organizing most commonly used functions and methods. I wonder if it will be helpful to others in the future?
-
-Currently, it includes the following modules:
+The repo includes the following modules:
 
 - **criterion:** Defines some common loss functions. In most cases, existing ones from other libraries suffice, but this module addresses specific, unusual scenarios.
 
@@ -31,6 +34,8 @@ Currently, it includes the following modules:
 
 - **utils:** Other small utility tools.
 
+Above all, the `process` module is the core of this repo, providing several command-line tools for common ITK image operations. Each operation is encapsulated in a separate script with a clear parameter list. This module should be easy to use for all medical image researchers.
+
 ## Installation
 
 First, clone the repository:
@@ -47,10 +52,29 @@ pip install ITKIT
 
 ---
 
-
-## ITK Preprocessing Commands
+## ITK Preprocessing
 
 You may see `--help` to see more details for each command.
+
+This repo also provides a PyQt6 GUI app for all the following operations. The graphical user interface is provided as an optional extra and depends on PyQt6. To install the package with the GUI support, run:
+
+```bash
+pip install "itkit[gui]"
+```
+
+Then, to launch the app:
+
+```bash
+itkit-app
+```
+
+If you find the GUI's DPI is not optimal, you may specify `QT_SCALE_FACTOR`:
+
+```bash
+QT_SCALE_FACTOR=2 itkit-app
+```
+
+![alt text](itkit-gui.png)
 
 ### itk_check
 

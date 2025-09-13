@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "itkit"
-version = "3.0.0.beta"
+version = "3.0.0rc2"
 requires-python = ">= 3.12"
 description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API"
 readme = "readme.md"
@@ -64,6 +64,9 @@ mm = [
   "ftfy",
   "regex",
 ]
+gui = [
+  "PyQt6",
+]
 
 [project.scripts]
 mmrun = "itkit.mm.run:main"
@@ -74,6 +77,7 @@ itk_patch = "itkit.process.itk_patch:main"
 itk_check = "itkit.process.itk_check:main"
 itk_aug = "itkit.process.itk_aug:main"
 itk_extract = "itkit.process.itk_extract:main"
+itkit-app = "itkit.gui.app:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
