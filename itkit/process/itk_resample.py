@@ -124,7 +124,7 @@ def resample_dataset_task(
             Pool(processes=workers) as pool,
             tqdm(total=len(tasks), desc="Resampling (dataset)", leave=True, dynamic_ncols=True) as pbar,
         ):
-            for idx, (res, logs) in enumerate(pool.imap(func=resample_one_sample, iterable=tasks)):
+            for idx, (res, logs) in enumerate(pool.imap_unordered(func=resample_one_sample, iterable=tasks)):
                 for log in logs:
                     tqdm.write(log)
                 if res:
