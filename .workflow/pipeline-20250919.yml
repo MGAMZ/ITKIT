@@ -24,9 +24,10 @@ stages:
         script:
           - cd /workspace
           - rm -rf /workspace/spikesorting
+          - rm -rf /workspace/ITKIT
           - git clone https://gitee.com/MGAM/ITKIT
-          - pip install ITKIT[dev]
           - cd ITKIT
+          - pip install .[dev]
           - pytest
         notify: []
         strategy:
