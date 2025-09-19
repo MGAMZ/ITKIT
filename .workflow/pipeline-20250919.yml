@@ -27,7 +27,7 @@ stages:
           - rm -rf /workspace/ITKIT
           - git clone https://gitee.com/MGAM/ITKIT
           - cd ITKIT
-          - pip install .[dev，medical_vision]
+          - pip install .[dev,medical_vision]
           - pytest
         notify: []
         strategy:
