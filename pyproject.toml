@@ -58,6 +58,7 @@ medical_vision = [
   "nibabel",
 ]
 pytorch = [
+  "lightning",
   "timm",
   "deepspeed",
 ]

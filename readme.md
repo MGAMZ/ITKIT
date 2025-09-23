@@ -52,6 +52,15 @@ Then, install the package:
 pip install ITKIT
 ```
 
+Optional dependencies:
+
+- dev: for development and testing
+- nvidia: onnx, tensorrt.
+- medical_vision: pathology and dicom IO.
+- pytorch: if you want to use the lightning extension. *Note that this dependency does not include `torch` itself, please install it separately according to your system and CUDA version.*
+- mm: if you want to use with OpenMMLab.
+- gui: if you want to use the PyQt6 GUI app.
+
 ---
 
 ## ITK Preprocessing
