@@ -207,6 +207,7 @@ class SegViser(BaseViser):
                 return None if len(Z) == 0 else Z[len(Z)//2]
             
             # The Z containing foreground will be the priority.
+            Z = None
             if gt_seg_map is not None:
                 Z = find_foreground(gt_seg_map)
             if Z is None and pred_seg_map is not None:
@@ -216,6 +217,7 @@ class SegViser(BaseViser):
             # If there is no foreground, Z will be randomly selected.
             if Z is None:
                 Z = image.shape[1] // 2
+
         
             # Slice the Volume
             image = image[:, Z]
