@@ -41,6 +41,8 @@ stages:
             - c1e9bc0d-5233-4e2a-8937-df59b5bc29a2
         scriptType: SH
         script:
+          - cd /workspace/ITKIT
+          - ''
           - pytest -svm process
         notify: []
         strategy:
@@ -56,6 +58,8 @@ stages:
             - c1e9bc0d-5233-4e2a-8937-df59b5bc29a2
         scriptType: SH
         script:
+          - cd /workspace/ITKIT
+          - ''
           - pytest -svm gui
         notify: []
         strategy:
