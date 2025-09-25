@@ -10,11 +10,166 @@ from itkit.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_siz
 
 
 
+def _list_medical_files(root: str, recursive: bool) -> dict[str, str]:
+    """List medical image files under a root directory and return a mapping
+    from relative path without extension (key) to absolute file path (value).
+
+    The key preserves subdirectories but strips known extensions, so that
+    files with different extensions (e.g., .nii.gz vs .mha) can be matched.
+    """
+    exts = (".mha", ".nii.gz", ".nii", ".mhd")
+
+    def strip_ext(rel_path: str) -> str:
+        if rel_path.endswith(".nii.gz"):
+            return rel_path[:-7]
+        base, ext = os.path.splitext(rel_path)
+        return base
+
+    mapping: dict[str, str] = {}
+    if recursive:
+        for r, _dirs, files in os.walk(root):
+            for f in files:
+                fp = os.path.join(r, f)
+                # ensure extension match (case-sensitive per common dataset layout)
+                if f.endswith(exts):
+                    rel = os.path.relpath(fp, root)
+                    key = strip_ext(rel)
+                    mapping[key] = fp
+    else:
+        for f in os.listdir(root):
+            if f.endswith(exts):
+                fp = os.path.join(root, f)
+                key = f[:-7] if f.endswith(".nii.gz") else os.path.splitext(f)[0]
+                mapping[key] = fp
+    return mapping
+
+
+def _dest_path_with_mha(dest_root: str, rel_key: str) -> str:
+    """Compose destination absolute path using rel_key (relative path without extension),
+    normalizing extension to .mha and preserving subdirectories.
+    """
+    out_path = os.path.join(dest_root, rel_key + ".mha")
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    return out_path
+
+
+def resample_dataset_task(
+    source_folder: str,
+    dest_folder: str,
+    target_spacing: Sequence[float],
+    target_size: Sequence[int],
+    recursive: bool = False,
+    mp: bool = False,
+    workers: int | None = None,
+    target_folder: str | None = None,
+):
+    """Resample a dataset organized as:
+    source_folder/
+      image/
+      label/
+
+    Only samples present in both image and label are processed (intersection by filename without extension).
+    Outputs are written to dest_folder/image and dest_folder/label respectively.
+    """
+    img_src = os.path.join(source_folder, "image")
+    lbl_src = os.path.join(source_folder, "label")
+    if not (os.path.isdir(img_src) and os.path.isdir(lbl_src)):
+        raise ValueError(f"Dataset mode requires 'image' and 'label' subfolders under: {source_folder}")
+
+    img_dst = os.path.join(dest_folder, "image")
+    lbl_dst = os.path.join(dest_folder, "label")
+    os.makedirs(img_dst, exist_ok=True)
+    os.makedirs(lbl_dst, exist_ok=True)
+
+    # Build source mappings (rel_key -> abs path)
+    img_map = _list_medical_files(img_src, recursive)
+    lbl_map = _list_medical_files(lbl_src, recursive)
+    inter_keys = sorted(set(img_map.keys()) & set(lbl_map.keys()))
+    if not inter_keys:
+        tqdm.write("No intersecting image/label files found to process.")
+        return
+
+    # Build target mappings when provided
+    if target_folder:
+        tgt_img_root = os.path.join(target_folder, "image")
+        tgt_lbl_root = os.path.join(target_folder, "label")
+        if not (os.path.isdir(tgt_img_root) and os.path.isdir(tgt_lbl_root)):
+            raise ValueError("--target-folder in dataset mode must contain 'image' and 'label' subfolders.")
+        tgt_img_map = _list_medical_files(tgt_img_root, recursive)
+        tgt_lbl_map = _list_medical_files(tgt_lbl_root, recursive)
+    else:
+        tgt_img_map = {}
+        tgt_lbl_map = {}
+
+    # Build task list for both fields
+    tasks: list[tuple] = []
+    for key in inter_keys:
+        # image task
+        img_src_path = img_map[key]
+        img_dst_path = _dest_path_with_mha(img_dst, key)
+        img_tgt_path = tgt_img_map.get(key)
+        tasks.append((img_src_path, target_spacing, target_size, "image", img_dst_path, img_tgt_path))
+        # label task
+        lbl_src_path = lbl_map[key]
+        lbl_dst_path = _dest_path_with_mha(lbl_dst, key)
+        lbl_tgt_path = tgt_lbl_map.get(key)
+        tasks.append((lbl_src_path, target_spacing, target_size, "label", lbl_dst_path, lbl_tgt_path))
+
+    # Execute
+    image_meta: dict = {}
+    label_meta: dict = {}
+
+    if mp:
+        with (
+            Pool(processes=workers) as pool,
+            tqdm(total=len(tasks), desc="Resampling (dataset)", leave=True, dynamic_ncols=True) as pbar,
+        ):
+            for idx, (res, logs) in enumerate(pool.imap_unordered(func=resample_one_sample, iterable=tasks)):
+                for log in logs:
+                    tqdm.write(log)
+                if res:
+                    # Determine field from task tuple
+                    _src, _sp, _sz, _field, _dst, _tgt = tasks[idx]
+                    if _field == "image":
+                        image_meta.update(res)
+                    else:
+                        label_meta.update(res)
+                pbar.update()
+    else:
+        with tqdm(total=len(tasks), desc="Resampling (dataset)", leave=True, dynamic_ncols=True) as pbar:
+            for task_args in tasks:
+                res, logs = resample_one_sample(task_args)
+                for log in logs:
+                    tqdm.write(log)
+                if res:
+                    (name, meta), = res.items()
+                    # Assign based on whether name exists under image or label source sets
+                    if name in [os.path.basename(p) for p in img_map.values()]:
+                        image_meta.update(res)
+                    elif name in [os.path.basename(p) for p in lbl_map.values()]:
+                        label_meta.update(res)
+                    else:
+                        image_meta.update(res)
+                pbar.update()
+
+    # Save metadata under each subfolder
+    try:
+        with open(os.path.join(img_dst, "series_meta.json"), "w") as f:
+            json.dump(image_meta, f, indent=4)
+    except Exception as e:
+        tqdm.write(f"Warning: Could not save image series meta file: {e}")
+    try:
+        with open(os.path.join(lbl_dst, "series_meta.json"), "w") as f:
+            json.dump(label_meta, f, indent=4)
+    except Exception as e:
+        tqdm.write(f"Warning: Could not save label series meta file: {e}")
+
+
 def resample_one_sample(args):
     """
     Resample a single sample image using spacing/size rules or a target reference image.
     
-    Args `tuple`: (image_itk_path, target_spacing, target_size, output_path, target_image_path, field)
+    Args `tuple`: (image_itk_path, target_spacing, target_size, field, output_path, target_image_path)
     
     Returns metadata `dict` or `None` if skipped.
     """
@@ -218,9 +373,9 @@ def resample_task(
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Resample a dataset with dimension-wise spacing/size rules or target image.")
-    parser.add_argument("field", type=str, choices=["image", "label"], help="Field type for resampling. Required when --target is specified.")
-    parser.add_argument("source_folder", type=str, help="The source folder containing .mha files.")
-    parser.add_argument("dest_folder", type=str, help="The destination folder for resampled files.")
+    parser.add_argument("mode", type=str, choices=["image", "label", "dataset"], help="Resample mode: single-folder 'image'/'label' or paired 'dataset'.")
+    parser.add_argument("source_folder", type=str, help="The source folder. For 'dataset' mode, it must contain 'image' and 'label' subfolders.")
+    parser.add_argument("dest_folder", type=str, help="The destination folder. For 'dataset' mode, outputs to 'image' and 'label' subfolders.")
     parser.add_argument("-r", "--recursive", action="store_true", help="Recursively process subdirectories.")
     parser.add_argument("--mp", action="store_true", help="Whether to use multiprocessing.")
     parser.add_argument("--workers", type=int, default=None, help="The number of workers for multiprocessing.")
@@ -234,7 +389,7 @@ def parse_args():
     
     # target_folder mode
     parser.add_argument("--target-folder", dest="target_folder", type=str, default=None,
-                        help="Folder containing target reference images matching source names. Mutually exclusive with --spacing and --size.")
+                        help="Folder containing target reference images. For 'dataset' mode it should contain matching 'image' and 'label' subfolders. Mutually exclusive with --spacing and --size.")
     
     return parser.parse_args()
 
@@ -284,10 +439,10 @@ def main():
         # Print configuration
         print(f"Resampling {args.source_folder} -> {args.dest_folder}")
         if target_specified:
-            print(f"  Target Folder: {args.target_folder} | Field: {args.field}")
+            print(f"  Target Folder: {args.target_folder}")
         else:
-            print(f"  Spacing: {target_spacing} | Size: {target_size} | Field: {args.field}")
-        print(f"  Recursive: {args.recursive} | Multiprocessing: {args.mp} | Workers: {args.workers}")
+            print(f"  Spacing: {target_spacing} | Size: {target_size}")
+        print(f"  Mode: {args.mode} | Recursive: {args.recursive} | Multiprocessing: {args.mp} | Workers: {args.workers}")
 
     except ValueError as e:
         print(f"Error parsing arguments: {e}")
@@ -305,17 +460,30 @@ def main():
         print(f"Warning: Could not save config file: {e}")
 
     # Execute
-    resample_task(
-        args.source_folder,
-        args.dest_folder,
-        target_spacing,
-        target_size,
-        args.field,
-        args.recursive,
-        args.mp,
-        args.workers,
-        args.target_folder,
-    )
+    if args.mode == "dataset":
+        resample_dataset_task(
+            args.source_folder,
+            args.dest_folder,
+            target_spacing,
+            target_size,
+            args.recursive,
+            args.mp,
+            args.workers,
+            args.target_folder,
+        )
+    else:
+        # single folder mode uses original implementation requiring field
+        resample_task(
+            args.source_folder,
+            args.dest_folder,
+            target_spacing,
+            target_size,
+            args.mode,
+            args.recursive,
+            args.mp,
+            args.workers,
+            args.target_folder,
+        )
     print(f"Resampling completed. The resampled dataset is saved in {args.dest_folder}.")
 
 

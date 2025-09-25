@@ -52,6 +52,15 @@ Then, install the package:
 pip install ITKIT
 ```
 
+Optional dependencies:
+
+- dev: for development and testing
+- nvidia: onnx, tensorrt.
+- medical_vision: pathology and dicom IO.
+- pytorch: if you want to use the lightning extension. *Note that this dependency does not include `torch` itself, please install it separately according to your system and CUDA version.*
+- mm: if you want to use with OpenMMLab.
+- gui: if you want to use the PyQt6 GUI app.
+
 ---
 
 ## ITK Preprocessing
@@ -83,7 +92,7 @@ QT_SCALE_FACTOR=2 itkit-app
 Check ITK image-label sample pairs whether they meet the required spacing / size.
 
 ```bash
-python itk_check.py <mode> <sample_folder> [--output OUT] [--min-size Z Y X] [--max-size Z Y X] [--min-spacing Z Y X] [--max-spacing Z Y X] [--same-spacing A B] [--same-size A B] [--mp]
+itk_check <mode> <sample_folder> [--output OUT] [--min-size Z Y X] [--max-size Z Y X] [--min-spacing Z Y X] [--max-spacing Z Y X] [--same-spacing A B] [--same-size A B] [--mp]
 ```
 
 Parameters
@@ -110,7 +119,7 @@ Parameters
 Resample ITK image-label sample pairs, according to the given spacing or size on any dimension.
 
 ```bash
-python itk_resample.py <field> <source_folder> <dest_folder> [--spacing Z Y X] [--size Z Y X] [--target-folder PATH] [-r|--recursive] [--mp] [--workers N]
+itk_resample <field> <source_folder> <dest_folder> [--spacing Z Y X] [--size Z Y X] [--target-folder PATH] [-r|--recursive] [--mp] [--workers N]
 ```
 
 Parameters
@@ -136,7 +145,7 @@ Notes
 Orient ITK image-label sample pairs to the specified orientation, e.g., `LPI`.
 
 ```bash
-python itk_orient.py <src_dir> <dst_dir> <orient> [--mp]
+itk_orient <src_dir> <dst_dir> <orient> [--mp]
 ```
 
 Parameters
@@ -156,7 +165,7 @@ Notes
 Extract patches from ITK image-label sample pairs. This may be helpful for training, as train-time-patching can consume a lot of CPU resources.
 
 ```bash
-python itk_patch.py <src_folder> <dst_folder> --patch-size PZ [PY PX] --patch-stride SZ [SY SX] [--minimum-foreground-ratio R] [--still-save-when-no-label] [--mp]
+itk_patch <src_folder> <dst_folder> --patch-size PZ [PY PX] --patch-stride SZ [SY SX] [--minimum-foreground-ratio R] [--still-save-when-no-label] [--mp]
 ```
 
 Parameters
@@ -184,7 +193,7 @@ Notes
 Do augmentation on ITK image files, only supports `RandomRotate3D` now.
 
 ```bash
-python itk_aug.py <img_folder> <lbl_folder> [-oimg OUT_IMG] [-olbl OUT_LBL] [-n N] [--mp] [--random-rot Z Y X]
+itk_aug <img_folder> <lbl_folder> [-oimg OUT_IMG] [-olbl OUT_LBL] [-n N] [--mp] [--random-rot Z Y X]
 ```
 
 Parameters
@@ -207,7 +216,7 @@ Notes
 Extract specified classes from ITK semetic map, this is useful when you want to focus on a subset of organs.
 
 ```bash
-python itk_extract.py <source_folder> <dest_folder> <mappings...> [-r|--recursive] [--mp] [--workers N]
+itk_extract <source_folder> <dest_folder> <mappings...> [-r|--recursive] [--mp] [--workers N]
 ```
 
 Parameters
@@ -231,7 +240,11 @@ Notes
 - If no matching files are found, the script exits with a message.  
 - Safe to combine recursive and mp; progress shown via tqdm.
 
-## OpenMMLab Extensions
+## OpenMMLab Extensions for Medical Vision
+
+[OpenMMLab](https://github.com/open-mmlab) is an outstanding open‑source deep learning image analysis framework. ITKIT carries a set of OpenMMLab extension classes; based on mmengine and mmsegmentation, they define commonly used pipelines and computational modules for the medical imaging domain.
+
+**Unfortunately**, the upstream OpenMMLab project has gradually fallen out of maintenance, and I have to consider abandoning this portion of the development work.
 
 ### Experiment Runner
 
