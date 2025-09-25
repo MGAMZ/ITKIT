@@ -240,7 +240,11 @@ Notes
 - If no matching files are found, the script exits with a message.  
 - Safe to combine recursive and mp; progress shown via tqdm.
 
-## OpenMMLab Extensions
+## OpenMMLab Extensions for Medical Vision
+
+[OpenMMLab](https://github.com/open-mmlab) is an outstanding open‑source deep learning image analysis framework. ITKIT carries a set of OpenMMLab extension classes; based on mmengine and mmsegmentation, they define commonly used pipelines and computational modules for the medical imaging domain.
+
+**Unfortunately**, the upstream OpenMMLab project has gradually fallen out of maintenance, and I have to consider abandoning this portion of the development work.
 
 ### Experiment Runner
 
