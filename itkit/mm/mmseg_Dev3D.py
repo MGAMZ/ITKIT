@@ -867,6 +867,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
             self._enable_normalize = False
 
         self.test_cfg = test_cfg
+
     @staticmethod
     def stack_batch_3D(
         inputs: list[Tensor],

@@ -1,4 +1,5 @@
-import os, re, argparse, pdb
+import os, sys, re, argparse, pdb
+sys.path.append(os.getcwd())
 from pathlib import Path
 from bdb import BdbQuit
 from os import path as osp

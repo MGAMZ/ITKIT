@@ -1,4 +1,4 @@
-import argparse, json, pdb
+import os, argparse, json, pdb
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
@@ -190,47 +190,50 @@ def process_case(args):
 
 
 def main():
-    args = parse_args()
-    tasks = find_pairs(args.src_folder)
-    if len(tasks) == 0:
-        raise FileNotFoundError(f"No valid image-label pairs found in {args.src_folder}")
-    task_args = [(
-        img, lbl,
-        args.dst_folder,
-        args.patch_size,
-        args.patch_stride,
-        args.minimum_foreground_ratio,
-        args.still_save_when_no_label
-    ) for img, lbl in tasks]
-    
     results = []
-    pbar = tqdm(total=len(task_args), desc="Processing cases", dynamic_ncols=True)
+    args = parse_args()
     
-    if args.mp:
-        with Pool(cpu_count()) as pool:
-            for res in pool.imap_unordered(process_case, task_args):
-                results.append(res)
+    try:
+        tasks = find_pairs(args.src_folder)
+        if len(tasks) == 0:
+            raise FileNotFoundError(f"No valid image-label pairs found in {args.src_folder}")
+        task_args = [(
+            img, lbl,
+            args.dst_folder,
+            args.patch_size,
+            args.patch_stride,
+            args.minimum_foreground_ratio,
+            args.still_save_when_no_label
+        ) for img, lbl in tasks]
+        pbar = tqdm(total=len(task_args), desc="Processing cases", dynamic_ncols=True)
+        
+        if args.mp:
+            with Pool(cpu_count()) as pool:
+                for res in pool.imap_unordered(process_case, task_args):
+                    results.append(res)
+                    pbar.update(1)
+        else:
+            for t in task_args:
+                results.append(process_case(t))
                 pbar.update(1)
-    else:
-        for t in task_args:
-            results.append(process_case(t))
-            pbar.update(1)
     
-    pbar.close()
-    
-    # removed summary print
-    # filter out failed cases
-    valid_results = [r for r in results if r is not None]
-    # write overall crop metadata
-    crop_meta = {
-        "src_folder": str(args.src_folder),
-        "dst_folder": str(args.dst_folder),
-        "patch_size": args.patch_size,
-        "patch_stride": args.patch_stride,
-        "anno_available": [case for case, count in valid_results]
-    }
-    with open(args.dst_folder / "crop_meta.json", "w") as f:
-        json.dump(crop_meta, f, indent=4)
+        pbar.close()
+
+    finally:
+        # removed summary print
+        # filter out failed cases
+        valid_results = [r for r in results if r is not None]
+        # write overall crop metadata
+        crop_meta = {
+            "src_folder": str(args.src_folder),
+            "dst_folder": str(args.dst_folder),
+            "patch_size": args.patch_size,
+            "patch_stride": args.patch_stride,
+            "anno_available": [case for case, count in valid_results]
+        }
+        os.makedirs(args.dst_folder, exist_ok=True)
+        with open(args.dst_folder / "crop_meta.json", "w") as f:
+            json.dump(crop_meta, f, indent=4)
 
 
 if __name__ == '__main__':
