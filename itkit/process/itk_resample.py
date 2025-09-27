@@ -1,375 +1,156 @@
-import os, pdb, argparse, json, traceback
-from tqdm import tqdm
-from collections.abc import Sequence
-from multiprocessing import Pool
+import os, pdb, argparse, json
 
 import numpy as np
 import SimpleITK as sitk
 
 from itkit.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size, sitk_resample_to_image
+from itkit.process.base_processor import DatasetProcessor, SingleFolderProcessor
 
 
-
-def _list_medical_files(root: str, recursive: bool) -> dict[str, str]:
-    """List medical image files under a root directory and return a mapping
-    from relative path without extension (key) to absolute file path (value).
-
-    The key preserves subdirectories but strips known extensions, so that
-    files with different extensions (e.g., .nii.gz vs .mha) can be matched.
-    """
-    exts = (".mha", ".nii.gz", ".nii", ".mhd")
-
-    def strip_ext(rel_path: str) -> str:
-        if rel_path.endswith(".nii.gz"):
-            return rel_path[:-7]
-        base, ext = os.path.splitext(rel_path)
-        return base
-
-    mapping: dict[str, str] = {}
-    if recursive:
-        for r, _dirs, files in os.walk(root):
-            for f in files:
-                fp = os.path.join(r, f)
-                # ensure extension match (case-sensitive per common dataset layout)
-                if f.endswith(exts):
-                    rel = os.path.relpath(fp, root)
-                    key = strip_ext(rel)
-                    mapping[key] = fp
-    else:
-        for f in os.listdir(root):
-            if f.endswith(exts):
-                fp = os.path.join(root, f)
-                key = f[:-7] if f.endswith(".nii.gz") else os.path.splitext(f)[0]
-                mapping[key] = fp
-    return mapping
-
-
-def _dest_path_with_mha(dest_root: str, rel_key: str) -> str:
-    """Compose destination absolute path using rel_key (relative path without extension),
-    normalizing extension to .mha and preserving subdirectories.
-    """
-    out_path = os.path.join(dest_root, rel_key + ".mha")
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    return out_path
-
-
-def resample_dataset_task(
-    source_folder: str,
-    dest_folder: str,
-    target_spacing: Sequence[float],
-    target_size: Sequence[int],
-    recursive: bool = False,
-    mp: bool = False,
-    workers: int | None = None,
-    target_folder: str | None = None,
-):
-    """Resample a dataset organized as:
-    source_folder/
-      image/
-      label/
-
-    Only samples present in both image and label are processed (intersection by filename without extension).
-    Outputs are written to dest_folder/image and dest_folder/label respectively.
-    """
-    img_src = os.path.join(source_folder, "image")
-    lbl_src = os.path.join(source_folder, "label")
-    if not (os.path.isdir(img_src) and os.path.isdir(lbl_src)):
-        raise ValueError(f"Dataset mode requires 'image' and 'label' subfolders under: {source_folder}")
-
-    img_dst = os.path.join(dest_folder, "image")
-    lbl_dst = os.path.join(dest_folder, "label")
-    os.makedirs(img_dst, exist_ok=True)
-    os.makedirs(lbl_dst, exist_ok=True)
-
-    # Build source mappings (rel_key -> abs path)
-    img_map = _list_medical_files(img_src, recursive)
-    lbl_map = _list_medical_files(lbl_src, recursive)
-    inter_keys = sorted(set(img_map.keys()) & set(lbl_map.keys()))
-    if not inter_keys:
-        tqdm.write("No intersecting image/label files found to process.")
-        return
-
-    # Build target mappings when provided
-    if target_folder:
-        tgt_img_root = os.path.join(target_folder, "image")
-        tgt_lbl_root = os.path.join(target_folder, "label")
-        if not (os.path.isdir(tgt_img_root) and os.path.isdir(tgt_lbl_root)):
-            raise ValueError("--target-folder in dataset mode must contain 'image' and 'label' subfolders.")
-        tgt_img_map = _list_medical_files(tgt_img_root, recursive)
-        tgt_lbl_map = _list_medical_files(tgt_lbl_root, recursive)
-    else:
-        tgt_img_map = {}
-        tgt_lbl_map = {}
-
-    # Build task list for both fields
-    tasks: list[tuple] = []
-    for key in inter_keys:
-        # image task
-        img_src_path = img_map[key]
-        img_dst_path = _dest_path_with_mha(img_dst, key)
-        img_tgt_path = tgt_img_map.get(key)
-        tasks.append((img_src_path, target_spacing, target_size, "image", img_dst_path, img_tgt_path))
-        # label task
-        lbl_src_path = lbl_map[key]
-        lbl_dst_path = _dest_path_with_mha(lbl_dst, key)
-        lbl_tgt_path = tgt_lbl_map.get(key)
-        tasks.append((lbl_src_path, target_spacing, target_size, "label", lbl_dst_path, lbl_tgt_path))
-
-    # Execute
-    image_meta: dict = {}
-    label_meta: dict = {}
-
-    if mp:
-        with (
-            Pool(processes=workers) as pool,
-            tqdm(total=len(tasks), desc="Resampling (dataset)", leave=True, dynamic_ncols=True) as pbar,
-        ):
-            for idx, (res, logs) in enumerate(pool.imap_unordered(func=resample_one_sample, iterable=tasks)):
-                for log in logs:
-                    tqdm.write(log)
-                if res:
-                    # Determine field from task tuple
-                    _src, _sp, _sz, _field, _dst, _tgt = tasks[idx]
-                    if _field == "image":
-                        image_meta.update(res)
-                    else:
-                        label_meta.update(res)
-                pbar.update()
-    else:
-        with tqdm(total=len(tasks), desc="Resampling (dataset)", leave=True, dynamic_ncols=True) as pbar:
-            for task_args in tasks:
-                res, logs = resample_one_sample(task_args)
-                for log in logs:
-                    tqdm.write(log)
-                if res:
-                    (name, meta), = res.items()
-                    # Assign based on whether name exists under image or label source sets
-                    if name in [os.path.basename(p) for p in img_map.values()]:
-                        image_meta.update(res)
-                    elif name in [os.path.basename(p) for p in lbl_map.values()]:
-                        label_meta.update(res)
-                    else:
-                        image_meta.update(res)
-                pbar.update()
-
-    # Save metadata under each subfolder
-    try:
-        with open(os.path.join(img_dst, "series_meta.json"), "w") as f:
-            json.dump(image_meta, f, indent=4)
-    except Exception as e:
-        tqdm.write(f"Warning: Could not save image series meta file: {e}")
-    try:
-        with open(os.path.join(lbl_dst, "series_meta.json"), "w") as f:
-            json.dump(label_meta, f, indent=4)
-    except Exception as e:
-        tqdm.write(f"Warning: Could not save label series meta file: {e}")
-
-
-def resample_one_sample(args):
-    """
-    Resample a single sample image using spacing/size rules or a target reference image.
+class _ResampleMixin:
+    """Mixin class for shared resampling logic."""
     
-    Args `tuple`: (image_itk_path, target_spacing, target_size, field, output_path, target_image_path)
-    
-    Returns metadata `dict` or `None` if skipped.
-    """
-    # Unpack arguments
-    logs = []
-    image_itk_path, target_spacing, target_size, field, output_path, target_image_path = args
-    img_dim = 3
+    def resample_one_sample(self, input_path, field, output_path):
+        """Resample a single sample"""
+        if os.path.exists(output_path):
+            return None
+            
+        try:
+            image_itk = sitk.ReadImage(input_path)
+        except Exception as e:
+            print(f"Error reading {input_path}: {e}")
+            return None
+        
+        # Apply resampling logic
+        if self.target_folder:
+            # Use target image for resampling
+            # Note: The logic for finding the relative path differs slightly between processors.
+            # This part is kept in the specific processor's `process_one` method.
+            # Here, we assume a direct mapping can be found.
+            source_base_folder = self.source_folder
+            if isinstance(self, DatasetProcessor):
+                # For dataset mode, relpath should be from 'image' or 'label' subfolder
+                source_base_folder = os.path.join(self.source_folder, field)
 
-    # Check if output already exists
-    if os.path.exists(output_path):
-        itk_name = os.path.basename(image_itk_path)
-        logs.append(f"Skipping {itk_name}, output exists.")
-        return None, logs
+            target_rel = os.path.relpath(input_path, source_base_folder)
+            target_path = os.path.join(self.target_folder, field if isinstance(self, DatasetProcessor) else "", target_rel)
+            
+            if os.path.exists(target_path):
+                target_image = sitk.ReadImage(target_path)
+                image_resampled = sitk_resample_to_image(image_itk, target_image, field)
+            else:
+                print(f"Warning: Target file not found for {input_path} at {target_path}. Skipping.")
+                return None
+        else:
+            # Use spacing/size rules
+            image_resampled = self._apply_spacing_size_rules(image_itk, field)
+        
+        # Save output
+        try:
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            sitk.WriteImage(image_resampled, output_path, useCompression=True)
+        except Exception as e:
+            print(f"Error writing {output_path}: {e}")
+            return None
+        
+        # Return metadata
+        final_spacing = image_resampled.GetSpacing()[::-1]
+        final_size = image_resampled.GetSize()[::-1]
+        final_origin = image_resampled.GetOrigin()[::-1]
+        name = os.path.basename(input_path)
+        
+        return {name: {"spacing": final_spacing, "size": final_size, "origin": final_origin}}
 
-    # Read image
-    try:
-        image_itk = sitk.ReadImage(image_itk_path)
-    except Exception as e:
-        traceback.print_exc()
-        logs.append(f"Error reading {image_itk_path}: {e}")
-        return None, logs
-
-    # If target image specified: resample to it; otherwise use spacing/size rules
-    if target_image_path:
-        target_image = sitk.ReadImage(target_image_path)
-        image_resampled = sitk_resample_to_image(image_itk, target_image, field)
-    else:
-        # Spacing/size resampling logic
-        # --- Stage 1: Spacing resample ---
+    def _apply_spacing_size_rules(self, image_itk, field):
+        """Apply spacing and size resampling rules"""
+        # Stage 1: Spacing resample
         orig_spacing = image_itk.GetSpacing()[::-1]
         effective_spacing = list(orig_spacing)
         needs_spacing_resample = False
-        for i in range(img_dim):
-            if target_spacing[i] != -1:
-                effective_spacing[i] = target_spacing[i]
+        
+        for i in range(3):
+            if self.target_spacing[i] != -1:
+                effective_spacing[i] = self.target_spacing[i]
                 needs_spacing_resample = True
-
+        
         image_after_spacing = image_itk
-
         if needs_spacing_resample and not np.allclose(effective_spacing, orig_spacing):
-            itk_name = os.path.basename(image_itk_path)
             image_after_spacing = sitk_resample_to_spacing(image_itk, effective_spacing, field)
-
-        # --- Stage 2: Size resample ---
+        
+        # Stage 2: Size resample
         current_size = image_after_spacing.GetSize()[::-1]
         effective_size = list(current_size)
         needs_size_resample = False
-        for i in range(img_dim):
-            if target_size[i] != -1:
-                effective_size[i] = target_size[i]
+        
+        for i in range(3):
+            if self.target_size[i] != -1:
+                effective_size[i] = self.target_size[i]
                 needs_size_resample = True
-
+        
         image_resampled = image_after_spacing
-
         if needs_size_resample and effective_size != list(current_size):
-            itk_name = os.path.basename(image_itk_path)
             image_resampled = sitk_resample_to_size(image_after_spacing, effective_size, field)
-
-        # --- Stage 3: Orientation adjustment ---
+        
+        # Stage 3: Orientation adjustment
         image_resampled = sitk.DICOMOrient(image_resampled, 'LPI')
         
-        logs.append(
-            f"Resampling completed for {os.path.basename(image_itk_path)}. "
-            f"Output size {image_resampled.GetSize()[::-1]} | spacing {image_resampled.GetSpacing()[::-1]}."
+        return image_resampled
+
+
+class ResampleProcessor(DatasetProcessor, _ResampleMixin):
+    """Processor for resampling datasets with image/label structure"""
+    
+    def __init__(self, source_folder, dest_folder, target_spacing, target_size, 
+                 recursive=False, mp=False, workers=None, target_folder=None):
+        super().__init__(source_folder, dest_folder, mp, workers, recursive)
+        self.target_spacing = target_spacing
+        self.target_size = target_size
+        self.target_folder = target_folder
+    
+    def process_one(self, args):
+        """Process one image-label pair"""
+        img_path, lbl_path = args
+        
+        # Process image
+        img_meta = self.resample_one_sample(
+            img_path, "image", 
+            os.path.join(self.dest_folder, "image", os.path.basename(img_path))
         )
-
-    # Write output
-    try:
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        sitk.WriteImage(image_resampled, output_path, useCompression=True)
-    except Exception as e:
-        traceback.print_exc()
-        logs.append(f"Error writing {output_path}: {e}")
-        return None, logs
-
-    # Get final spacing/size and return metadata
-    final_spacing = image_resampled.GetSpacing()[::-1]
-    final_size = image_resampled.GetSize()[::-1]
-    # Get final origin
-    final_origin = image_resampled.GetOrigin()[::-1]
-    itk_name = os.path.basename(image_itk_path)
-    return {itk_name: {"spacing": final_spacing, "size": final_size, "origin": final_origin}}, logs
-
-
-def resample_task(
-    source_folder: str,
-    dest_folder: str,
-    target_spacing: Sequence[float],
-    target_size: Sequence[int],
-    field: str,
-    recursive: bool = False,
-    mp: bool = False,
-    workers: int|None = None,
-    target_folder: str|None = None,
-):
-    """
-    Resample a dataset with dimension-wise spacing/size rules or target-folder reference images.
-
-    Args:
-        source_folder (str): The source folder containing .mha files.
-        dest_folder (str): The destination folder for resampled files.
-        target_spacing (Sequence[float]): Target spacing per dimension (-1 to ignore).
-        target_size (Sequence[int]): Target size per dimension (-1 to ignore).
-        recursive (bool): Whether to recursively process subdirectories.
-        mp (bool): Whether to use multiprocessing.
-        workers (int | None): Number of workers for multiprocessing.
-        target_folder (str | None): Folder containing reference images named same as source.
-        field (str): Field type for resampling ('image' or 'label').
-    """
-    os.makedirs(dest_folder, exist_ok=True)
-    # Collect all image files and relative paths
-    image_paths = []
-    output_paths = []
-    rel_paths = []
+        
+        # Process label  
+        lbl_meta = self.resample_one_sample(
+            lbl_path, "label",
+            os.path.join(self.dest_folder, "label", os.path.basename(lbl_path))
+        )
+        
+        return {"image": img_meta, "label": lbl_meta} if img_meta or lbl_meta else None
     
-    if recursive:
-        # Recursive mode: traverse all subdirectories
-        for root, dirs, files in os.walk(source_folder):
-            for file in files:
-                if file.endswith((".mha", ".nii", ".nii.gz", ".mhd")):
-                    # Keep directory structure
-                    source_file = os.path.join(root, file)
-                    rel_path = os.path.relpath(source_file, source_folder)
-                    output_file = os.path.join(dest_folder, rel_path)
-                    # Normalize output extension to .mha
-                    output_file = output_file.replace(".nii.gz", ".mha").replace(".nii", ".mha").replace(".mhd", ".mha")
-                    
-                    image_paths.append(source_file)
-                    output_paths.append(output_file)
-                    rel_paths.append(rel_path)
-    else:
-        # Non-recursive mode: top-level only
-        for file in os.listdir(source_folder):
-            if file.endswith((".mha", ".nii", ".nii.gz", ".mhd")):
-                # Normalize output extension to .mha
-                source_file = os.path.join(source_folder, file)
-                output_file = os.path.join(dest_folder, file)
-                output_file = output_file.replace(".nii.gz", ".mha").replace(".nii", ".mha").replace(".mhd", ".mha")
-                
-                image_paths.append(source_file)
-                output_paths.append(output_file)
-                rel_paths.append(file)
-    
-    if not image_paths:
-        tqdm.write("No image files found to process.")
-        return
-    
-    # Build corresponding reference image path list
-    if target_folder:
-        target_paths = [os.path.join(target_folder, rel) for rel in rel_paths]
-    else:
-        target_paths = [None] * len(image_paths)
-    # Build task list
-    task_list = [
-        (image_paths[i], target_spacing, target_size, field, output_paths[i], target_paths[i])
-        for i in range(len(image_paths))
-    ]
 
-    # Collect per-sample metadata
-    series_meta = dict()
-    if mp:
-        with (
-            Pool(processes=workers) as pool,
-            tqdm(
-                total=len(image_paths),
-                desc="Resampling",
-                leave=True,
-                dynamic_ncols=True,
-            ) as pbar,
-        ):
-            result_fetcher = pool.imap_unordered(func=resample_one_sample, iterable=task_list)
-            for res, logs in result_fetcher:
-                for log in logs:
-                    tqdm.write(log)
-                if res:
-                    series_meta.update(res)
-                pbar.update()
-    else:
-        with tqdm(
-            total=len(image_paths),
-            desc="Resampling",
-            leave=True,
-            dynamic_ncols=True,
-        ) as pbar:
-            for task_args in task_list:
-                res, logs = resample_one_sample(task_args)
-                for log in logs:
-                    tqdm.write(log)
-                if res:
-                    series_meta.update(res)
-                pbar.update()
+class SingleResampleProcessor(SingleFolderProcessor, _ResampleMixin):
+    """Processor for resampling single folders (image or label mode)"""
     
-    # Save per-sample spacing/size metadata to JSON
-    meta_path = os.path.join(dest_folder, "series_meta.json")
-    try:
-        with open(meta_path, "w") as f:
-            json.dump(series_meta, f, indent=4)
-    except Exception as e:
-        tqdm.write(f"Warning: Could not save series meta file: {e}")
-
+    def __init__(self, source_folder, dest_folder, target_spacing, target_size, field,
+                 recursive=False, mp=False, workers=None, target_folder=None):
+        super().__init__(source_folder, dest_folder, mp, workers, recursive)
+        self.target_spacing = target_spacing
+        self.target_size = target_size
+        self.field = field
+        self.target_folder = target_folder
+    
+    def process_one(self, file_path):
+        """Process one file"""
+        # Determine output path
+        if self.recursive:
+            rel_path = os.path.relpath(file_path, self.source_folder)
+            output_path = os.path.join(self.dest_folder, rel_path)
+        else:
+            output_path = os.path.join(self.dest_folder, os.path.basename(file_path))
+        
+        # Normalize extension to .mha
+        output_path = output_path.replace(".nii.gz", ".mha").replace(".nii", ".mha").replace(".mhd", ".mha")
+        
+        return self.resample_one_sample(file_path, self.field, output_path)
+    
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Resample a dataset with dimension-wise spacing/size rules or target image.")
@@ -394,11 +175,8 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    args = parse_args()
-    img_dim = 3 # Assume processing 3D images
-
-    # --- Parameter conversion and validation ---
+def validate_and_prepare_args(args):
+    """Validate arguments and prepare resampling parameters."""
     try:
         # Check mutual exclusivity between target_folder and spacing/size
         target_specified = args.target_folder is not None
@@ -421,20 +199,20 @@ def main():
             target_size = [int(s) for s in args.size]
 
             # Check list lengths match dimension count
-            if len(target_spacing) != img_dim:
-                raise ValueError(f"--spacing must have {img_dim} values (received {len(target_spacing)})")
-            if len(target_size) != img_dim:
-                 raise ValueError(f"--size must have {img_dim} values (received {len(target_size)})")
+            if len(target_spacing) != 3:
+                raise ValueError(f"--spacing must have {3} values (received {len(target_spacing)})")
+            if len(target_size) != 3:
+                 raise ValueError(f"--size must have {3} values (received {len(target_size)})")
 
             # Validate per-dimension exclusivity
-            for i in range(img_dim):
+            for i in range(3):
                 if target_spacing[i] != -1 and target_size[i] != -1:
-                    raise ValueError(f"Dimension {i} cannot specify both spacing and size.")
-
+                    raise ValueError(f"Cannot specify both spacing and size for dimension {i}.")
+                    
             # Ensure at least one resampling rule is specified
             if all(s == -1 for s in target_spacing) and all(sz == -1 for sz in target_size):
-                tqdm.write("Warning: No spacing or size specified, skipping resampling.")
-                return
+                print("Warning: No spacing or size specified, skipping resampling.")
+                return None, None
 
         # Print configuration
         print(f"Resampling {args.source_folder} -> {args.dest_folder}")
@@ -443,9 +221,19 @@ def main():
         else:
             print(f"  Spacing: {target_spacing} | Size: {target_size}")
         print(f"  Mode: {args.mode} | Recursive: {args.recursive} | Multiprocessing: {args.mp} | Workers: {args.workers}")
+        
+        return target_spacing, target_size
 
     except ValueError as e:
         print(f"Error parsing arguments: {e}")
+        return None, None
+
+
+def main():
+    args = parse_args()
+    target_spacing, target_size = validate_and_prepare_args(args)
+    
+    if target_spacing is None:
         return
 
     # Save configuration
@@ -459,31 +247,22 @@ def main():
     except Exception as e:
         print(f"Warning: Could not save config file: {e}")
 
-    # Execute
+    # Execute using new processors
     if args.mode == "dataset":
-        resample_dataset_task(
-            args.source_folder,
-            args.dest_folder,
-            target_spacing,
-            target_size,
-            args.recursive,
-            args.mp,
-            args.workers,
-            args.target_folder,
+        processor = ResampleProcessor(
+            args.source_folder, args.dest_folder, target_spacing, target_size,
+            args.recursive, args.mp, args.workers, args.target_folder
         )
+        processor.process()
+        processor.save_meta()
     else:
-        # single folder mode uses original implementation requiring field
-        resample_task(
-            args.source_folder,
-            args.dest_folder,
-            target_spacing,
-            target_size,
-            args.mode,
-            args.recursive,
-            args.mp,
-            args.workers,
-            args.target_folder,
+        processor = SingleResampleProcessor(
+            args.source_folder, args.dest_folder, target_spacing, target_size, args.mode,
+            args.recursive, args.mp, args.workers, args.target_folder
         )
+        processor.process()
+        processor.save_meta()
+    
     print(f"Resampling completed. The resampled dataset is saved in {args.dest_folder}.")
 
 

@@ -5,6 +5,7 @@ from tqdm import tqdm
 
 import SimpleITK as sitk
 from itkit.process.meta_json import load_series_meta, get_series_meta_path
+from itkit.process.base_processor import DatasetProcessor
 
 
 # Map dimension letters to indices in ZYX order
@@ -12,173 +13,181 @@ DIM_MAP = {'Z': 0, 'Y': 1, 'X': 2}
 EPS = 1e-3
 
 
-def check_sample(args):
-    image_path, label_path, cfg = args
-    name = os.path.basename(image_path)
-    try:
-        img = sitk.ReadImage(image_path)
-        img = sitk.DICOMOrient(img, "LPI")
-    except Exception as e:
-        return (name, [], [], [f"read error: {e}"])
+class CheckProcessor(DatasetProcessor):
+    def __init__(self, source_folder, cfg, mode, output_dir=None, mp=False):
+        super().__init__(source_folder, mp=mp)
+        self.cfg = cfg
+        self.mode = mode
+        self.output_dir = output_dir
+        self.invalid = []
+        self.valid_names = []
 
-    # size and spacing in ZYX
-    size = list(img.GetSize()[::-1])
-    spacing = list(img.GetSpacing()[::-1])
-    reasons = validate_sample_metadata(size, spacing, cfg)
-    return name, size, spacing, reasons
+    def process_one(self, args):
+        img_path, lbl_path = args
+        name = os.path.basename(img_path)
+        try:
+            img = sitk.ReadImage(img_path)
+            img = sitk.DICOMOrient(img, "LPI")
+        except Exception as e:
+            return (name, [], [], [f"read error: {e}"])
 
+        # size and spacing in ZYX
+        size = list(img.GetSize()[::-1])
+        spacing = list(img.GetSpacing()[::-1])
+        reasons = self.validate_sample_metadata(size, spacing)
+        return name, size, spacing, reasons
 
-def validate_sample_metadata(size, spacing, cfg):
-    """Validate sample metadata against configuration rules"""
-    reasons = []
-    
-    # min/max size checks
-    for i, mn in enumerate(cfg['min_size']):
-        if mn != -1 and size[i] < mn:
-            reasons.append(f"size[{i}]={size[i]} < min_size[{i}]={mn}")
-    for i, mx in enumerate(cfg['max_size']):
-        if mx != -1 and size[i] > mx:
-            reasons.append(f"size[{i}]={size[i]} > max_size[{i}]={mx}")
-    
-    # min/max spacing
-    for i, mn in enumerate(cfg['min_spacing']):
-        if mn != -1 and spacing[i] < mn:
-            reasons.append(f"spacing[{i}]={spacing[i]:.3f} < min_spacing[{i}]={mn}")
-    for i, mx in enumerate(cfg['max_spacing']):
-        if mx != -1 and spacing[i] > mx:
-            reasons.append(f"spacing[{i}]={spacing[i]:.3f} > max_spacing[{i}]={mx}")
-    
-    # same-spacing
-    if cfg['same_spacing']:
-        i0, i1 = cfg['same_spacing']
-        if abs(spacing[i0] - spacing[i1]) > EPS:
-            reasons.append(f"spacing[{i0}]={spacing[i0]:.3f} vs spacing[{i1}]={spacing[i1]:.3f} differ")
-    
-    # same-size
-    if cfg['same_size']:
-        i0, i1 = cfg['same_size']
-        if size[i0] != size[i1]:
-            reasons.append(f"size[{i0}]={size[i0]} vs size[{i1}]={size[i1]} differ")
-    
-    return reasons
+    def validate_sample_metadata(self, size, spacing):
+        """Validate sample metadata against configuration rules"""
+        reasons = []
+        
+        # min/max size checks
+        for i, mn in enumerate(self.cfg['min_size']):
+            if mn != -1 and size[i] < mn:
+                reasons.append(f"size[{i}]={size[i]} < min_size[{i}]={mn}")
+        for i, mx in enumerate(self.cfg['max_size']):
+            if mx != -1 and size[i] > mx:
+                reasons.append(f"size[{i}]={size[i]} > max_size[{i}]={mx}")
+        
+        # min/max spacing
+        for i, mn in enumerate(self.cfg['min_spacing']):
+            if mn != -1 and spacing[i] < mn:
+                reasons.append(f"spacing[{i}]={spacing[i]:.3f} < min_spacing[{i}]={mn}")
+        for i, mx in enumerate(self.cfg['max_spacing']):
+            if mx != -1 and spacing[i] > mx:
+                reasons.append(f"spacing[{i}]={spacing[i]:.3f} > max_spacing[{i}]={mx}")
+        
+        # same-spacing
+        if self.cfg['same_spacing']:
+            i0, i1 = self.cfg['same_spacing']
+            if abs(spacing[i0] - spacing[i1]) > EPS:
+                reasons.append(f"spacing[{i0}]={spacing[i0]:.3f} vs spacing[{i1}]={spacing[i1]:.3f} differ")
+        
+        # same-size
+        if self.cfg['same_size']:
+            i0, i1 = self.cfg['same_size']
+            if size[i0] != size[i1]:
+                reasons.append(f"size[{i0}]={size[i0]} vs size[{i1}]={size[i1]} differ")
+        
+        return reasons
 
-
-def handle_mode_operations(mode, invalid, valid_names, img_dir, lbl_dir, output_dir=None):
-    """Handle operations based on mode (delete/copy/symlink/check)"""
-    if mode == 'delete':
-        for name, reasons in invalid:
-            try:
-                os.remove(os.path.join(img_dir, name))
-                os.remove(os.path.join(lbl_dir, name))
-            except Exception as e:
-                print(f"Error deleting {name}: {e}")
-        print(f"Deleted {len(invalid)} invalid samples")
-                
-    elif mode == 'symlink':
-        if not output_dir:
-            print("Error: output directory required for symlink mode")
-            return
-        
-        out_img_dir = os.path.join(output_dir, 'image')
-        out_lbl_dir = os.path.join(output_dir, 'label')
-        os.makedirs(out_img_dir, exist_ok=True)
-        os.makedirs(out_lbl_dir, exist_ok=True)
-        
-        success_count = 0
-        for name in valid_names:
-            try:
-                src_img = os.path.abspath(os.path.join(img_dir, name))
-                src_lbl = os.path.abspath(os.path.join(lbl_dir, name))
-                dst_img = os.path.join(out_img_dir, name)
-                dst_lbl = os.path.join(out_lbl_dir, name)
-                os.symlink(src_img, dst_img)
-                os.symlink(src_lbl, dst_lbl)
-                success_count += 1
-            except Exception as e:
-                print(f"Error symlinking {name}: {e}")
-        print(f"Symlinked {success_count} valid samples to {output_dir}")
-        
-    elif mode == 'copy':
-        if not output_dir:
-            print("Error: output directory required for copy mode")
-            return
-        
-        import shutil
-        out_img_dir = os.path.join(output_dir, 'image')
-        out_lbl_dir = os.path.join(output_dir, 'label')
-        os.makedirs(out_img_dir, exist_ok=True)
-        os.makedirs(out_lbl_dir, exist_ok=True)
-        
-        success_count = 0
-        for name in valid_names:
-            try:
-                src_img = os.path.join(img_dir, name)
-                src_lbl = os.path.join(lbl_dir, name)
-                dst_img = os.path.join(out_img_dir, name)
-                dst_lbl = os.path.join(out_lbl_dir, name)
-                shutil.copy2(src_img, dst_img)
-                shutil.copy2(src_lbl, dst_lbl)
-                success_count += 1
-            except Exception as e:
-                print(f"Error copying {name}: {e}")
-        print(f"Copied {success_count} valid samples to {output_dir}")
-        
-    else:  # check mode
-        if not invalid:
-            print("All samples conform to the specified rules.")
+    def process(self):
+        # Try to load existing series_meta.json
+        series_meta = load_series_meta(self.source_folder)
+        if series_meta is not None:
+            self.fast_check(series_meta)
         else:
-            print(f"Found {len(invalid)} invalid samples")
+            self.full_check()
 
-
-def fast_check(series_meta:dict[str, dict], cfg, img_dir, lbl_dir, mode, output_dir=None):
-    invalid = []
-    valid_names = []
+        self.handle_mode_operations()
     
-    for name, entry in series_meta.items():
-        size = entry.get('size', [])
-        spacing = entry.get('spacing', [])
+    def full_check(self):
+        """Perform full check when no series_meta.json exists"""
+        pairs = self.find_pairs()
+        series_meta = {}
         
-        reasons = validate_sample_metadata(size, spacing, cfg)
+        if self.mp:
+            with Pool(self.workers) as pool:
+                results = list(tqdm(pool.imap_unordered(self.process_one, pairs),
+                                    total=len(pairs), desc="Checking", dynamic_ncols=True))
+        else:
+            results = []
+            for pair in tqdm(pairs, desc="Checking", dynamic_ncols=True):
+                results.append(self.process_one(pair))
         
-        if reasons:
-            invalid.append((name, reasons))
-            tqdm.write(f"{name}: {'; '.join(reasons)}")
-        else:
-            valid_names.append(name)
-    
-    handle_mode_operations(mode, invalid, valid_names, img_dir, lbl_dir, output_dir)
-    return invalid
+        # Collect results
+        for name, size, spacing, reasons in results:
+            series_meta[name] = {'size': size, 'spacing': spacing}
+            if reasons:
+                self.invalid.append((name, reasons))
+                tqdm.write(f"{name}: {'; '.join(reasons)}")
+            else:
+                self.valid_names.append(name)
+        
+        # Save series_meta.json
+        meta_path = get_series_meta_path(self.source_folder)
+        try:
+            with open(meta_path, 'w') as f:
+                json.dump(series_meta, f, indent=4)
+            print(f"series_meta.json generated with {len(series_meta)} entries.")
+        except Exception as e:
+            print(f"Warning: Could not save series_meta.json: {e}")
 
+    def fast_check(self, series_meta):
+        for name, entry in series_meta.items():
+            size = entry.get('size', [])
+            spacing = entry.get('spacing', [])
+            
+            reasons = self.validate_sample_metadata(size, spacing)
+            
+            if reasons:
+                self.invalid.append((name, reasons))
+                tqdm.write(f"{name}: {'; '.join(reasons)}")
+            else:
+                self.valid_names.append(name)
 
-def full_check(img_dir, lbl_dir, cfg, mp, mode, output_dir=None):
-    # Perform checks and collect metadata in one pass
-    files = [f for f in os.listdir(img_dir) if Path(f).suffix.lower() in ['.mha', '.mhd', '.nii', '.gz']]
-    tasks = [(os.path.join(img_dir, f), os.path.join(lbl_dir, f), cfg) for f in files]
-    invalid = []
-    valid_names = []
-    series_meta = {}
-    
-    # Process all samples
-    if mp:
-        with Pool() as pool:
-            results = list(tqdm(pool.imap_unordered(check_sample, tasks), 
-                              total=len(tasks), desc="Checking", dynamic_ncols=True))
-    else:
-        results = list(tqdm((check_sample(t) for t in tasks), 
-                           total=len(tasks), desc="Checking", dynamic_ncols=True))
-    
-    # Collect results
-    for name, size, spacing, reasons in results:
-        series_meta[name] = {'size': size, 'spacing': spacing}
-        if reasons:
-            invalid.append((name, reasons))
-            tqdm.write(f"{name}: {'; '.join(reasons)}")
-        else:
-            valid_names.append(name)
-    
-    handle_mode_operations(mode, invalid, valid_names, img_dir, lbl_dir, output_dir)
-    return invalid, series_meta
-
+    def handle_mode_operations(self):
+        """Handle operations based on mode (delete/copy/symlink/check)"""
+        if self.mode == 'delete':
+            img_dir = os.path.join(self.source_folder, 'image')
+            lbl_dir = os.path.join(self.source_folder, 'label')
+            for name, reasons in self.invalid:
+                try:
+                    os.remove(os.path.join(img_dir, name))
+                    os.remove(os.path.join(lbl_dir, name))
+                except Exception as e:
+                    print(f"Error deleting {name}: {e}")
+            print(f"Deleted {len(self.invalid)} invalid samples")
+                    
+        elif self.mode == 'symlink':
+            if not self.output_dir:
+                print("Error: output directory required for symlink mode")
+                return
+            
+            out_img_dir = os.path.join(self.output_dir, 'image')
+            out_lbl_dir = os.path.join(self.output_dir, 'label')
+            os.makedirs(out_img_dir, exist_ok=True)
+            os.makedirs(out_lbl_dir, exist_ok=True)
+            
+            success_count = 0
+            for name in self.valid_names:
+                try:
+                    img_src = os.path.join(self.source_folder, 'image', name)
+                    lbl_src = os.path.join(self.source_folder, 'label', name)
+                    os.symlink(img_src, os.path.join(out_img_dir, name))
+                    os.symlink(lbl_src, os.path.join(out_lbl_dir, name))
+                    success_count += 1
+                except Exception as e:
+                    print(f"Error symlinking {name}: {e}")
+            print(f"Symlinked {success_count} valid samples to {self.output_dir}")
+            
+        elif self.mode == 'copy':
+            if not self.output_dir:
+                print("Error: output directory required for copy mode")
+                return
+            out_img_dir = os.path.join(self.output_dir, 'image')
+            out_lbl_dir = os.path.join(self.output_dir, 'label')
+            os.makedirs(out_img_dir, exist_ok=True)
+            os.makedirs(out_lbl_dir, exist_ok=True)
+            
+            success_count = 0
+            for name in self.valid_names:
+                try:
+                    img_src = os.path.join(self.source_folder, 'image', name)
+                    lbl_src = os.path.join(self.source_folder, 'label', name)
+                    import shutil
+                    shutil.copy(img_src, out_img_dir)
+                    shutil.copy(lbl_src, out_lbl_dir)
+                    success_count += 1
+                except Exception as e:
+                    print(f"Error copying {name}: {e}")
+            print(f"Copied {success_count} valid samples to {self.output_dir}")
+            
+        else:  # check mode
+            if not self.invalid:
+                print("All samples conform to the specified rules.")
+            else:
+                print(f"Found {len(self.invalid)} invalid samples")
 
 def main():
     parser = argparse.ArgumentParser(description="Check itk dataset samples (mha) under image/label for size/spacing rules.")
@@ -213,29 +222,8 @@ def main():
     if args.same_size:
         cfg['same_size'] = (DIM_MAP[args.same_size[0]], DIM_MAP[args.same_size[1]])
 
-    img_dir = os.path.join(args.sample_folder, 'image')
-    lbl_dir = os.path.join(args.sample_folder, 'label')
-    if not os.path.isdir(img_dir) or not os.path.isdir(lbl_dir):
-        print(f"Missing 'image' or 'label' subfolders in {args.sample_folder}")
-        exit(1)
-        
-    # Try to load existing series_meta.json
-    series_meta = load_series_meta(args.sample_folder)
-    if series_meta is not None:
-        fast_check(series_meta, cfg, img_dir, lbl_dir, args.mode, args.output)
-        return
-        
-    # Full scan and check, generate metadata
-    invalid, series_meta = full_check(img_dir, lbl_dir, cfg, args.mp, args.mode, args.output)
-    
-    # Save series_meta.json
-    meta_path = get_series_meta_path(args.sample_folder)
-    try:
-        with open(meta_path, 'w') as f:
-            json.dump(series_meta, f, indent=4)
-        print(f"series_meta.json generated with {len(series_meta)} entries.")
-    except Exception as e:
-        print(f"Warning: Could not save series_meta.json: {e}")
+    processor = CheckProcessor(args.sample_folder, cfg, args.mode, args.output, args.mp)
+    processor.process()
 
 
 if __name__ == '__main__':

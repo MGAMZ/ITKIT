@@ -6,73 +6,84 @@ from tqdm import tqdm
 import numpy as np
 import SimpleITK as sitk
 from itkit.io.sitk_toolkit import INTERPOLATOR
+from itkit.process.base_processor import SeparateFoldersProcessor
 
 
-def random_3d_rotate(image:sitk.Image, label:sitk.Image, angle_ranges:Sequence[float]):
-    """
-    Rotate one image-label pair.
-    
-    Args:
-        image (sitk.Image): The input image to rotate.
-        label (sitk.Image): The corresponding label image to rotate.
-        angle_ranges (Sequence[float]):
-            The range of angles (in degrees) for random rotation.
-            Should contain three values corresponding to `Z, Y, X` axis.
-    """
-    
-    radian_angles = [np.deg2rad(random.uniform(-angle_range, angle_range)) 
-                     for angle_range in angle_ranges][::-1]
-    size = image.GetSize()
-    spacing = image.GetSpacing()
-    origin = image.GetOrigin()
-    center_point = [origin[i] + spacing[i] * size[i] / 2.0 
-                    for i in range(3)]
-    
-    transform = sitk.Euler3DTransform()
-    transform.SetCenter(center_point)
-    transform.SetRotation(radian_angles[0], radian_angles[1], radian_angles[2])
+class AugProcessor(SeparateFoldersProcessor):
+    def __init__(self, img_folder, lbl_folder, out_img_folder, out_lbl_folder, num, random_rots, mp=False):
+        super().__init__(img_folder, lbl_folder, out_img_folder, out_lbl_folder, mp)
+        self.num = num
+        self.random_rots = random_rots
 
-    rotated_image = sitk.Resample(
-        image,
-        transform,
-        INTERPOLATOR('image'),
-        -3072
-    )
-    rotated_label = sitk.Resample(
-        label,
-        transform,
-        INTERPOLATOR('label'),
-        0
-    )
-    
-    return rotated_image, rotated_label
+    def process(self):
+        pairs = self.find_pairs()
+        print(f"Found {len(pairs)} matching image-label pairs")
+        if not pairs:
+            return
+        self.process_items(pairs, "Augmenting")
 
+    def random_3d_rotate(self, image, label, angle_ranges):
+        """
+        Rotate one image-label pair.
+        
+        Args:
+            image (sitk.Image): The input image to rotate.
+            label (sitk.Image): The corresponding label image to rotate.
+            angle_ranges (Sequence[float]):
+                The range of angles (in degrees) for random rotation.
+                Should contain three values corresponding to `Z, Y, X` axis.
+        """
+        
+        radian_angles = [np.deg2rad(random.uniform(-angle_range, angle_range)) 
+                         for angle_range in angle_ranges][::-1]
+        size = image.GetSize()
+        spacing = image.GetSpacing()
+        origin = image.GetOrigin()
+        center_point = [origin[i] + spacing[i] * size[i] / 2.0 
+                        for i in range(3)]
+        
+        transform = sitk.Euler3DTransform()
+        transform.SetCenter(center_point)
+        transform.SetRotation(radian_angles[0], radian_angles[1], radian_angles[2])
 
-def process_sample(args):
-    """Processing one sample, act as a worker function."""
-    filename, img_folder, lbl_folder, out_img_folder, out_lbl_folder, num, random_rots = args
-    
-    # Paths
-    img_path = os.path.join(img_folder, filename)
-    lbl_path = os.path.join(lbl_folder, filename)
-    basename = os.path.splitext(filename)[0]
-    
-    # Read
-    image = sitk.ReadImage(img_path)
-    label = sitk.ReadImage(lbl_path)
-    
-    # Multiple augmented samples from source sample.
-    for i in range(num):
-        rotated_image, rotated_label = random_3d_rotate(image, label, random_rots)
-        # save to mha
-        if out_img_folder:
-            aug_img_path = os.path.join(out_img_folder, f"{basename}_{i}.mha")
-            sitk.WriteImage(rotated_image, aug_img_path, True)
-        if out_lbl_folder:
-            aug_lbl_path = os.path.join(out_lbl_folder, f"{basename}_{i}.mha")
-            sitk.WriteImage(rotated_label, aug_lbl_path, True)
-    
-    return filename
+        rotated_image = sitk.Resample(
+            image,
+            transform,
+            INTERPOLATOR('image'),
+            -3072
+        )
+        rotated_label = sitk.Resample(
+            label,
+            transform,
+            INTERPOLATOR('label'),
+            0
+        )
+        
+        return rotated_image, rotated_label
+
+    def process_one(self, args):
+        img_path, lbl_path = args
+        
+        # Paths
+        filename = os.path.basename(img_path)
+        basename = os.path.splitext(filename)[0]
+        
+        # Read
+        image = sitk.ReadImage(img_path)
+        label = sitk.ReadImage(lbl_path)
+        
+        # Multiple augmented samples from source sample.
+        for i in range(self.num):
+            rotated_image, rotated_label = self.random_3d_rotate(image, label, self.random_rots)
+            # save to mha
+            if self.out_img_folder:
+                aug_img_path = os.path.join(self.out_img_folder, f"{basename}_{i}.mha")
+                sitk.WriteImage(rotated_image, aug_img_path, True)
+            if self.out_lbl_folder:
+                aug_lbl_path = os.path.join(self.out_lbl_folder, f"{basename}_{i}.mha")
+                sitk.WriteImage(rotated_label, aug_lbl_path, True)
+        
+        return None  # No metadata for augmentation
 
 
 def parse_args():
@@ -100,32 +111,8 @@ def main():
     common_files = list(img_files.intersection(lbl_files))
     print(f"Found {len(common_files)} matching image-label pairs")
     
-    # Prepare tasks
-    process_args = [
-        (
-            filename,
-            args.img_folder,
-            args.lbl_folder,
-            args.out_img_folder,
-            args.out_lbl_folder,
-            args.num,
-            args.random_rot
-        )
-        for filename in common_files
-    ]
-    
-    if args.mp:
-        with Pool() as pool:
-            list(tqdm(pool.imap_unordered(process_sample, process_args),
-                      total=len(common_files),
-                      desc="Augmenting",
-                      dynamic_ncols=True))
-    else:
-        for arg in tqdm(process_args,
-                        total=len(common_files),
-                        desc="Augmenting",
-                        dynamic_ncols=True):
-            process_sample(arg)
+    processor = AugProcessor(args.img_folder, args.lbl_folder, args.out_img_folder, args.out_lbl_folder, args.num, args.random_rot, args.mp)
+    processor.process()
 
     print("Data augmentation complete")
 
