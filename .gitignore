@@ -133,3 +133,4 @@ work_dirs/
 *.sh~
 
 *.ipynb
+dist/
