@@ -58,7 +58,7 @@ stages:
         scriptType: SH
         script:
           - cd /workspace/ITKIT
-          - export QT_QPA_PLATFORM=offscreen pytest -svm gui
+          - QT_QPA_PLATFORM=offscreen pytest -svm gui
         notify: []
         strategy:
           retry: '0'
