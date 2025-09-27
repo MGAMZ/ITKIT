@@ -1,205 +1,105 @@
-import os, pdb, argparse, json, traceback
-from tqdm import tqdm
-from multiprocessing import Pool
+import os, argparse, json
 
 import numpy as np
 import SimpleITK as sitk
 
+from itkit.process.base_processor import SingleFolderProcessor
+
 DEFAULT_LABEL_DTYPE = np.uint8
 
 
-def extract_one_sample(args):
-    """
-    Extract and remap labels from a single sample image.
+class ExtractProcessor(SingleFolderProcessor):
+    """Processor for extracting and remapping labels"""
     
-    Args `tuple`: (image_itk_path, label_mapping, output_path)
+    def __init__(self,
+                 source_folder: str,
+                 dest_folder: str,
+                 label_mapping: dict[int, int],
+                 recursive: bool = False,
+                 mp: bool = False,
+                 workers: int | None = None):
+        super().__init__(source_folder, dest_folder, mp, workers, recursive)
+        self.label_mapping = label_mapping
     
-    Returns metadata `dict` or `None` if skipped.
-    """
-    # Unpack arguments
-    logs = []
-    image_itk_path, label_mapping, output_path = args
-
-    # Check if output already exists
-    if os.path.exists(output_path):
-        itk_name = os.path.basename(image_itk_path)
-        logs.append(f"Skipping {itk_name}, output exists.")
-        return None, logs
-
-    # Read image
-    try:
-        image_itk = sitk.ReadImage(image_itk_path)
-    except Exception as e:
-        traceback.print_exc()
-        logs.append(f"Error reading {image_itk_path}: {e}")
-        return None, logs
-
-    # Convert to numpy array
-    try:
-        image_array = sitk.GetArrayFromImage(image_itk)
-        # Ensure uint dtype
-        if not np.issubdtype(image_array.dtype, np.unsignedinteger):
-            image_array = image_array.astype(DEFAULT_LABEL_DTYPE)
-    except Exception as e:
-        traceback.print_exc()
-        logs.append(f"Error converting image to array {image_itk_path}: {e}")
-        return None, logs
-
-    # Create output array with same shape, initialized with background (0)
-    output_array = np.zeros_like(image_array, dtype=DEFAULT_LABEL_DTYPE)
-
-    # Apply label mappings
-    original_labels = set()
-    extracted_labels = set()
+    def process_one(self, file_path: str) -> dict | None:
+        """Process one file"""
+        # Determine output path  
+        if self.recursive:
+            rel_path = os.path.relpath(file_path, self.source_folder)
+            output_path = os.path.join(self.dest_folder, rel_path)
+        else:
+            output_path = os.path.join(self.dest_folder, os.path.basename(file_path))
+        
+        # Normalize extension to .mha
+        base_name = os.path.splitext(os.path.basename(output_path))[0]
+        if base_name.endswith('.nii'):
+            base_name = base_name[:-4]
+        output_path = os.path.join(os.path.dirname(output_path), base_name + '.mha')
+        
+        return self._extract_one_sample(file_path, output_path)
     
-    for source_label, target_label in label_mapping.items():
-        mask = (image_array == source_label)
-        if np.any(mask):
-            output_array[mask] = target_label
-            original_labels.add(int(source_label))
-            extracted_labels.add(int(target_label))
+    def _extract_one_sample(self, input_path: str, output_path: str) -> dict | None:
+        """Extract and remap labels from a single sample"""
+        # Check if output already exists
+        if os.path.exists(output_path):
+            return None
 
-    # Convert back to SimpleITK image
-    try:
-        output_itk = sitk.GetImageFromArray(output_array)
-        output_itk.CopyInformation(image_itk)
-    except Exception as e:
-        traceback.print_exc()
-        logs.append(f"Error converting array to image {image_itk_path}: {e}")
-        return None, logs
+        # Read image
+        try:
+            image_itk = sitk.ReadImage(input_path)
+        except Exception as e:
+            print(f"Error reading {input_path}: {e}")
+            return None
 
-    # Write output
-    try:
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        sitk.WriteImage(output_itk, output_path, useCompression=True)
-    except Exception as e:
-        traceback.print_exc()
-        logs.append(f"Error writing {output_path}: {e}")
-        return None, logs
+        # Convert to numpy array
+        try:
+            image_array = sitk.GetArrayFromImage(image_itk)
+            # Ensure uint dtype
+            if not np.issubdtype(image_array.dtype, np.unsignedinteger):
+                image_array = image_array.astype(DEFAULT_LABEL_DTYPE)
+        except Exception as e:
+            print(f"Error converting image to array {input_path}: {e}")
+            return None
 
-    itk_name = os.path.basename(image_itk_path)
-    logs.append(
-        f"Label extraction completed for {itk_name}. "
-        f"Original labels: {sorted(original_labels)} -> Extracted labels: {sorted(extracted_labels)}."
-    )
+        # Create output array with same shape, initialized with background (0)
+        output_array = np.zeros_like(image_array, dtype=DEFAULT_LABEL_DTYPE)
 
-    # Return metadata
-    return {
-        itk_name: {
-            "original_labels": sorted(original_labels),
-            "extracted_labels": sorted(extracted_labels),
-            "mapping": label_mapping,
+        # Apply label mappings
+        original_labels = set()
+        extracted_labels = set()
+        
+        for source_label, target_label in self.label_mapping.items():
+            mask = (image_array == source_label)
+            if np.any(mask):
+                output_array[mask] = target_label
+                original_labels.add(int(source_label))
+                extracted_labels.add(int(target_label))
+
+        # Convert back to SimpleITK image
+        try:
+            output_itk = sitk.GetImageFromArray(output_array)
+            output_itk.CopyInformation(image_itk)
+        except Exception as e:
+            print(f"Error converting array to image {input_path}: {e}")
+            return None
+
+        # Write output
+        try:
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            sitk.WriteImage(output_itk, output_path, useCompression=True)
+        except Exception as e:
+            print(f"Error writing {output_path}: {e}")
+            return None
+
+        # Return metadata
+        name = os.path.basename(input_path)
+        return {name: {
+            "original_labels": sorted(list(original_labels)),
+            "extracted_labels": sorted(list(extracted_labels)),
+            "mapping": {str(k): v for k, v in self.label_mapping.items()},
             "output_shape": output_array.shape,
             "output_dtype": str(output_array.dtype)
-        }
-    }, logs
-
-
-def extract_task(
-    source_folder: str,
-    dest_folder: str,
-    label_mapping: dict,
-    recursive: bool = False,
-    mp: bool = False,
-    workers: int | None = None,
-):
-    """
-    Extract and remap labels from a dataset.
-
-    Args:
-        source_folder (str): The source folder containing .mha files.
-        dest_folder (str): The destination folder for extracted files.
-        label_mapping (dict): Mapping from source labels to target labels.
-        recursive (bool): Whether to recursively process subdirectories.
-        mp (bool): Whether to use multiprocessing.
-        workers (int | None): Number of workers for multiprocessing.
-    """
-    os.makedirs(dest_folder, exist_ok=True)
-    
-    # Collect all image files and relative paths
-    image_paths = []
-    output_paths = []
-    rel_paths = []
-    
-    if recursive:
-        # Recursive mode: traverse all subdirectories
-        for root, dirs, files in os.walk(source_folder):
-            for file in files:
-                if file.endswith((".mha", ".nii", ".nii.gz", ".mhd")):
-                    # Keep directory structure
-                    source_file = os.path.join(root, file)
-                    rel_path = os.path.relpath(source_file, source_folder)
-                    output_file = os.path.join(dest_folder, rel_path)
-                    # Normalize output extension to .mha
-                    output_file = output_file.replace(".nii.gz", ".mha").replace(".nii", ".mha").replace(".mhd", ".mha")
-                    
-                    image_paths.append(source_file)
-                    output_paths.append(output_file)
-                    rel_paths.append(rel_path)
-    else:
-        # Non-recursive mode: top-level only
-        for file in os.listdir(source_folder):
-            if file.endswith((".mha", ".nii", ".nii.gz", ".mhd")):
-                # Normalize output extension to .mha
-                source_file = os.path.join(source_folder, file)
-                output_file = os.path.join(dest_folder, file)
-                output_file = output_file.replace(".nii.gz", ".mha").replace(".nii", ".mha").replace(".mhd", ".mha")
-                
-                image_paths.append(source_file)
-                output_paths.append(output_file)
-                rel_paths.append(file)
-    
-    if not image_paths:
-        tqdm.write("No image files found to process.")
-        return
-    
-    # Build task list
-    task_list = [
-        (image_paths[i], label_mapping, output_paths[i])
-        for i in range(len(image_paths))
-    ]
-
-    # Collect per-sample metadata
-    series_meta = dict()
-    if mp:
-        with (
-            Pool(processes=workers) as pool,
-            tqdm(
-                total=len(image_paths),
-                desc="Extracting labels",
-                leave=True,
-                dynamic_ncols=True,
-            ) as pbar,
-        ):
-            result_fetcher = pool.imap_unordered(func=extract_one_sample, iterable=task_list)
-            for res, logs in result_fetcher:
-                for log in logs:
-                    tqdm.write(log)
-                if res:
-                    series_meta.update(res)
-                pbar.update()
-    else:
-        with tqdm(
-            total=len(image_paths),
-            desc="Extracting labels",
-            leave=True,
-            dynamic_ncols=True,
-        ) as pbar:
-            for task_args in task_list:
-                res, logs = extract_one_sample(task_args)
-                for log in logs:
-                    tqdm.write(log)
-                if res:
-                    series_meta.update(res)
-                pbar.update()
-    
-    # Save per-sample metadata to JSON
-    meta_path = os.path.join(dest_folder, "extract_meta.json")
-    try:
-        with open(meta_path, "w") as f:
-            json.dump(series_meta, f, indent=4)
-    except Exception as e:
-        tqdm.write(f"Warning: Could not save extract meta file: {e}")
+        }}
 
 
 def parse_label_mappings(mapping_strings: list[str]) -> dict:
@@ -273,15 +173,14 @@ def main():
     except Exception as e:
         print(f"Warning: Could not save config file: {e}")
 
-    # Execute
-    extract_task(
-        args.source_folder,
-        args.dest_folder,
-        label_mapping,
-        args.recursive,
-        args.mp,
-        args.workers,
+    # Execute using new processor
+    processor = ExtractProcessor(
+        args.source_folder, args.dest_folder, label_mapping,
+        args.recursive, args.mp, args.workers
     )
+    processor.process()
+    processor.save_meta(os.path.join(args.dest_folder, "extract_meta.json"))
+    
     print(f"Label extraction completed. The extracted dataset is saved in {args.dest_folder}.")
 
 

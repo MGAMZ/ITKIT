@@ -1,47 +1,36 @@
 import os, argparse, pdb
-from glob import glob
-from tqdm import tqdm
 
 import SimpleITK as sitk
+from itkit.process.base_processor import SingleFolderProcessor
 
 
-def convert_to_lpi(args):
-    src_path, dst_path, orient = args
-    try:
-        img = sitk.ReadImage(src_path)
-        lpi_img = sitk.DICOMOrient(img, orient.upper())
-        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-        sitk.WriteImage(lpi_img, dst_path, True)
-    except Exception as e:
-        print(f"Error processing {src_path}: {e}")
-        return
+class OrientProcessor(SingleFolderProcessor):
+    def __init__(self,
+                 source_folder: str,
+                 dest_folder: str,
+                 orient: str,
+                 mp: bool = False,
+                 workers: int | None = None):
+        super().__init__(source_folder, dest_folder, mp, workers, recursive=True)
+        self.orient = orient
 
-
-def process_files(src_dir, dst_dir, orient, use_mp=False):
-    mha_files = [os.path.relpath(f, src_dir) 
-                 for f in glob(os.path.join(src_dir, '**', '*.mha'), recursive=True)]
-    tasks = []
-    for rel_path in mha_files:
-        src_path = os.path.join(src_dir, rel_path)
-        dst_path = os.path.join(dst_dir, rel_path)
+    def process_one(self, file_path: str) -> None:
+        rel_path = os.path.relpath(file_path, self.source_folder)
+        dst_path = os.path.join(self.dest_folder, rel_path)
+        
+        # Skip if target file already exists
         if os.path.exists(dst_path):
             print(f"Target file already exists, skipping: {dst_path}")
-            continue
-        tasks.append((src_path, dst_path, orient))
-
-    if use_mp:
-        from multiprocessing import Pool, cpu_count
-        with Pool(cpu_count()) as pool:
-            for i in tqdm(pool.imap_unordered(convert_to_lpi, tasks),
-                          total=len(tasks),
-                          desc="Converting to LPI",
-                          dynamic_ncols=True):
-                ...
-    else:
-        for arg in tqdm(tasks,
-                        desc="Converting to LPI",
-                        dynamic_ncols=True):
-            convert_to_lpi(arg)
+            return None
+            
+        try:
+            img = sitk.ReadImage(file_path)
+            lpi_img = sitk.DICOMOrient(img, self.orient.upper())
+            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+            sitk.WriteImage(lpi_img, dst_path, True)
+        except Exception as e:
+            print(f"Error processing {file_path}: {e}")
+        return None
 
 
 def main():
@@ -50,6 +39,7 @@ def main():
     parser.add_argument('dst_dir', help='Destination directory')
     parser.add_argument('orient', help='Target orientation (e.g. LPI)')
     parser.add_argument('--mp', action='store_true', help='Use multiprocessing')
+    parser.add_argument("--workers", type=int, default=None, help="The number of workers for multiprocessing.")
     args = parser.parse_args()
 
     if not os.path.isdir(args.src_dir):
@@ -60,7 +50,8 @@ def main():
         print("Source and destination directories cannot be the same!")
         return
 
-    process_files(args.src_dir, args.dst_dir, args.orient, args.mp)
+    processor = OrientProcessor(args.src_dir, args.dst_dir, args.orient, args.mp, args.workers)
+    processor.process("Orienting files")
 
 
 
