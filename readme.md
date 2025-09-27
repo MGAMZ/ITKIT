@@ -319,6 +319,8 @@ The codes are at `models`.
 
 ### Dataset
 
+For the following datasets, we provide restructure scripts to convert them from the official released structure to a consistent structure, which can be used by our extensions with the same API. You may find the scripts like: `itkit/dataset/<dataset_name>/convert_<format>.py`.
+
 1. **[AdbdomenCT1K](https://ieeexplore.ieee.org/document/9497733)**: J. Ma et al., "AbdomenCT-1K: Is Abdominal Organ Segmentation a Solved Problem?," in IEEE Transactions on Pattern Analysis and Machine Intelligence, vol. 44, no. 10, pp. 6695-6714, 1 Oct. 2022, doi: 10.1109/TPAMI.2021.3100536.
 2. **[BraTs2024](https://arxiv.org/abs/2405.18368)**: Maria Correia de Verdier, et al., "The 2024 Brain Tumor Segmentation (BraTS) Challenge: Glioma Segmentation on Post-treatment MRI," arXiv preprint arXiv:2405.18368, 2024.
 3. **[CT_ORG](https://www.nature.com/articles/s41597-020-00715-8)**: Rister, B., Yi, D., Shivakumar, K. et al. CT-ORG, a new dataset for multiple organ segmentation in computed tomography. Sci Data 7, 381 (2020). https://doi.org/10.1038/s41597-020-00715-8.
