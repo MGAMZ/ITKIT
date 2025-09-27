@@ -1,6 +1,5 @@
 import os, argparse, json, pdb
 from pathlib import Path
-from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 
 import numpy as np
@@ -9,18 +8,34 @@ from itkit.process.base_processor import DatasetProcessor
 
 
 class PatchProcessor(DatasetProcessor):
-    def __init__(self, source_folder, dst_folder, patch_size, patch_stride, min_fg, still_save, mp=False):
-        super().__init__(source_folder, dst_folder, mp)
+    def __init__(self,
+                 source_folder: Path | str,
+                 dst_folder: Path | str,
+                 patch_size: int | list[int],
+                 patch_stride: int | list[int],
+                 min_fg: float,
+                 still_save: bool,
+                 mp: bool = False,
+                 workers: int | None = None):
+        super().__init__(str(source_folder), str(dst_folder), mp, workers, recursive=True) # Patch extraction is inherently recursive
         self.patch_size = patch_size
         self.patch_stride = patch_stride
         self.min_fg = min_fg
         self.still_save = still_save
 
-    def extract_patches(self, image, label, patch_size, patch_stride, minimum_foreground_ratio, still_save_when_no_label):
+    def extract_patches(self,
+                        image: sitk.Image,
+                        label: sitk.Image | None,
+                        patch_size: int | list[int],
+                        patch_stride: int | list[int],
+                        minimum_foreground_ratio: float,
+                        still_save_when_no_label: bool) -> list[tuple[sitk.Image, sitk.Image | None]]:
         # Simplified version
         no_label = (label is None)
         img_arr = sitk.GetArrayFromImage(image)
-        if not no_label:
+        if no_label:
+            lbl_arr = None
+        else:
             lbl_arr = sitk.GetArrayFromImage(label)
         
         def to_triplet(x):
@@ -57,6 +72,7 @@ class PatchProcessor(DatasetProcessor):
                     if no_label:
                         if not still_save_when_no_label:
                             save = False
+                        lbl_patch_np = None
                     else:
                         lbl_patch_np = lbl_arr[z:z+pZ, y:y+pY, x:x+pX]
                         fg_ratio = np.sum(lbl_patch_np > 0) / lbl_patch_np.size
@@ -85,7 +101,7 @@ class PatchProcessor(DatasetProcessor):
                         patches.append((img_patch, lbl_patch))
         return patches
 
-    def process_one(self, args):
+    def process_one(self, args: tuple[str, str]) -> dict | None:
         img_path, lbl_path = args
         case_name = Path(img_path).stem
 
@@ -126,7 +142,7 @@ class PatchProcessor(DatasetProcessor):
             tqdm.write(f"Failed processing case {case_name}: {e}")
             return None
 
-    def is_valid_sample(self, itk_img, itk_lbl):
+    def is_valid_sample(self, itk_img: sitk.Image, itk_lbl: sitk.Image) -> bool:
         img_size = itk_img.GetSize()
         lbl_size = itk_lbl.GetSize()
         if not np.allclose(img_size, lbl_size, atol=1.5):
@@ -161,14 +177,24 @@ def parse_args():
                         help='If label missing, still extract patches unconditionally')
     parser.add_argument('--mp', action='store_true',
                         help='Use multiprocessing to process cases')
+    parser.add_argument("--workers", type=int, default=None, help="The number of workers for multiprocessing.")
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
     
-    processor = PatchProcessor(args.src_folder, args.dst_folder, args.patch_size, args.patch_stride, args.minimum_foreground_ratio, args.still_save_when_no_label, args.mp)
-    processor.process()
+    processor = PatchProcessor(
+        source_folder = args.src_folder,
+        dst_folder = args.dst_folder,
+        patch_size = args.patch_size,
+        patch_stride = args.patch_stride,
+        min_fg = args.minimum_foreground_ratio,
+        still_save = args.still_save_when_no_label,
+        mp = args.mp,
+        workers = args.workers
+    )
+    processor.process("Patching cases")
     
     # Write overall crop metadata
     valid_cases = list(processor.meta.keys())

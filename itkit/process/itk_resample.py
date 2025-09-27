@@ -1,4 +1,5 @@
 import os, pdb, argparse, json
+from collections.abc import Sequence
 
 import numpy as np
 import SimpleITK as sitk
@@ -10,7 +11,7 @@ from itkit.process.base_processor import DatasetProcessor, SingleFolderProcessor
 class _ResampleMixin:
     """Mixin class for shared resampling logic."""
     
-    def resample_one_sample(self, input_path, field, output_path):
+    def resample_one_sample(self, input_path:str, field:str, output_path:str):
         """Resample a single sample"""
         if os.path.exists(output_path):
             return None
@@ -61,7 +62,7 @@ class _ResampleMixin:
         
         return {name: {"spacing": final_spacing, "size": final_size, "origin": final_origin}}
 
-    def _apply_spacing_size_rules(self, image_itk, field):
+    def _apply_spacing_size_rules(self, image_itk:sitk.Image, field:str):
         """Apply spacing and size resampling rules"""
         # Stage 1: Spacing resample
         orig_spacing = image_itk.GetSpacing()[::-1]
@@ -76,6 +77,7 @@ class _ResampleMixin:
         image_after_spacing = image_itk
         if needs_spacing_resample and not np.allclose(effective_spacing, orig_spacing):
             image_after_spacing = sitk_resample_to_spacing(image_itk, effective_spacing, field)
+        assert isinstance(image_after_spacing, sitk.Image), "Resampling failed, result is not a SimpleITK image."
         
         # Stage 2: Size resample
         current_size = image_after_spacing.GetSize()[::-1]
@@ -100,8 +102,15 @@ class _ResampleMixin:
 class ResampleProcessor(DatasetProcessor, _ResampleMixin):
     """Processor for resampling datasets with image/label structure"""
     
-    def __init__(self, source_folder, dest_folder, target_spacing, target_size, 
-                 recursive=False, mp=False, workers=None, target_folder=None):
+    def __init__(self,
+                 source_folder: str,
+                 dest_folder: str,
+                 target_spacing: Sequence[float],
+                 target_size: Sequence[float],
+                 recursive: bool = False,
+                 mp: bool = False,
+                 workers: int | None = None,
+                 target_folder: str | None = None):
         super().__init__(source_folder, dest_folder, mp, workers, recursive)
         self.target_spacing = target_spacing
         self.target_size = target_size
@@ -109,6 +118,7 @@ class ResampleProcessor(DatasetProcessor, _ResampleMixin):
     
     def process_one(self, args):
         """Process one image-label pair"""
+        assert self.dest_folder is not None, "Destination folder must be specified."
         img_path, lbl_path = args
         
         # Process image
@@ -124,20 +134,29 @@ class ResampleProcessor(DatasetProcessor, _ResampleMixin):
         )
         
         return {"image": img_meta, "label": lbl_meta} if img_meta or lbl_meta else None
-    
+
 
 class SingleResampleProcessor(SingleFolderProcessor, _ResampleMixin):
     """Processor for resampling single folders (image or label mode)"""
     
-    def __init__(self, source_folder, dest_folder, target_spacing, target_size, field,
-                 recursive=False, mp=False, workers=None, target_folder=None):
+    def __init__(self,
+                 source_folder: str,
+                 dest_folder: str,
+                 target_spacing: Sequence[float],
+                 target_size: Sequence[float],
+                 field,
+                 recursive: bool = False,
+                 mp: bool = False,
+                 workers: int | None = None,
+                 target_folder: str | None = None):
         super().__init__(source_folder, dest_folder, mp, workers, recursive)
         self.target_spacing = target_spacing
         self.target_size = target_size
         self.field = field
         self.target_folder = target_folder
+        self.dest_folder: str
     
-    def process_one(self, file_path):
+    def process_one(self, file_path:str):
         """Process one file"""
         # Determine output path
         if self.recursive:
@@ -150,7 +169,7 @@ class SingleResampleProcessor(SingleFolderProcessor, _ResampleMixin):
         output_path = output_path.replace(".nii.gz", ".mha").replace(".nii", ".mha").replace(".mhd", ".mha")
         
         return self.resample_one_sample(file_path, self.field, output_path)
-    
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Resample a dataset with dimension-wise spacing/size rules or target image.")
@@ -177,56 +196,51 @@ def parse_args():
 
 def validate_and_prepare_args(args):
     """Validate arguments and prepare resampling parameters."""
-    try:
-        # Check mutual exclusivity between target_folder and spacing/size
-        target_specified = args.target_folder is not None
-        spacing_specified = any(s != "-1" for s in args.spacing)
-        size_specified = any(s != "-1" for s in args.size)
-        
-        if target_specified and (spacing_specified or size_specified):
-            raise ValueError("--target-folder is mutually exclusive with --spacing and --size. Use either --target-folder or --spacing/--size, not both.")
-        
-        if target_specified:
-            # Use target_folder mode
-            if not os.path.isdir(args.target_folder):
-                raise ValueError(f"Target folder does not exist: {args.target_folder}")
-            # Set invalid placeholders for spacing/size
-            target_spacing = [-1, -1, -1]
-            target_size = [-1, -1, -1]
-        else:
-            # Use spacing/size mode
-            target_spacing = [float(s) for s in args.spacing]
-            target_size = [int(s) for s in args.size]
+    # Check mutual exclusivity between target_folder and spacing/size
+    target_specified = args.target_folder is not None
+    spacing_specified = any(s != "-1" for s in args.spacing)
+    size_specified = any(s != "-1" for s in args.size)
+    
+    if target_specified and (spacing_specified or size_specified):
+        raise ValueError("--target-folder is mutually exclusive with --spacing and --size. Use either --target-folder or --spacing/--size, not both.")
+    
+    if target_specified:
+        # Use target_folder mode
+        if not os.path.isdir(args.target_folder):
+            raise ValueError(f"Target folder does not exist: {args.target_folder}")
+        # Set invalid placeholders for spacing/size
+        target_spacing = [-1, -1, -1]
+        target_size = [-1, -1, -1]
+    else:
+        # Use spacing/size mode
+        target_spacing = [float(s) for s in args.spacing]
+        target_size = [int(s) for s in args.size]
 
-            # Check list lengths match dimension count
-            if len(target_spacing) != 3:
-                raise ValueError(f"--spacing must have {3} values (received {len(target_spacing)})")
-            if len(target_size) != 3:
-                 raise ValueError(f"--size must have {3} values (received {len(target_size)})")
+        # Check list lengths match dimension count
+        if len(target_spacing) != 3:
+            raise ValueError(f"--spacing must have {3} values (received {len(target_spacing)})")
+        if len(target_size) != 3:
+                raise ValueError(f"--size must have {3} values (received {len(target_size)})")
 
-            # Validate per-dimension exclusivity
-            for i in range(3):
-                if target_spacing[i] != -1 and target_size[i] != -1:
-                    raise ValueError(f"Cannot specify both spacing and size for dimension {i}.")
-                    
-            # Ensure at least one resampling rule is specified
-            if all(s == -1 for s in target_spacing) and all(sz == -1 for sz in target_size):
-                print("Warning: No spacing or size specified, skipping resampling.")
-                return None, None
+        # Validate per-dimension exclusivity
+        for i in range(3):
+            if target_spacing[i] != -1 and target_size[i] != -1:
+                raise ValueError(f"Cannot specify both spacing and size for dimension {i}.")
+                
+        # Ensure at least one resampling rule is specified
+        if all(s == -1 for s in target_spacing) and all(sz == -1 for sz in target_size):
+            print("Warning: No spacing or size specified, skipping resampling.")
+            return None, None
 
-        # Print configuration
-        print(f"Resampling {args.source_folder} -> {args.dest_folder}")
-        if target_specified:
-            print(f"  Target Folder: {args.target_folder}")
-        else:
-            print(f"  Spacing: {target_spacing} | Size: {target_size}")
-        print(f"  Mode: {args.mode} | Recursive: {args.recursive} | Multiprocessing: {args.mp} | Workers: {args.workers}")
-        
-        return target_spacing, target_size
-
-    except ValueError as e:
-        print(f"Error parsing arguments: {e}")
-        return None, None
+    # Print configuration
+    print(f"Resampling {args.source_folder} -> {args.dest_folder}")
+    if target_specified:
+        print(f"  Target Folder: {args.target_folder}")
+    else:
+        print(f"  Spacing: {target_spacing} | Size: {target_size}")
+    print(f"  Mode: {args.mode} | Recursive: {args.recursive} | Multiprocessing: {args.mp} | Workers: {args.workers}")
+    
+    return target_spacing, target_size
 
 
 def main():

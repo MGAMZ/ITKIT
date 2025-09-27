@@ -428,6 +428,7 @@ def merge_masks(mhas: list[str]|list[sitk.Image], dtype=np.uint8) -> sitk.Image:
     :return: Merged SimpleITK image (voxel value = class index, background=0).
     """
     # 初始化一个空的掩码图像
+    mask = None
     merged_mask = None
 
     # 遍历mha文件路径列表中的每个文件

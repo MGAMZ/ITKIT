@@ -1,6 +1,4 @@
 import os, argparse, json, pdb
-from pathlib import Path
-from multiprocessing import Pool
 from tqdm import tqdm
 
 import SimpleITK as sitk
@@ -14,30 +12,37 @@ EPS = 1e-3
 
 
 class CheckProcessor(DatasetProcessor):
-    def __init__(self, source_folder, cfg, mode, output_dir=None, mp=False):
-        super().__init__(source_folder, mp=mp)
+    def __init__(self,
+                 source_folder: str,
+                 cfg: dict,
+                 mode: str,
+                 output_dir: str | None = None,
+                 mp: bool = False,
+                 workers: int | None = None):
+        super().__init__(source_folder, output_dir, mp, workers, recursive=True)
         self.cfg = cfg
         self.mode = mode
         self.output_dir = output_dir
         self.invalid = []
         self.valid_names = []
 
-    def process_one(self, args):
+    def process_one(self, args: tuple[str, str]) -> dict | None:
         img_path, lbl_path = args
         name = os.path.basename(img_path)
         try:
             img = sitk.ReadImage(img_path)
             img = sitk.DICOMOrient(img, "LPI")
         except Exception as e:
-            return (name, [], [], [f"read error: {e}"])
+            reasons = [f"read error: {e}"]
+            return {name: {"size": [], "spacing": [], "reasons": reasons}}
 
         # size and spacing in ZYX
         size = list(img.GetSize()[::-1])
         spacing = list(img.GetSpacing()[::-1])
         reasons = self.validate_sample_metadata(size, spacing)
-        return name, size, spacing, reasons
+        return {name: {"size": size, "spacing": spacing, "reasons": reasons}}
 
-    def validate_sample_metadata(self, size, spacing):
+    def validate_sample_metadata(self, size: list[int], spacing: list[float]) -> list[str]:
         """Validate sample metadata against configuration rules"""
         reasons = []
         
@@ -75,34 +80,33 @@ class CheckProcessor(DatasetProcessor):
         # Try to load existing series_meta.json
         series_meta = load_series_meta(self.source_folder)
         if series_meta is not None:
+            print("Found existing series_meta.json, performing fast check.")
             self.fast_check(series_meta)
         else:
+            print("No series_meta.json found, performing full check.")
             self.full_check()
 
         self.handle_mode_operations()
     
     def full_check(self):
         """Perform full check when no series_meta.json exists"""
-        pairs = self.find_pairs()
+        pairs = self.get_items_to_process()
         series_meta = {}
         
-        if self.mp:
-            with Pool(self.workers) as pool:
-                results = list(tqdm(pool.imap_unordered(self.process_one, pairs),
-                                    total=len(pairs), desc="Checking", dynamic_ncols=True))
-        else:
-            results = []
-            for pair in tqdm(pairs, desc="Checking", dynamic_ncols=True):
-                results.append(self.process_one(pair))
+        results = self.process_items(pairs, "Checking files")
         
         # Collect results
-        for name, size, spacing, reasons in results:
-            series_meta[name] = {'size': size, 'spacing': spacing}
-            if reasons:
-                self.invalid.append((name, reasons))
-                tqdm.write(f"{name}: {'; '.join(reasons)}")
-            else:
-                self.valid_names.append(name)
+        for result in results:
+            if result is None:
+                continue
+            
+            for name, data in result.items():
+                series_meta[name] = {'size': data['size'], 'spacing': data['spacing']}
+                if data['reasons']:
+                    self.invalid.append((name, data['reasons']))
+                    tqdm.write(f"{name}: {'; '.join(data['reasons'])}")
+                else:
+                    self.valid_names.append(name)
         
         # Save series_meta.json
         meta_path = get_series_meta_path(self.source_folder)
@@ -113,7 +117,7 @@ class CheckProcessor(DatasetProcessor):
         except Exception as e:
             print(f"Warning: Could not save series_meta.json: {e}")
 
-    def fast_check(self, series_meta):
+    def fast_check(self, series_meta: dict):
         for name, entry in series_meta.items():
             size = entry.get('size', [])
             spacing = entry.get('spacing', [])
@@ -201,6 +205,7 @@ def main():
     parser.add_argument("--same-spacing", nargs=2, choices=['X','Y','Z'], help="Two dims that must have same spacing")
     parser.add_argument("--same-size", nargs=2, choices=['X','Y','Z'], help="Two dims that must have same size")
     parser.add_argument("--mp", action="store_true", help="Use multiprocessing")
+    parser.add_argument("--workers", type=int, default=None, help="The number of workers for multiprocessing.")
     args = parser.parse_args()
 
     # Validate arguments
@@ -222,7 +227,7 @@ def main():
     if args.same_size:
         cfg['same_size'] = (DIM_MAP[args.same_size[0]], DIM_MAP[args.same_size[1]])
 
-    processor = CheckProcessor(args.sample_folder, cfg, args.mode, args.output, args.mp)
+    processor = CheckProcessor(args.sample_folder, cfg, args.mode, args.output, args.mp, args.workers)
     processor.process()
 
 

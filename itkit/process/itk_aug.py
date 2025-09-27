@@ -1,7 +1,4 @@
 import os, argparse, random, pdb
-from collections.abc import Sequence
-from multiprocessing import Pool
-from tqdm import tqdm
 
 import numpy as np
 import SimpleITK as sitk
@@ -10,19 +7,27 @@ from itkit.process.base_processor import SeparateFoldersProcessor
 
 
 class AugProcessor(SeparateFoldersProcessor):
-    def __init__(self, img_folder, lbl_folder, out_img_folder, out_lbl_folder, num, random_rots, mp=False):
-        super().__init__(img_folder, lbl_folder, out_img_folder, out_lbl_folder, mp)
+    def __init__(self,
+                 img_folder: str,
+                 lbl_folder: str,
+                 out_img_folder: str | None,
+                 out_lbl_folder: str | None,
+                 num: int,
+                 random_rots: list[int],
+                 mp: bool = False,
+                 workers: int | None = None):
+        super().__init__(img_folder, lbl_folder, out_img_folder, out_lbl_folder, mp, workers)
         self.num = num
         self.random_rots = random_rots
 
     def process(self):
-        pairs = self.find_pairs()
+        pairs = self.get_items_to_process()
         print(f"Found {len(pairs)} matching image-label pairs")
         if not pairs:
             return
         self.process_items(pairs, "Augmenting")
 
-    def random_3d_rotate(self, image, label, angle_ranges):
+    def random_3d_rotate(self, image: sitk.Image, label: sitk.Image, angle_ranges: list[float]) -> tuple[sitk.Image, sitk.Image]:
         """
         Rotate one image-label pair.
         
@@ -61,7 +66,7 @@ class AugProcessor(SeparateFoldersProcessor):
         
         return rotated_image, rotated_label
 
-    def process_one(self, args):
+    def process_one(self, args: tuple[str, str]) -> None:
         img_path, lbl_path = args
         
         # Paths
@@ -94,6 +99,7 @@ def parse_args():
     parser.add_argument('-olbl', '--out-lbl-folder', type=str, default=None, help='Optional folder for augmented output label mhas.')
     parser.add_argument('-n', '--num', type=int, default=1, help='Number of augmented samples of each source sample.')
     parser.add_argument('--mp', action='store_true', help='Enable multiprocessing, the number of workers are `None`.')
+    parser.add_argument("--workers", type=int, default=None, help="The number of workers for multiprocessing.")
     parser.add_argument('--random-rot', type=int, nargs=3, default=None, help='Maximum ramdom rotation degree on `Z Y X` axis.')
     return parser.parse_args()
 
@@ -105,13 +111,7 @@ def main():
     if args.out_lbl_folder:
         os.makedirs(args.out_lbl_folder, exist_ok=True)
     
-    # Fetch files
-    img_files = set(f for f in os.listdir(args.img_folder) if f.endswith('.mha'))
-    lbl_files = set(f for f in os.listdir(args.lbl_folder) if f.endswith('.mha'))
-    common_files = list(img_files.intersection(lbl_files))
-    print(f"Found {len(common_files)} matching image-label pairs")
-    
-    processor = AugProcessor(args.img_folder, args.lbl_folder, args.out_img_folder, args.out_lbl_folder, args.num, args.random_rot, args.mp)
+    processor = AugProcessor(args.img_folder, args.lbl_folder, args.out_img_folder, args.out_lbl_folder, args.num, args.random_rot, args.mp, args.workers)
     processor.process()
 
     print("Data augmentation complete")

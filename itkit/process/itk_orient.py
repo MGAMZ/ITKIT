@@ -1,17 +1,20 @@
 import os, argparse, pdb
-from glob import glob
-from tqdm import tqdm
 
 import SimpleITK as sitk
 from itkit.process.base_processor import SingleFolderProcessor
 
 
 class OrientProcessor(SingleFolderProcessor):
-    def __init__(self, source_folder, dest_folder, orient, mp=False):
-        super().__init__(source_folder, dest_folder, mp, recursive=True)
+    def __init__(self,
+                 source_folder: str,
+                 dest_folder: str,
+                 orient: str,
+                 mp: bool = False,
+                 workers: int | None = None):
+        super().__init__(source_folder, dest_folder, mp, workers, recursive=True)
         self.orient = orient
 
-    def process_one(self, file_path):
+    def process_one(self, file_path: str) -> None:
         rel_path = os.path.relpath(file_path, self.source_folder)
         dst_path = os.path.join(self.dest_folder, rel_path)
         
@@ -36,6 +39,7 @@ def main():
     parser.add_argument('dst_dir', help='Destination directory')
     parser.add_argument('orient', help='Target orientation (e.g. LPI)')
     parser.add_argument('--mp', action='store_true', help='Use multiprocessing')
+    parser.add_argument("--workers", type=int, default=None, help="The number of workers for multiprocessing.")
     args = parser.parse_args()
 
     if not os.path.isdir(args.src_dir):
@@ -46,8 +50,8 @@ def main():
         print("Source and destination directories cannot be the same!")
         return
 
-    processor = OrientProcessor(args.src_dir, args.dst_dir, args.orient, args.mp)
-    processor.process()
+    processor = OrientProcessor(args.src_dir, args.dst_dir, args.orient, args.mp, args.workers)
+    processor.process("Orienting files")
 
 
 

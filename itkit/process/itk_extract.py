@@ -1,6 +1,4 @@
-import os
-import argparse
-import json
+import os, argparse, json
 
 import numpy as np
 import SimpleITK as sitk
@@ -13,12 +11,17 @@ DEFAULT_LABEL_DTYPE = np.uint8
 class ExtractProcessor(SingleFolderProcessor):
     """Processor for extracting and remapping labels"""
     
-    def __init__(self, source_folder, dest_folder, label_mapping, 
-                 recursive=False, mp=False, workers=None):
+    def __init__(self,
+                 source_folder: str,
+                 dest_folder: str,
+                 label_mapping: dict[int, int],
+                 recursive: bool = False,
+                 mp: bool = False,
+                 workers: int | None = None):
         super().__init__(source_folder, dest_folder, mp, workers, recursive)
         self.label_mapping = label_mapping
     
-    def process_one(self, file_path):
+    def process_one(self, file_path: str) -> dict | None:
         """Process one file"""
         # Determine output path  
         if self.recursive:
@@ -35,7 +38,7 @@ class ExtractProcessor(SingleFolderProcessor):
         
         return self._extract_one_sample(file_path, output_path)
     
-    def _extract_one_sample(self, input_path, output_path):
+    def _extract_one_sample(self, input_path: str, output_path: str) -> dict | None:
         """Extract and remap labels from a single sample"""
         # Check if output already exists
         if os.path.exists(output_path):
@@ -91,9 +94,9 @@ class ExtractProcessor(SingleFolderProcessor):
         # Return metadata
         name = os.path.basename(input_path)
         return {name: {
-            "original_labels": sorted(original_labels),
-            "extracted_labels": sorted(extracted_labels),
-            "mapping": self.label_mapping,
+            "original_labels": sorted(list(original_labels)),
+            "extracted_labels": sorted(list(extracted_labels)),
+            "mapping": {str(k): v for k, v in self.label_mapping.items()},
             "output_shape": output_array.shape,
             "output_dtype": str(output_array.dtype)
         }}
