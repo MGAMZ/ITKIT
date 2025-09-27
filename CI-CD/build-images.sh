@@ -70,7 +70,7 @@ for tag in "${TAGS[@]}"; do
   docker build \
     --build-arg PYTHON_TAG="${tag}" \
     --build-arg ITKIT_REF="${ITKIT_REF}" \
-    -t "${image_tag}" \
+    -t "py${image_tag}" \
     -f "${DOCKERFILE}" .
   echo "==> Done: ${image_tag}"
   echo
