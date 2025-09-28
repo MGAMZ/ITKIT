@@ -40,6 +40,12 @@ Above all, the `process` module is the core of this repo, providing several comm
 
 ## Installation
 
+### From PyPI
+
+Just run: `pip install itkit[medical_vision]`
+
+### From GitHub Repo
+
 First, clone the repository:
 
 ```bash
@@ -49,7 +55,7 @@ git clone https://gitee.com/MGAM/ITKIT.git
 Then, install the package:
 
 ```bash
-pip install ITKIT
+pip install ITKIT[medical_vision]
 ```
 
 Optional dependencies:
