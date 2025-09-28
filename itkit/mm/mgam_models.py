@@ -3,7 +3,7 @@ import logging
 import copy
 from abc import abstractmethod
 from tqdm import tqdm
-from typing_extensions import Sequence
+from collections.abc import Sequence
 
 import torch
 from torch import Tensor

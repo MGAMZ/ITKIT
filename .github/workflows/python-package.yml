@@ -2,7 +2,7 @@ name: ITKIT CI
 
 on:
   push:
-    branches: [ "v3", "Test-GithubAction", "dev/main" ]
+    branches: [ "v3", "Test-GithubAction"]
   pull_request:
     branches: [ "v3", "Test-GithubAction", "dev/main" ]
 
