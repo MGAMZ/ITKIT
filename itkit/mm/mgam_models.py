@@ -33,6 +33,67 @@ class InferenceConfig:
     patch_stride: tuple | None = None
     accumulate_device: str = 'cuda'
     forward_device: str = 'cuda'
+    # When accumulate and forward devices differ, a chunk size along the last
+    # dimension must be provided to avoid OOM during argmax transfer.
+    argmax_batchsize: int | None = None
+
+
+class ArgmaxProcessor:
+    """Device-aware argmax with optional chunking along the last dimension.
+    
+    Advantages:
+    - Avoids OOM on device when handling large tensors.
+    - ArgMax can utilize GPU acceleration instead of fully relying on CPU.
+
+    Behavior:
+    - Always compute argmax on forward_device.
+    - If accumulate_device and forward_device are the same, perform argmax on
+      the full tensor directly.
+    - If they differ, require `argmax_batchsize` to chunk along the last
+      dimension to avoid OOM; per-chunk results are transferred back and
+      concatenated on accumulate_device.
+    """
+
+    def __init__(self, config: InferenceConfig) -> None:
+        self.config = config
+
+    def argmax(self, logits: Tensor, dim: int = 1, keepdim: bool = True) -> Tensor:
+        acc_dev = torch.device(self.config.accumulate_device)
+        fwd_dev = torch.device(self.config.forward_device)
+
+        # Fast path: same device
+        if acc_dev.type == fwd_dev.type:
+            # Ensure tensor on forward/accum device (same type)
+            t = logits.to(fwd_dev)
+            preds = torch.argmax(t, dim=dim, keepdim=keepdim).to(torch.uint8)
+            # Return on accumulate device (identical type)
+            return preds.to(acc_dev)
+
+        # Different devices: require chunk size
+        chunk_size = self.config.argmax_batchsize
+        if chunk_size is None or not isinstance(chunk_size, int) or chunk_size <= 0:
+            raise ValueError(
+                "When accumulate_device and forward_device differ, 'argmax_batchsize' "
+                "must be a positive int in InferenceConfig to enable chunked argmax."
+            )
+
+        # Chunk along the last dimension
+        # Temp batch is transferred to forward device for argmax,
+        # then results are transferred back to accumulate device.
+        last_dim = logits.dim() - 1
+        L = logits.shape[-1]
+        chunks: list[Tensor] = []
+        for start in range(0, L, chunk_size):
+            end = min(start + chunk_size, L)
+            slc = [slice(None)] * logits.dim()
+            slc[last_dim] = slice(start, end)
+            t_chunk = logits[tuple(slc)].to(fwd_dev)
+            preds_chunk = torch.argmax(t_chunk, dim=dim, keepdim=keepdim).to(torch.uint8)
+            chunks.append(preds_chunk.to(acc_dev))
+
+        # Concatenate back along the last dimension on accumulate device
+        pred = torch.cat(chunks, dim=last_dim if keepdim is False else last_dim)
+        return pred
 
 
 class mgam_Seg_Lite(BaseModel):
@@ -211,7 +272,10 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
             
             # Generate prediction mask
             if out_channels > 1:  # 多分类情况
-                i_seg_pred = i_seg_logits.argmax(dim=0, keepdim=True)
+                # Argmax on forward_device with optional chunking
+                argmax_proc = ArgmaxProcessor(self.inference_config)
+                # We want keepdim=True to maintain [1, H, W]
+                i_seg_pred = argmax_proc.argmax(i_seg_logits, dim=0, keepdim=True)
             else:  # 二分类情况
                 assert self.binary_segment_threshold is not None, \
                     f"二分类模型(输出通道数={out_channels})必须设置binary_segment_threshold，" \
@@ -326,7 +390,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
                 crop_img = padded_inputs[:, :, h1:h2, w1:w2]
 
                 # Run forward on patch (ensure forward device consistency)
-                crop_seg_logit = self._forward(crop_img.to(self.inference_config.forward_device, non_blocking=True))
+                crop_seg_logit = self._forward(crop_img.to(self.inference_config.forward_device))
 
                 # Move results to accumulation device and sum
                 crop_seg_logit_on_device = crop_seg_logit.to(accumulate_device)
@@ -410,7 +474,9 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                 
                 # Generate prediction volume
                 if out_channels > 1:  # Multi-class segmentation
-                    i_seg_pred = i_seg_logits.argmax(dim=0, keepdim=True)
+                    # Argmax on forward_device with optional chunking
+                    argmax_proc = ArgmaxProcessor(self.inference_config)
+                    i_seg_pred = argmax_proc.argmax(i_seg_logits, dim=0, keepdim=True)
                 else:  # Binary segmentation
                     assert self.binary_segment_threshold is not None, \
                         f"Binary segmentation model (out_channels={out_channels}) must set binary_segment_threshold，" \
@@ -558,7 +624,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             batch_patches = []
             for (z_slice, y_slice, x_slice) in batch_slices:
                 crop_img = padded_inputs[:, :, z_slice, y_slice, x_slice]
-                batch_patches.append(crop_img.to(self.inference_config.forward_device, non_blocking=True))
+                batch_patches.append(crop_img.to(self.inference_config.forward_device))
             batch_patches = torch.cat(batch_patches, dim=0)  # [B, C, z_crop, y_crop, x_crop]
             
             # torch.cuda.synchronize() # Optional: synchronize the data transfer from host to device
@@ -589,111 +655,3 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                                    pad_x_left:x_padded-pad_x_right]
         
         return seg_logits
-
-
-class MomentumAvgModel(torch.nn.Module):
-    def __init__(self,
-                 model: torch.nn.Module,
-                 momentum: float = 0.0002,
-                 gamma: int = 100,
-                 interval: int = 1,
-                 device: torch.device|None = None,
-                 update_buffers: bool = False) -> None:
-        super().__init__()
-        
-        # Check distributed environment
-        self.is_distributed = hasattr(model, 'module')
-        self.is_deepspeed = hasattr(model, 'module') and hasattr(model.module, 'deepspeed')
-        
-        # For DeepSpeed, get the full underlying model parameters
-        if self.is_deepspeed:
-            with model.module.summon_full_params():
-                self.module = copy.deepcopy(model.module).requires_grad_(False)
-        else:
-            target_model = model.module if self.is_distributed else model
-            self.module = copy.deepcopy(target_model).requires_grad_(False)
-            
-        self.interval = interval
-        if device is not None:
-            self.module = self.module.to(device)
-            
-        self.register_buffer('steps', torch.tensor(0, dtype=torch.long, device=device))
-                           
-        self.update_buffers = update_buffers
-        if update_buffers:
-            state_dict = self.module.state_dict()
-            self.avg_parameters = {
-                k: v for k, v in state_dict.items() 
-                if v.numel() > 0
-            }
-        else:
-            params = dict(self.module.named_parameters())
-            self.avg_parameters = {k: v for k, v in params.items() 
-                                   if v.numel() > 0}
-            
-        # Validate momentum parameter range
-        assert 0.0 < momentum < 1.0, f'momentum must be in range (0.0, 1.0) but got {momentum}'
-        if momentum > 0.5:
-            print_log('The value of momentum in EMA is usually a small number,'
-                      'which is different from the conventional notion of '
-                      f'momentum but got {momentum}. Please make sure the '
-                      f'value is correct.',
-                      logger='current', 
-                      level=logging.WARNING)
-        self.momentum = momentum
-        assert gamma > 0, f'gamma must be greater than 0, but got {gamma}'
-        self.gamma = gamma
-
-    def forward(self, *args, **kwargs):
-        """Forward method of the averaged model."""
-        return self.module(*args, **kwargs)
-
-    def _get_current_param(self):
-        if self.update_buffers:
-            return self.module.state_dict()
-        else:
-            return dict(self.module.named_parameters())
-    
-    def update_parameters(self, model: torch.nn.Module) -> None:
-        """Update the parameters of the model. This method will execute the
-        ``avg_func`` to compute the new parameters and update the model's
-        parameters.
-
-        Args:
-            model (nn.Module): The model whose parameters will be averaged.
-        """
-        src_parameters = (
-            model.state_dict()
-            if self.update_buffers else dict(model.named_parameters()))
-        if self.steps == 0:
-            for k, p_avg in self.avg_parameters.items():
-                p_avg.data.copy_(src_parameters[k].data)
-        elif self.steps % self.interval == 0:  # type: ignore
-            for k, p_avg in self.avg_parameters.items():
-                # NOTE handle deepspeed model shred issue, p_avg may be empty here.
-                if p_avg.dtype.is_floating_point and p_avg.shape==src_parameters[k].data.shape:
-                    device = p_avg.device
-                    self.avg_func(p_avg.data,
-                                  src_parameters[k].data.to(device),
-                                  self.steps)
-        if not self.update_buffers:
-            # If not update the buffers,
-            # keep the buffers in sync with the source model.
-            for b_avg, b_src in zip(self.module.buffers(), model.buffers()):
-                b_avg.data.copy_(b_src.data.to(b_avg.device))
-        self.steps += 1  # type: ignore
-
-    def avg_func(self, averaged_param: Tensor, source_param: Tensor,
-                 steps: int) -> None:
-        """Compute the moving average of the parameters using the linear
-        momentum strategy.
-
-        Args:
-            averaged_param (Tensor): The averaged parameters.
-            source_param (Tensor): The source parameters.
-            steps (int): The number of times the parameters have been
-                updated.
-        """
-        momentum = max(self.momentum,
-                       self.gamma / (self.gamma + self.steps.item()))
-        averaged_param.lerp_(source_param, momentum)
