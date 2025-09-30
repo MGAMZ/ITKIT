@@ -7,6 +7,7 @@ from collections.abc import Sequence
 
 import torch
 from torch import Tensor
+from dataclasses import dataclass
 
 from mmengine.logging import print_log
 from mmengine.registry import MODELS
@@ -18,6 +19,22 @@ from mmengine.dist import is_main_process
 from .mmseg_Dev3D import VolumeData
 
 
+@dataclass
+class InferenceConfig:
+    """Configuration for sliding-window and device settings during inference.
+
+    Attributes:
+        patch_size (tuple | None): Sliding window size. None disables sliding window.
+        patch_stride (tuple | None): Sliding window stride. None disables sliding window.
+        accumulate_device (str): Device for accumulating window results, e.g., 'cpu' or 'cuda'.
+        forward_device (str): Device to run the forward pass for each window.
+    """
+    patch_size: tuple | None = None
+    patch_stride: tuple | None = None
+    accumulate_device: str = 'cuda'
+    forward_device: str = 'cuda'
+
+
 class mgam_Seg_Lite(BaseModel):
     def __init__(self,
                  backbone: ConfigDict,
@@ -26,10 +43,7 @@ class mgam_Seg_Lite(BaseModel):
                  gt_sem_seg_key: str='gt_sem_seg',
                  use_half: bool=False,
                  binary_segment_threshold: float|None=None,
-                 inference_PatchSize: tuple|None=None,
-                 inference_PatchStride: tuple|None=None,
-                 inference_PatchAccumulateDevice: str='cuda',
-                 inference_ForwardDevice: str='cuda',
+                 inference_config: InferenceConfig | dict | None = None,
                  allow_pbar: bool=False,
                  *args, **kwargs):
         """
@@ -44,9 +58,8 @@ class mgam_Seg_Lite(BaseModel):
             gt_sem_seg_key (str): The key name for the ground truth segmentation mask, default is 'gt_sem_seg'.
             use_half (bool): Whether to use half-precision (fp16) for the model, default is False.
             binary_segment_threshold (float | None): Threshold for binary segmentation. If the model outputs a single channel (binary), this must be provided; if the model outputs multiple channels (multi-class), this must be None.
-            inference_PatchSize (tuple | None): Size of the sliding window for inference. If None, sliding window inference is not used, default is None.
-            inference_PatchStride (tuple | None): Stride of the sliding window for inference. If None, sliding window inference is not used, default is None.
-            inference_PatchAccumulateDevice (str): Device to accumulate sliding window inference results, either 'cpu' or 'cuda'. For large images, 'cpu' can help avoid GPU OOM. Default is 'cuda'.
+            inference_config (InferenceConfig | dict | None): Inference configuration that groups sliding-window and device options. If dict, keys can be
+                {'patch_size', 'patch_stride', 'accumulate_device', 'forward_device'}. If None, sliding-window is disabled.
         """
         super().__init__(*args, **kwargs)
         self.backbone = MODELS.build(backbone)
@@ -55,10 +68,26 @@ class mgam_Seg_Lite(BaseModel):
         self.gt_sem_seg_key = gt_sem_seg_key
         self.use_half = use_half
         self.binary_segment_threshold = binary_segment_threshold
-        self.inference_PatchSize = inference_PatchSize
-        self.inference_PatchStride = inference_PatchStride
-        self.inference_PatchAccumulateDevice = inference_PatchAccumulateDevice
-        self.inference_ForwardDevice = inference_ForwardDevice
+        # Build and store inference configuration
+        if inference_config is None:
+            self.inference_config = InferenceConfig()
+        elif isinstance(inference_config, InferenceConfig):
+            self.inference_config = inference_config
+        elif isinstance(inference_config, dict):
+            # Accept both new and legacy key names for compatibility
+            cfg = dict(inference_config)
+            patch_size = cfg.get('patch_size', cfg.get('inference_PatchSize'))
+            patch_stride = cfg.get('patch_stride', cfg.get('inference_PatchStride'))
+            accumulate_device = cfg.get('accumulate_device', cfg.get('inference_PatchAccumulateDevice', 'cuda'))
+            forward_device = cfg.get('forward_device', cfg.get('inference_ForwardDevice', 'cuda'))
+            self.inference_config = InferenceConfig(
+                patch_size=patch_size,
+                patch_stride=patch_stride,
+                accumulate_device=accumulate_device,
+                forward_device=forward_device,
+            )
+        else:
+            raise TypeError(f'inference_config must be InferenceConfig, dict or None, but got {type(inference_config)}')
         self.allow_pbar = allow_pbar
         
         if use_half:
@@ -220,7 +249,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
             Tensor: Segmentation logits.
         """
         # 检查是否需要滑动窗口推理
-        if self.inference_PatchSize is not None and self.inference_PatchStride is not None:
+        if self.inference_config.patch_size is not None and self.inference_config.patch_stride is not None:
             seg_logits = self.slide_inference(inputs, data_samples)
         else:
             # 整体推理
@@ -239,10 +268,15 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
             Tensor: Segmentation logits.
         """
         # Retrieve sliding-window parameters
-        assert self.inference_PatchSize is not None and self.inference_PatchStride is not None, \
-            f"Sliding-window inference requires inference_PatchSize({self.inference_PatchSize}) and inference_PatchStride({self.inference_PatchStride})"
-        h_stride, w_stride = self.inference_PatchStride
-        h_crop, w_crop = self.inference_PatchSize
+        assert self.inference_config.patch_size is not None and self.inference_config.patch_stride is not None, \
+            f"Sliding-window inference requires patch_size({self.inference_config.patch_size}) and patch_stride({self.inference_config.patch_stride})"
+        # Validate dimensionality for 2D
+        if not (isinstance(self.inference_config.patch_size, (tuple, list)) and len(self.inference_config.patch_size) == 2):
+            raise AssertionError(f"For 2D inference, patch_size must be a tuple/list of length 2, got {self.inference_config.patch_size}")
+        if not (isinstance(self.inference_config.patch_stride, (tuple, list)) and len(self.inference_config.patch_stride) == 2):
+            raise AssertionError(f"For 2D inference, patch_stride must be a tuple/list of length 2, got {self.inference_config.patch_stride}")
+        h_stride, w_stride = self.inference_config.patch_stride
+        h_crop, w_crop = self.inference_config.patch_size
         batch_size, _, h_img, w_img = inputs.size()
         h_img, w_img = int(h_img), int(w_img)
 
@@ -265,7 +299,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         h_grids = max(h_padded - h_crop + h_stride - 1, 0) // h_stride + 1
         w_grids = max(w_padded - w_crop + w_stride - 1, 0) // w_stride + 1
 
-        accumulate_device = torch.device(self.inference_PatchAccumulateDevice)
+        accumulate_device = torch.device(self.inference_config.accumulate_device)
 
         preds = torch.zeros(
             size=(batch_size, self.num_classes, h_padded, w_padded),
@@ -291,8 +325,8 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
                 # Extract patch
                 crop_img = padded_inputs[:, :, h1:h2, w1:w2]
 
-                # Run forward on patch
-                crop_seg_logit = self._forward(crop_img)
+                # Run forward on patch (ensure forward device consistency)
+                crop_seg_logit = self._forward(crop_img.to(self.inference_config.forward_device, non_blocking=True))
 
                 # Move results to accumulation device and sum
                 crop_seg_logit_on_device = crop_seg_logit.to(accumulate_device)
@@ -420,7 +454,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         Returns:
             Tensor: Segmentation logits.
         """
-        if self.inference_PatchSize is not None and self.inference_PatchStride is not None:
+        if self.inference_config.patch_size is not None and self.inference_config.patch_stride is not None:
             seg_logits = self.slide_inference(inputs, data_samples, force_cpu=force_cpu)
 
         else:
@@ -445,11 +479,11 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             Tensor: Segmentation logits.
         """
         # Retrieve sliding-window parameters
-        assert self.inference_PatchSize is not None and self.inference_PatchStride is not None, \
-            f"When using sliding window, inference_PatchSize({self.inference_PatchSize}) and inference_PatchStride({self.inference_PatchStride}) must be set," \
+        assert self.inference_config.patch_size is not None and self.inference_config.patch_stride is not None, \
+            f"When using sliding window, patch_size({self.inference_config.patch_size}) and patch_stride({self.inference_config.patch_stride}) must be set, " \
             f"elsewise, please set both to `None` to disable sliding window."
-        z_stride, y_stride, x_stride = self.inference_PatchStride
-        z_crop, y_crop, x_crop = self.inference_PatchSize
+        z_stride, y_stride, x_stride = self.inference_config.patch_stride
+        z_crop, y_crop, x_crop = self.inference_config.patch_size
         batch_size, _, z_img, y_img, x_img = inputs.size()
         assert batch_size == 1, "Currently only batch_size=1 is supported for 3D sliding-window inference"
         
@@ -477,7 +511,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             pad = None
 
         # Prepare accumulation and count tensors on target device
-        accumulate_device = torch.device('cpu') if force_cpu else torch.device(self.inference_PatchAccumulateDevice)
+        accumulate_device = torch.device('cpu') if force_cpu else torch.device(self.inference_config.accumulate_device)
         if accumulate_device.type == 'cuda':
             # Clear CUDA cache if using GPU accumulation
             torch.cuda.empty_cache()
@@ -524,7 +558,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             batch_patches = []
             for (z_slice, y_slice, x_slice) in batch_slices:
                 crop_img = padded_inputs[:, :, z_slice, y_slice, x_slice]
-                batch_patches.append(crop_img.to(self.inference_ForwardDevice, non_blocking=True))
+                batch_patches.append(crop_img.to(self.inference_config.forward_device, non_blocking=True))
             batch_patches = torch.cat(batch_patches, dim=0)  # [B, C, z_crop, y_crop, x_crop]
             
             # torch.cuda.synchronize() # Optional: synchronize the data transfer from host to device
