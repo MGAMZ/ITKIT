@@ -9,6 +9,8 @@ from pytorch_lightning import LightningDataModule
 
 from itkit.lightning.utils import multi_sample_collate
 
+
+
 class BaseDataModule(LightningDataModule):
     TRAIN_LOADER_ARGS = {
         "shuffle": True,
@@ -25,7 +27,7 @@ class BaseDataModule(LightningDataModule):
         "collate_fn": multi_sample_collate,
         "persistent_workers": True,
     }
-    
+
     def __init__(
         self,
         dataset: Dataset,
@@ -87,7 +89,7 @@ class BaseDataModule(LightningDataModule):
 
     def test_dataloader(self) -> DataLoader:
         return DataLoader(self.test, **self.val_test_loader_args)
-    
+
     def transfer_batch_to_device(self, batch, device: torch.device, dataloader_idx: int):
         if self.override_transfer_batch_to_device is not None:
             return super().transfer_batch_to_device(batch, self.override_transfer_batch_to_device, dataloader_idx)
