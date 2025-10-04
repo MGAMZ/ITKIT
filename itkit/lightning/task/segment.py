@@ -15,7 +15,7 @@ class SlideWindowConfig:
     patch_stride: list[int]
     patch_accumulate_device: torch.device = torch.device('cpu')
     patch_inference_device: torch.device = torch.device('cuda')
-    num_patches_per_inference: int = 1
+    num_patches_per_inference: int = 1  # Only used in training with slide window
     argmax_batchsize: int | None = None  # None means no batching, direct argmax on class dim.
 
 
