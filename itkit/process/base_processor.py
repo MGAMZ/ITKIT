@@ -166,7 +166,7 @@ class BaseITKProcessor(ABC):
             desc (str): A description for the progress bar (e.g., "Resampling", "Patching").
         """
         items = self.get_items_to_process()
-        self.process_items(items, desc)
+        return self.process_items(items, desc)
 
     def process_items(self, items: list, desc: str = "Processing"):
         """
@@ -184,7 +184,7 @@ class BaseITKProcessor(ABC):
         """
         if not items:
             print(f"No items found for {desc.lower()}.")
-            return []
+            return {}
         
         if self.mp:
             with Pool(self.workers) as pool:
@@ -200,7 +200,7 @@ class BaseITKProcessor(ABC):
             if res:
                 self.meta.update(res)
         
-        return results
+        return self.meta
 
     @abstractmethod
     def get_items_to_process(self) -> list:

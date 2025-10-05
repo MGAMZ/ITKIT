@@ -22,6 +22,11 @@ class PatchProcessor(DatasetProcessor):
         self.patch_stride = patch_stride
         self.min_fg = min_fg
         self.still_save = still_save
+        # Prepare global image/ and label/ output directories under destination
+        self.image_dir = Path(self.dest_folder) / "image"
+        self.label_dir = Path(self.dest_folder) / "label"
+        self.image_dir.mkdir(parents=True, exist_ok=True)
+        self.label_dir.mkdir(parents=True, exist_ok=True)
 
     def extract_patches(self,
                         image: sitk.Image,
@@ -103,11 +108,9 @@ class PatchProcessor(DatasetProcessor):
 
     def process_one(self, args: tuple[str, str]) -> dict | None:
         img_path, lbl_path = args
-        case_name = Path(img_path).stem
+        case_name = os.path.basename(self._normalize_filename(img_path))
 
         try:
-            out_case = Path(self.dest_folder) / case_name
-            out_case.mkdir(parents=True, exist_ok=True)
             image = sitk.ReadImage(str(img_path))
             label = sitk.ReadImage(str(lbl_path))
             img_arr = sitk.GetArrayFromImage(image)
@@ -118,14 +121,17 @@ class PatchProcessor(DatasetProcessor):
             class_within_patch = {}
             patches = self.extract_patches(image, label, self.patch_size, self.patch_stride, self.min_fg, self.still_save)
             for idx, (img_patch, lbl_patch) in enumerate(patches):
-                fname_img = f"{case_name}_{idx}_image.mha"
-                sitk.WriteImage(img_patch, str(out_case / fname_img), True)
+                # Use unified filenames across image/ and label/ dirs so they correspond 1:1
+                fname_base = f"{case_name}_p{idx}.mha"
+                # Save image patch
+                sitk.WriteImage(img_patch, str(self.image_dir / fname_base), True)
                 if lbl_patch is not None:
-                    fname_lbl = f"{case_name}_{idx}_label.mha"
-                    lbl_np = sitk.GetArrayFromImage(lbl_patch)
-                    class_within_patch[fname_lbl] = np.unique(lbl_np).tolist()
-                    sitk.WriteImage(lbl_patch, str(out_case / fname_lbl), True)
+                    # Log unique classes in this patch
+                    class_within_patch[fname_base] = np.unique(sitk.GetArrayFromImage(lbl_patch)).tolist()
+                    # Save label patch
+                    sitk.WriteImage(lbl_patch, str(self.label_dir / fname_base), True)
             
+            # Simplified per-series meta (no per-patch child meta and no per-case JSON file)
             series_meta = {
                 "series_id": case_name,
                 "shape": list(img_arr.shape),
@@ -133,8 +139,6 @@ class PatchProcessor(DatasetProcessor):
                 "anno_available": True,
                 "class_within_patch": class_within_patch
             }
-            with open(out_case / "SeriesMeta.json", "w") as f:
-                json.dump(series_meta, f, indent=4)
             
             return {case_name: series_meta}
         
@@ -160,6 +164,7 @@ class PatchProcessor(DatasetProcessor):
             return False
         
         return True
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Extract patches from a folder of MHA images")
@@ -194,20 +199,30 @@ def main():
         mp = args.mp,
         workers = args.workers
     )
-    processor.process("Patching cases")
     
-    # Write overall crop metadata
-    valid_cases = list(processor.meta.keys())
-    crop_meta = {
-        "src_folder": str(args.src_folder),
-        "dst_folder": str(args.dst_folder),
-        "patch_size": args.patch_size,
-        "patch_stride": args.patch_stride,
-        "anno_available": valid_cases
-    }
-    os.makedirs(args.dst_folder, exist_ok=True)
-    with open(args.dst_folder / "crop_meta.json", "w") as f:
-        json.dump(crop_meta, f, indent=4)
+    results: dict = {}
+    try:
+        results = processor.process("Patching")
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        results = processor.meta
+    
+    finally:
+        # Write overall crop metadata
+        valid_series = list(results.keys())
+        crop_meta = {
+            "src_folder": str(args.src_folder),
+            "dst_folder": str(args.dst_folder),
+            "patch_size": args.patch_size,
+            "patch_stride": args.patch_stride,
+            "anno_available": valid_series,
+            "patch_meta": results
+        }
+        os.makedirs(args.dst_folder, exist_ok=True)
+        with open(args.dst_folder / "crop_meta.json", "w") as f:
+            json.dump(crop_meta, f, indent=4)
 
 
 if __name__ == '__main__':

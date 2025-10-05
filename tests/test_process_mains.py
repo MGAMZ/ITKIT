@@ -98,9 +98,15 @@ def test_itk_patch_main(tmp_path, monkeypatch):
         "--still-save-when-no-label",
     ])
     itk_patch.main()
-    # Should produce per-case folder and crop_meta.json
-    assert (dst / "k").exists()
+    # Should produce global image/ and label/ folders and crop_meta.json
+    assert (dst / "image").exists()
+    assert (dst / "label").exists()
     assert (dst / "crop_meta.json").exists()
+    # At least one patch for the series 'k' should be generated in both dirs
+    imgs = list((dst / "image").glob("k_p*.mha"))
+    lbls = list((dst / "label").glob("k_p*.mha"))
+    assert len(imgs) >= 1
+    assert len(lbls) >= 1
 
 
 @pytest.mark.process
