@@ -63,6 +63,7 @@ class SegmentationBase(pl.LightningModule):
         slide_window_config: SlideWindowConfig | None = None,
         class_names: list[str] | None = None,
         eps = 1e-5,
+        fwd_dtype: torch.dtype = torch.float32
     ):
         super().__init__()
         self.save_hyperparameters(ignore=['model', 'criterion'])
@@ -82,6 +83,7 @@ class SegmentationBase(pl.LightningModule):
         self.slide_window_config = slide_window_config
         self.class_names = class_names or list(range(num_classes))
         self.eps = eps
+        self.fwd_dtype = fwd_dtype
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass through the model.
@@ -109,9 +111,9 @@ class SegmentationBase(pl.LightningModule):
 
     def _parse_batch(self, batch: dict[str, Any], device:torch.device) -> tuple[Tensor, Tensor]:
         image = batch['image']
-        label = batch[self.gt_sem_seg_key].half()
+        label = batch[self.gt_sem_seg_key].to(dtype=self.fwd_dtype)
         if self.to_one_hot:
-            label = torch.nn.functional.one_hot(label.long(), num_classes=self.num_classes).permute(0,4,1,2,3).float()
+            label = torch.nn.functional.one_hot(label.long(), num_classes=self.num_classes).permute(0,4,1,2,3).to(dtype=self.fwd_dtype)
         return image, label
 
     def _compute_losses(self, logits: Tensor, targets: Tensor) -> dict[str, Tensor]:
@@ -164,7 +166,7 @@ class SegmentationBase(pl.LightningModule):
 
     def training_step(self, batch: dict[str, Any], batch_idx: int) -> Tensor:
         image, gt_segs = self._parse_batch(batch, self.device)
-        logits:Tensor = self(image)
+        logits: Tensor = self(image)
         
         losses = self._compute_losses(logits, gt_segs)
         total_loss = torch.stack(list(losses.values())).sum()

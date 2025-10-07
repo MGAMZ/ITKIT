@@ -1,4 +1,5 @@
 import os, re, pdb
+from copy import deepcopy
 from pathlib import Path
 from tqdm import tqdm
 
@@ -62,7 +63,7 @@ class MhaDataset(BaseDataset):
         return self._preprocess(self.available_series[index].copy())
 
     def __len__(self):
-        return 10 if self.debug else len(self.available_series)
+        return 20 if self.debug else len(self.available_series)
 
 
 class MhaPatchedDataset(MhaDataset):

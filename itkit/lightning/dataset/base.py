@@ -1,6 +1,7 @@
 import pdb
 from abc import abstractmethod
 from collections.abc import Callable
+from numpy.polynomial.tests.test_chebyshev import T1
 from typing_extensions import Literal
 
 import torch
@@ -33,7 +34,7 @@ class BaseDataModule(LightningDataModule):
         dataset: Dataset,
         train_loader_args = {},
         val_test_loader_args = {},
-        override_transfer_batch_to_device:torch.device|None = None,
+        override_transfer_batch_to_device: torch.device | None = None,
     ):
         """
         Args:
@@ -101,9 +102,9 @@ class BaseDataset(Dataset):
     SPLIT_RATIO = (0.7, 0.05, 0.25)  # train, val, test
 
     def __init__(self,
-                 split:Literal['train', 'val', 'test']|None = None,
-                 pipeline:list[Callable]=[],
-                 debug:bool=False):
+                 split: Literal['train', 'val', 'test'] | None = None,
+                 pipeline: list[Callable] = [],
+                 debug: bool = False):
         super().__init__()
         self.split = split
         self.pipeline = pipeline
