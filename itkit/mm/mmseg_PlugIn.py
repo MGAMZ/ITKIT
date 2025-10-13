@@ -1,26 +1,16 @@
-import os.path as osp
-import pdb
-import warnings
-from abc import abstractmethod
+import pdb, warnings
 from prettytable import PrettyTable
 from collections import OrderedDict
-from typing_extensions import deprecated
 
-import cv2
 import torch
 import numpy as np
 from skimage.exposure import equalize_hist
-from matplotlib import pyplot as plt
+from monai.metrics import DiceMetric, ConfusionMatrixMetric, MeanIoU
 
-import mmcv
-import mmengine
 from mmengine.structures import PixelData
-from mmengine.dist.utils import master_only
-from mmengine.logging import print_log, MMLogger
-from mmengine.runner import Runner
+from mmengine.logging import print_log
+from mmengine.evaluator import BaseMetric
 from mmseg.evaluation.metrics import IoUMetric
-from mmseg.engine.hooks import SegVisualizationHook
-from mmseg.visualization import SegLocalVisualizer
 from mmseg.structures import SegDataSample
 from mmcv.transforms import BaseTransform, to_tensor
 
@@ -230,3 +220,190 @@ class PackSegInputs(BaseTransform):
         repr_str = self.__class__.__name__
         repr_str += f"(meta_keys={self.meta_keys})"
         return repr_str
+
+
+class MonaiSegLosses(BaseMetric):
+    """
+    A metric evaluator that leverages MONAI's DiceMetric, ConfusionMatrixMetric, and MeanIoU
+    to compute comprehensive segmentation metrics including Dice, IoU, Recall, and Precision.
+    
+    This class follows the BaseMetric interface from mmengine:
+    - process(): Collects predictions and ground truth from each batch
+    - compute_metrics(): Aggregates buffered data and computes final metrics
+    
+    Args:
+        ignore_index (int): Index that will be ignored in evaluation. Default: 255.
+        include_background (bool): Whether to include the background class in metrics. Default: True.
+        num_classes (int, optional): Number of classes. If None, will be inferred from dataset_meta.
+        collect_device (str): Device for collecting results. Default: 'cpu'.
+        prefix (str, optional): Prefix for metric names.
+    """
+    
+    def __init__(
+        self,
+        ignore_index: int = 255,
+        include_background: bool = True,
+        num_classes: int = None,
+        collect_device: str = 'cpu',
+        prefix: str = None,
+        **kwargs
+    ) -> None:
+        super().__init__(collect_device=collect_device, prefix=prefix)
+        
+        self.ignore_index = ignore_index
+        self.include_background = include_background
+        self.num_classes = num_classes
+        
+        # Initialize MONAI metrics
+        # These are CumulativeIterationMetric instances that accumulate results internally
+        self.dice_metric = DiceMetric(
+            include_background=include_background,
+            reduction="none",  # We'll handle reduction in aggregate
+            get_not_nans=False,
+        )
+        
+        self.iou_metric = MeanIoU(
+            include_background=include_background,
+            reduction="none",
+            get_not_nans=False,
+        )
+        
+        # ConfusionMatrixMetric for Recall and Precision
+        self.confusion_metric = ConfusionMatrixMetric(
+            include_background=include_background,
+            metric_name=["recall", "precision"],  # TPR and PPV
+            compute_sample=False,
+            reduction="none",
+            get_not_nans=False,
+        )
+    
+    def process(self, data_batch: dict, data_samples: list) -> None:
+        """
+        Process one batch of data and data_samples.
+        
+        The processed results are stored internally in MONAI metrics' buffers
+        via their __call__ method.
+        
+        Args:
+            data_batch (dict): A batch of data from the dataloader.
+            data_samples (list): A batch of outputs from the model.
+        """
+        num_classes = self.num_classes or len(self.dataset_meta['classes'])
+        
+        for data_sample in data_samples:
+            # Extract prediction and ground truth
+            pred_label = data_sample['pred_sem_seg']['data'].squeeze()  # [H, W]
+            label = data_sample['gt_sem_seg']['data'].squeeze().to(pred_label)  # [H, W]
+            
+            # Convert to one-hot format for MONAI metrics
+            # MONAI expects shape [B, C, H, W] with one-hot encoding
+            pred_onehot = self._to_onehot(pred_label, num_classes, self.ignore_index)  # [1, C, H, W]
+            label_onehot = self._to_onehot(label, num_classes, self.ignore_index)  # [1, C, H, W]
+            
+            # Call MONAI metrics - they internally accumulate to buffers
+            # Note: We call them but don't need to store return values
+            # The metrics accumulate results in their internal buffers via extend()
+            self.dice_metric(y_pred=pred_onehot, y=label_onehot)
+            self.iou_metric(y_pred=pred_onehot, y=label_onehot)
+            self.confusion_metric(y_pred=pred_onehot, y=label_onehot)
+    
+    def compute_metrics(self, results: list) -> dict:
+        """
+        Compute the metrics from processed results.
+        
+        Since MONAI metrics accumulate internally, we aggregate their buffers here.
+        
+        Args:
+            results (list): The processed results (not used as MONAI handles buffering).
+        
+        Returns:
+            dict: The computed metrics including mDice, mIoU, mRecall, mPrecision.
+        """
+        metrics = OrderedDict()
+        
+        # Aggregate Dice scores
+        # aggregate() computes final results from internal buffers
+        dice_scores = self.dice_metric.aggregate(reduction="mean_channel")  # [C]
+        mean_dice = torch.nanmean(dice_scores).item() * 100
+        metrics['mDice'] = np.round(mean_dice, 2)
+        
+        # Aggregate IoU scores
+        iou_scores = self.iou_metric.aggregate(reduction="mean_channel")  # [C]
+        mean_iou = torch.nanmean(iou_scores).item() * 100
+        metrics['mIoU'] = np.round(mean_iou, 2)
+        
+        # Aggregate Recall and Precision from confusion matrix
+        confusion_results = self.confusion_metric.aggregate(
+            compute_sample=False, 
+            reduction="mean_channel"
+        )
+        # confusion_results is a list: [recall_tensor, precision_tensor]
+        recall_scores = confusion_results[0]  # [C]
+        precision_scores = confusion_results[1]  # [C]
+        
+        mean_recall = torch.nanmean(recall_scores).item() * 100
+        mean_precision = torch.nanmean(precision_scores).item() * 100
+        metrics['mRecall'] = np.round(mean_recall, 2)
+        metrics['mPrecision'] = np.round(mean_precision, 2)
+        
+        # Per-class results table
+        class_names = self.dataset_meta['classes']
+        per_class_results = OrderedDict()
+        per_class_results['Class'] = class_names
+        per_class_results['Dice'] = [f"{v.item() * 100:.2f}" for v in dice_scores]
+        per_class_results['IoU'] = [f"{v.item() * 100:.2f}" for v in iou_scores]
+        per_class_results['Recall'] = [f"{v.item() * 100:.2f}" for v in recall_scores]
+        per_class_results['Precision'] = [f"{v.item() * 100:.2f}" for v in precision_scores]
+        
+        # Create pretty table for logging
+        table = PrettyTable()
+        for key, val in per_class_results.items():
+            table.add_column(key, val)
+        
+        print_log("Per class results:", 'current')
+        print_log("\n" + table.get_string(), logger='current')
+        
+        # Store per-class results for potential use by logger hooks
+        metrics['PerClass'] = per_class_results
+        
+        # Reset MONAI metrics for next evaluation round
+        self.dice_metric.reset()
+        self.iou_metric.reset()
+        self.confusion_metric.reset()
+        
+        return metrics
+    
+    def _to_onehot(
+        self, 
+        label_map: torch.Tensor, 
+        num_classes: int, 
+        ignore_index: int
+    ) -> torch.Tensor:
+        """
+        Convert label map to one-hot format.
+        
+        Args:
+            label_map (torch.Tensor): Label map with shape [H, W].
+            num_classes (int): Number of classes.
+            ignore_index (int): Index to ignore.
+        
+        Returns:
+            torch.Tensor: One-hot tensor with shape [1, C, H, W].
+        """
+        # Create mask for valid pixels
+        valid_mask = (label_map != ignore_index)
+        
+        # Clip labels to valid range and create one-hot
+        label_map_clipped = torch.clamp(label_map, 0, num_classes - 1)
+        
+        # Convert to one-hot: [H, W] -> [C, H, W]
+        onehot = torch.nn.functional.one_hot(
+            label_map_clipped.long(), 
+            num_classes=num_classes
+        ).permute(2, 0, 1).float()  # [C, H, W]
+        
+        # Apply valid mask to ignore specified index
+        onehot = onehot * valid_mask.unsqueeze(0).float()
+        
+        # Add batch dimension: [C, H, W] -> [1, C, H, W]
+        return onehot.unsqueeze(0)
