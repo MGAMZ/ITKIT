@@ -134,3 +134,5 @@ work_dirs/
 
 *.ipynb
 dist/
+tmp/
+temp/
