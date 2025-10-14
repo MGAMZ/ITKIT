@@ -576,12 +576,14 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         preds = torch.zeros(
             size=(batch_size, self.num_classes, z_padded, y_padded, x_padded),
             dtype=torch.float16,
-            device=accumulate_device
+            device=accumulate_device,
+            pin_memory=True
         )
         count_mat = torch.zeros(
             size=(batch_size, 1, z_padded, y_padded, x_padded),
             dtype=torch.uint8,
-            device=accumulate_device
+            device=accumulate_device,
+            pin_memory=True
         )
 
         # calculate window slices

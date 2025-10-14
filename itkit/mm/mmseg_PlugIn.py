@@ -315,27 +315,22 @@ class MonaiSegMetrics(BaseMetric):
         Returns:
             dict: The computed metrics including mDice, mIoU, mRecall, mPrecision.
         """
-        # Aggregate scores - don't use reduction to get raw per-class results
-        dice_scores = self.dice_metric.aggregate()  # [B, C] or [C]
-        if dice_scores.ndim > 1:
-            dice_scores = dice_scores.mean(dim=0)  # Average over batch: [C]
+        # Aggregate Dice scores - mean_batch averages across samples but keeps per-class results
+        dice_scores = self.dice_metric.aggregate(reduction="mean_batch")  # [C]
+        mean_dice = torch.nanmean(dice_scores).item() * 100
         
-        iou_scores = self.iou_metric.aggregate()  # [B, C] or [C]
-        if iou_scores.ndim > 1:
-            iou_scores = iou_scores.mean(dim=0)  # Average over batch: [C]
+        # Aggregate IoU scores
+        iou_scores = self.iou_metric.aggregate(reduction="mean_batch")  # [C]
+        mean_iou = torch.nanmean(iou_scores).item() * 100
         
         # Aggregate Recall and Precision from confusion matrix
-        confusion_results = self.confusion_metric.aggregate(compute_sample=False)
-        recall_scores = confusion_results[0]  # [B, C] or [C]
-        precision_scores = confusion_results[1]  # [B, C] or [C]
+        confusion_results = self.confusion_metric.aggregate(
+            compute_sample=False, 
+            reduction="mean_batch"
+        )
+        recall_scores = confusion_results[0]  # [C]
+        precision_scores = confusion_results[1]  # [C]
         
-        if recall_scores.ndim > 1:
-            recall_scores = recall_scores.mean(dim=0)  # [C]
-        if precision_scores.ndim > 1:
-            precision_scores = precision_scores.mean(dim=0)  # [C]
-        
-        mean_dice = torch.nanmean(dice_scores).item() * 100
-        mean_iou = torch.nanmean(iou_scores).item() * 100
         mean_recall = torch.nanmean(recall_scores).item() * 100
         mean_precision = torch.nanmean(precision_scores).item() * 100
         
@@ -395,13 +390,10 @@ class MonaiSegMetrics(BaseMetric):
             torch.Tensor: One-hot tensor with shape [1, C, Z, Y, X].
         """
         # Create mask for valid voxels
-        valid_mask = (label_map != ignore_index)  # [Z, Y, X]
+        valid_mask = (label_map != ignore_index)
         
-        # Replace ignore_index with 0 to avoid out-of-range issues in one_hot
-        label_map_masked = torch.where(valid_mask, label_map, torch.zeros_like(label_map))
-        
-        # Clip to valid range [0, num_classes-1]
-        label_map_clipped = torch.clamp(label_map_masked, 0, num_classes - 1)
+        # Clip labels to valid range
+        label_map_clipped = torch.clamp(label_map, 0, num_classes - 1)
         
         # Convert to one-hot: [Z, Y, X] -> [Z, Y, X, C]
         onehot = torch.nn.functional.one_hot(
@@ -412,7 +404,7 @@ class MonaiSegMetrics(BaseMetric):
         # Permute to channel-first: [Z, Y, X, C] -> [C, Z, Y, X]
         onehot = onehot.permute(3, 0, 1, 2)
         
-        # Apply valid mask to zero out ignored voxels across all channels
+        # Apply valid mask to ignore specified index
         onehot = onehot * valid_mask.unsqueeze(0).float()
         
         # Add batch dimension: [C, Z, Y, X] -> [1, C, Z, Y, X]
