@@ -222,7 +222,7 @@ class PackSegInputs(BaseTransform):
         return repr_str
 
 
-class MonaiSegLosses(BaseMetric):
+class MonaiSegMetrics(BaseMetric):
     """
     A metric evaluator that leverages MONAI's DiceMetric, ConfusionMatrixMetric, and MeanIoU
     to compute comprehensive segmentation metrics including Dice, IoU, Recall, and Precision.
@@ -243,10 +243,9 @@ class MonaiSegLosses(BaseMetric):
         self,
         ignore_index: int = 255,
         include_background: bool = True,
-        num_classes: int = None,
+        num_classes: int | None = None,
         collect_device: str = 'cpu',
-        prefix: str = None,
-        **kwargs
+        prefix: str | None = None,
     ) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
         
@@ -261,13 +260,12 @@ class MonaiSegLosses(BaseMetric):
             reduction="none",  # We'll handle reduction in aggregate
             get_not_nans=False,
         )
-        
+        # IoU
         self.iou_metric = MeanIoU(
             include_background=include_background,
             reduction="none",
             get_not_nans=False,
         )
-        
         # ConfusionMatrixMetric for Recall and Precision
         self.confusion_metric = ConfusionMatrixMetric(
             include_background=include_background,

@@ -74,7 +74,7 @@ class ArgmaxProcessor:
         if chunk_size is None or not isinstance(chunk_size, int) or chunk_size <= 0:
             raise ValueError(
                 "When accumulate_device and forward_device differ, 'argmax_batchsize' "
-                "must be a positive int in InferenceConfig to enable chunked argmax."
+                f"must be a positive int in InferenceConfig to enable chunked argmax. Got {chunk_size}"
             )
 
         # Chunk along the last dimension
@@ -136,23 +136,15 @@ class mgam_Seg_Lite(BaseModel):
             self.inference_config = inference_config
         elif isinstance(inference_config, dict):
             # Accept both new and legacy key names for compatibility
-            cfg = dict(inference_config)
-            patch_size = cfg.get('patch_size', cfg.get('inference_PatchSize'))
-            patch_stride = cfg.get('patch_stride', cfg.get('inference_PatchStride'))
-            accumulate_device = cfg.get('accumulate_device', cfg.get('inference_PatchAccumulateDevice', 'cuda'))
-            forward_device = cfg.get('forward_device', cfg.get('inference_ForwardDevice', 'cuda'))
-            self.inference_config = InferenceConfig(
-                patch_size=patch_size,
-                patch_stride=patch_stride,
-                accumulate_device=accumulate_device,
-                forward_device=forward_device,
-            )
+            self.inference_config = InferenceConfig(**inference_config)
         else:
             raise TypeError(f'inference_config must be InferenceConfig, dict or None, but got {type(inference_config)}')
         self.allow_pbar = allow_pbar
         
         if use_half:
             self.half()
+        
+        pdb.set_trace()
 
     def forward(self,
                 inputs: Tensor,
