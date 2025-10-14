@@ -1,6 +1,7 @@
 import pdb
 from abc import abstractmethod
 from collections.abc import Callable
+from numpy.polynomial.tests.test_chebyshev import T1
 from typing_extensions import Literal
 
 import torch
@@ -8,6 +9,8 @@ from torch.utils.data import DataLoader, Dataset, Subset
 from pytorch_lightning import LightningDataModule
 
 from itkit.lightning.utils import multi_sample_collate
+
+
 
 class BaseDataModule(LightningDataModule):
     TRAIN_LOADER_ARGS = {
@@ -25,13 +28,13 @@ class BaseDataModule(LightningDataModule):
         "collate_fn": multi_sample_collate,
         "persistent_workers": True,
     }
-    
+
     def __init__(
         self,
         dataset: Dataset,
         train_loader_args = {},
         val_test_loader_args = {},
-        override_transfer_batch_to_device:torch.device|None = None,
+        override_transfer_batch_to_device: torch.device | None = None,
     ):
         """
         Args:
@@ -87,7 +90,7 @@ class BaseDataModule(LightningDataModule):
 
     def test_dataloader(self) -> DataLoader:
         return DataLoader(self.test, **self.val_test_loader_args)
-    
+
     def transfer_batch_to_device(self, batch, device: torch.device, dataloader_idx: int):
         if self.override_transfer_batch_to_device is not None:
             return super().transfer_batch_to_device(batch, self.override_transfer_batch_to_device, dataloader_idx)
@@ -99,9 +102,9 @@ class BaseDataset(Dataset):
     SPLIT_RATIO = (0.7, 0.05, 0.25)  # train, val, test
 
     def __init__(self,
-                 split:Literal['train', 'val', 'test']|None = None,
-                 pipeline:list[Callable]=[],
-                 debug:bool=False):
+                 split: Literal['train', 'val', 'test'] | None = None,
+                 pipeline: list[Callable] = [],
+                 debug: bool = False):
         super().__init__()
         self.split = split
         self.pipeline = pipeline

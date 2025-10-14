@@ -1,4 +1,5 @@
 import os, re, pdb
+from copy import deepcopy
 from pathlib import Path
 from tqdm import tqdm
 
@@ -45,15 +46,13 @@ class MhaDataset(BaseDataset):
     def index_dataset(self):
         splited_series = set(self._split())
         existed_series = set([f.stem for f in self.image_root.glob("*.mha")])
+        series_having_image_and_label = splited_series.intersection(existed_series)
+        
         self.available_series = []
-
-        for series in tqdm(splited_series.intersection(existed_series),
-                           desc=f"Indexing Dataset | Split {self.split}"):
+        for series in tqdm(series_having_image_and_label,
+                           desc = f"Indexing Dataset | Split {self.split}"):
             image_mha_path = str(self.image_root / f"{series}.mha")
             label_mha_path = str(self.label_root / f"{series}.mha")
-            if not os.path.exists(image_mha_path):
-                print(f"Warning: {series} image mha file not found. Full path: {image_mha_path}")
-                continue
             self.available_series.append({
                 "series_uid": series,
                 "image_mha_path": image_mha_path,
@@ -64,7 +63,7 @@ class MhaDataset(BaseDataset):
         return self._preprocess(self.available_series[index].copy())
 
     def __len__(self):
-        return 10 if self.debug else len(self.available_series)
+        return 20 if self.debug else len(self.available_series)
 
 
 class MhaPatchedDataset(MhaDataset):

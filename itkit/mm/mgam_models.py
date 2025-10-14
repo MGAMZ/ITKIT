@@ -7,6 +7,7 @@ from collections.abc import Sequence
 
 import torch
 from torch import Tensor
+from dataclasses import dataclass
 
 from mmengine.logging import print_log
 from mmengine.registry import MODELS
@@ -18,6 +19,83 @@ from mmengine.dist import is_main_process
 from .mmseg_Dev3D import VolumeData
 
 
+@dataclass
+class InferenceConfig:
+    """Configuration for sliding-window and device settings during inference.
+
+    Attributes:
+        patch_size (tuple | None): Sliding window size. None disables sliding window.
+        patch_stride (tuple | None): Sliding window stride. None disables sliding window.
+        accumulate_device (str): Device for accumulating window results, e.g., 'cpu' or 'cuda'.
+        forward_device (str): Device to run the forward pass for each window.
+    """
+    patch_size: tuple | None = None
+    patch_stride: tuple | None = None
+    accumulate_device: str = 'cuda'
+    forward_device: str = 'cuda'
+    # When accumulate and forward devices differ, a chunk size along the last
+    # dimension must be provided to avoid OOM during argmax transfer.
+    argmax_batchsize: int | None = None
+
+
+class ArgmaxProcessor:
+    """Device-aware argmax with optional chunking along the last dimension.
+    
+    Advantages:
+    - Avoids OOM on device when handling large tensors.
+    - ArgMax can utilize GPU acceleration instead of fully relying on CPU.
+
+    Behavior:
+    - Always compute argmax on forward_device.
+    - If accumulate_device and forward_device are the same, perform argmax on
+      the full tensor directly.
+    - If they differ, require `argmax_batchsize` to chunk along the last
+      dimension to avoid OOM; per-chunk results are transferred back and
+      concatenated on accumulate_device.
+    """
+
+    def __init__(self, config: InferenceConfig) -> None:
+        self.config = config
+
+    def argmax(self, logits: Tensor, dim: int = 1, keepdim: bool = True) -> Tensor:
+        acc_dev = torch.device(self.config.accumulate_device)
+        fwd_dev = torch.device(self.config.forward_device)
+
+        # Fast path: same device
+        if acc_dev.type == fwd_dev.type:
+            # Ensure tensor on forward/accum device (same type)
+            t = logits.to(fwd_dev)
+            preds = torch.argmax(t, dim=dim, keepdim=keepdim).to(torch.uint8)
+            # Return on accumulate device (identical type)
+            return preds.to(acc_dev)
+
+        # Different devices: require chunk size
+        chunk_size = self.config.argmax_batchsize
+        if chunk_size is None or not isinstance(chunk_size, int) or chunk_size <= 0:
+            raise ValueError(
+                "When accumulate_device and forward_device differ, 'argmax_batchsize' "
+                "must be a positive int in InferenceConfig to enable chunked argmax."
+            )
+
+        # Chunk along the last dimension
+        # Temp batch is transferred to forward device for argmax,
+        # then results are transferred back to accumulate device.
+        last_dim = logits.dim() - 1
+        L = logits.shape[-1]
+        chunks: list[Tensor] = []
+        for start in range(0, L, chunk_size):
+            end = min(start + chunk_size, L)
+            slc = [slice(None)] * logits.dim()
+            slc[last_dim] = slice(start, end)
+            t_chunk = logits[tuple(slc)].to(fwd_dev)
+            preds_chunk = torch.argmax(t_chunk, dim=dim, keepdim=keepdim).to(torch.uint8)
+            chunks.append(preds_chunk.to(acc_dev))
+
+        # Concatenate back along the last dimension on accumulate device
+        pred = torch.cat(chunks, dim=last_dim if keepdim is False else last_dim)
+        return pred
+
+
 class mgam_Seg_Lite(BaseModel):
     def __init__(self,
                  backbone: ConfigDict,
@@ -26,10 +104,7 @@ class mgam_Seg_Lite(BaseModel):
                  gt_sem_seg_key: str='gt_sem_seg',
                  use_half: bool=False,
                  binary_segment_threshold: float|None=None,
-                 inference_PatchSize: tuple|None=None,
-                 inference_PatchStride: tuple|None=None,
-                 inference_PatchAccumulateDevice: str='cuda',
-                 inference_ForwardDevice: str='cuda',
+                 inference_config: InferenceConfig | dict | None = None,
                  allow_pbar: bool=False,
                  *args, **kwargs):
         """
@@ -44,9 +119,8 @@ class mgam_Seg_Lite(BaseModel):
             gt_sem_seg_key (str): The key name for the ground truth segmentation mask, default is 'gt_sem_seg'.
             use_half (bool): Whether to use half-precision (fp16) for the model, default is False.
             binary_segment_threshold (float | None): Threshold for binary segmentation. If the model outputs a single channel (binary), this must be provided; if the model outputs multiple channels (multi-class), this must be None.
-            inference_PatchSize (tuple | None): Size of the sliding window for inference. If None, sliding window inference is not used, default is None.
-            inference_PatchStride (tuple | None): Stride of the sliding window for inference. If None, sliding window inference is not used, default is None.
-            inference_PatchAccumulateDevice (str): Device to accumulate sliding window inference results, either 'cpu' or 'cuda'. For large images, 'cpu' can help avoid GPU OOM. Default is 'cuda'.
+            inference_config (InferenceConfig | dict | None): Inference configuration that groups sliding-window and device options. If dict, keys can be
+                {'patch_size', 'patch_stride', 'accumulate_device', 'forward_device'}. If None, sliding-window is disabled.
         """
         super().__init__(*args, **kwargs)
         self.backbone = MODELS.build(backbone)
@@ -55,10 +129,26 @@ class mgam_Seg_Lite(BaseModel):
         self.gt_sem_seg_key = gt_sem_seg_key
         self.use_half = use_half
         self.binary_segment_threshold = binary_segment_threshold
-        self.inference_PatchSize = inference_PatchSize
-        self.inference_PatchStride = inference_PatchStride
-        self.inference_PatchAccumulateDevice = inference_PatchAccumulateDevice
-        self.inference_ForwardDevice = inference_ForwardDevice
+        # Build and store inference configuration
+        if inference_config is None:
+            self.inference_config = InferenceConfig()
+        elif isinstance(inference_config, InferenceConfig):
+            self.inference_config = inference_config
+        elif isinstance(inference_config, dict):
+            # Accept both new and legacy key names for compatibility
+            cfg = dict(inference_config)
+            patch_size = cfg.get('patch_size', cfg.get('inference_PatchSize'))
+            patch_stride = cfg.get('patch_stride', cfg.get('inference_PatchStride'))
+            accumulate_device = cfg.get('accumulate_device', cfg.get('inference_PatchAccumulateDevice', 'cuda'))
+            forward_device = cfg.get('forward_device', cfg.get('inference_ForwardDevice', 'cuda'))
+            self.inference_config = InferenceConfig(
+                patch_size=patch_size,
+                patch_stride=patch_stride,
+                accumulate_device=accumulate_device,
+                forward_device=forward_device,
+            )
+        else:
+            raise TypeError(f'inference_config must be InferenceConfig, dict or None, but got {type(inference_config)}')
         self.allow_pbar = allow_pbar
         
         if use_half:
@@ -182,7 +272,10 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
             
             # Generate prediction mask
             if out_channels > 1:  # 多分类情况
-                i_seg_pred = i_seg_logits.argmax(dim=0, keepdim=True)
+                # Argmax on forward_device with optional chunking
+                argmax_proc = ArgmaxProcessor(self.inference_config)
+                # We want keepdim=True to maintain [1, H, W]
+                i_seg_pred = argmax_proc.argmax(i_seg_logits, dim=0, keepdim=True)
             else:  # 二分类情况
                 assert self.binary_segment_threshold is not None, \
                     f"二分类模型(输出通道数={out_channels})必须设置binary_segment_threshold，" \
@@ -220,7 +313,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
             Tensor: Segmentation logits.
         """
         # 检查是否需要滑动窗口推理
-        if self.inference_PatchSize is not None and self.inference_PatchStride is not None:
+        if self.inference_config.patch_size is not None and self.inference_config.patch_stride is not None:
             seg_logits = self.slide_inference(inputs, data_samples)
         else:
             # 整体推理
@@ -239,10 +332,15 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
             Tensor: Segmentation logits.
         """
         # Retrieve sliding-window parameters
-        assert self.inference_PatchSize is not None and self.inference_PatchStride is not None, \
-            f"Sliding-window inference requires inference_PatchSize({self.inference_PatchSize}) and inference_PatchStride({self.inference_PatchStride})"
-        h_stride, w_stride = self.inference_PatchStride
-        h_crop, w_crop = self.inference_PatchSize
+        assert self.inference_config.patch_size is not None and self.inference_config.patch_stride is not None, \
+            f"Sliding-window inference requires patch_size({self.inference_config.patch_size}) and patch_stride({self.inference_config.patch_stride})"
+        # Validate dimensionality for 2D
+        if not (isinstance(self.inference_config.patch_size, (tuple, list)) and len(self.inference_config.patch_size) == 2):
+            raise AssertionError(f"For 2D inference, patch_size must be a tuple/list of length 2, got {self.inference_config.patch_size}")
+        if not (isinstance(self.inference_config.patch_stride, (tuple, list)) and len(self.inference_config.patch_stride) == 2):
+            raise AssertionError(f"For 2D inference, patch_stride must be a tuple/list of length 2, got {self.inference_config.patch_stride}")
+        h_stride, w_stride = self.inference_config.patch_stride
+        h_crop, w_crop = self.inference_config.patch_size
         batch_size, _, h_img, w_img = inputs.size()
         h_img, w_img = int(h_img), int(w_img)
 
@@ -265,7 +363,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         h_grids = max(h_padded - h_crop + h_stride - 1, 0) // h_stride + 1
         w_grids = max(w_padded - w_crop + w_stride - 1, 0) // w_stride + 1
 
-        accumulate_device = torch.device(self.inference_PatchAccumulateDevice)
+        accumulate_device = torch.device(self.inference_config.accumulate_device)
 
         preds = torch.zeros(
             size=(batch_size, self.num_classes, h_padded, w_padded),
@@ -291,8 +389,8 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
                 # Extract patch
                 crop_img = padded_inputs[:, :, h1:h2, w1:w2]
 
-                # Run forward on patch
-                crop_seg_logit = self._forward(crop_img)
+                # Run forward on patch (ensure forward device consistency)
+                crop_seg_logit = self._forward(crop_img.to(self.inference_config.forward_device))
 
                 # Move results to accumulation device and sum
                 crop_seg_logit_on_device = crop_seg_logit.to(accumulate_device)
@@ -376,7 +474,9 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                 
                 # Generate prediction volume
                 if out_channels > 1:  # Multi-class segmentation
-                    i_seg_pred = i_seg_logits.argmax(dim=0, keepdim=True)
+                    # Argmax on forward_device with optional chunking
+                    argmax_proc = ArgmaxProcessor(self.inference_config)
+                    i_seg_pred = argmax_proc.argmax(i_seg_logits, dim=0, keepdim=True)
                 else:  # Binary segmentation
                     assert self.binary_segment_threshold is not None, \
                         f"Binary segmentation model (out_channels={out_channels}) must set binary_segment_threshold，" \
@@ -420,7 +520,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         Returns:
             Tensor: Segmentation logits.
         """
-        if self.inference_PatchSize is not None and self.inference_PatchStride is not None:
+        if self.inference_config.patch_size is not None and self.inference_config.patch_stride is not None:
             seg_logits = self.slide_inference(inputs, data_samples, force_cpu=force_cpu)
 
         else:
@@ -445,11 +545,11 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             Tensor: Segmentation logits.
         """
         # Retrieve sliding-window parameters
-        assert self.inference_PatchSize is not None and self.inference_PatchStride is not None, \
-            f"When using sliding window, inference_PatchSize({self.inference_PatchSize}) and inference_PatchStride({self.inference_PatchStride}) must be set," \
+        assert self.inference_config.patch_size is not None and self.inference_config.patch_stride is not None, \
+            f"When using sliding window, patch_size({self.inference_config.patch_size}) and patch_stride({self.inference_config.patch_stride}) must be set, " \
             f"elsewise, please set both to `None` to disable sliding window."
-        z_stride, y_stride, x_stride = self.inference_PatchStride
-        z_crop, y_crop, x_crop = self.inference_PatchSize
+        z_stride, y_stride, x_stride = self.inference_config.patch_stride
+        z_crop, y_crop, x_crop = self.inference_config.patch_size
         batch_size, _, z_img, y_img, x_img = inputs.size()
         assert batch_size == 1, "Currently only batch_size=1 is supported for 3D sliding-window inference"
         
@@ -477,7 +577,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             pad = None
 
         # Prepare accumulation and count tensors on target device
-        accumulate_device = torch.device('cpu') if force_cpu else torch.device(self.inference_PatchAccumulateDevice)
+        accumulate_device = torch.device('cpu') if force_cpu else torch.device(self.inference_config.accumulate_device)
         if accumulate_device.type == 'cuda':
             # Clear CUDA cache if using GPU accumulation
             torch.cuda.empty_cache()
@@ -524,7 +624,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             batch_patches = []
             for (z_slice, y_slice, x_slice) in batch_slices:
                 crop_img = padded_inputs[:, :, z_slice, y_slice, x_slice]
-                batch_patches.append(crop_img.to(self.inference_ForwardDevice, non_blocking=True))
+                batch_patches.append(crop_img.to(self.inference_config.forward_device))
             batch_patches = torch.cat(batch_patches, dim=0)  # [B, C, z_crop, y_crop, x_crop]
             
             # torch.cuda.synchronize() # Optional: synchronize the data transfer from host to device
@@ -555,111 +655,3 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                                    pad_x_left:x_padded-pad_x_right]
         
         return seg_logits
-
-
-class MomentumAvgModel(torch.nn.Module):
-    def __init__(self,
-                 model: torch.nn.Module,
-                 momentum: float = 0.0002,
-                 gamma: int = 100,
-                 interval: int = 1,
-                 device: torch.device|None = None,
-                 update_buffers: bool = False) -> None:
-        super().__init__()
-        
-        # Check distributed environment
-        self.is_distributed = hasattr(model, 'module')
-        self.is_deepspeed = hasattr(model, 'module') and hasattr(model.module, 'deepspeed')
-        
-        # For DeepSpeed, get the full underlying model parameters
-        if self.is_deepspeed:
-            with model.module.summon_full_params():
-                self.module = copy.deepcopy(model.module).requires_grad_(False)
-        else:
-            target_model = model.module if self.is_distributed else model
-            self.module = copy.deepcopy(target_model).requires_grad_(False)
-            
-        self.interval = interval
-        if device is not None:
-            self.module = self.module.to(device)
-            
-        self.register_buffer('steps', torch.tensor(0, dtype=torch.long, device=device))
-                           
-        self.update_buffers = update_buffers
-        if update_buffers:
-            state_dict = self.module.state_dict()
-            self.avg_parameters = {
-                k: v for k, v in state_dict.items() 
-                if v.numel() > 0
-            }
-        else:
-            params = dict(self.module.named_parameters())
-            self.avg_parameters = {k: v for k, v in params.items() 
-                                   if v.numel() > 0}
-            
-        # Validate momentum parameter range
-        assert 0.0 < momentum < 1.0, f'momentum must be in range (0.0, 1.0) but got {momentum}'
-        if momentum > 0.5:
-            print_log('The value of momentum in EMA is usually a small number,'
-                      'which is different from the conventional notion of '
-                      f'momentum but got {momentum}. Please make sure the '
-                      f'value is correct.',
-                      logger='current', 
-                      level=logging.WARNING)
-        self.momentum = momentum
-        assert gamma > 0, f'gamma must be greater than 0, but got {gamma}'
-        self.gamma = gamma
-
-    def forward(self, *args, **kwargs):
-        """Forward method of the averaged model."""
-        return self.module(*args, **kwargs)
-
-    def _get_current_param(self):
-        if self.update_buffers:
-            return self.module.state_dict()
-        else:
-            return dict(self.module.named_parameters())
-    
-    def update_parameters(self, model: torch.nn.Module) -> None:
-        """Update the parameters of the model. This method will execute the
-        ``avg_func`` to compute the new parameters and update the model's
-        parameters.
-
-        Args:
-            model (nn.Module): The model whose parameters will be averaged.
-        """
-        src_parameters = (
-            model.state_dict()
-            if self.update_buffers else dict(model.named_parameters()))
-        if self.steps == 0:
-            for k, p_avg in self.avg_parameters.items():
-                p_avg.data.copy_(src_parameters[k].data)
-        elif self.steps % self.interval == 0:  # type: ignore
-            for k, p_avg in self.avg_parameters.items():
-                # NOTE handle deepspeed model shred issue, p_avg may be empty here.
-                if p_avg.dtype.is_floating_point and p_avg.shape==src_parameters[k].data.shape:
-                    device = p_avg.device
-                    self.avg_func(p_avg.data,
-                                  src_parameters[k].data.to(device),
-                                  self.steps)
-        if not self.update_buffers:
-            # If not update the buffers,
-            # keep the buffers in sync with the source model.
-            for b_avg, b_src in zip(self.module.buffers(), model.buffers()):
-                b_avg.data.copy_(b_src.data.to(b_avg.device))
-        self.steps += 1  # type: ignore
-
-    def avg_func(self, averaged_param: Tensor, source_param: Tensor,
-                 steps: int) -> None:
-        """Compute the moving average of the parameters using the linear
-        momentum strategy.
-
-        Args:
-            averaged_param (Tensor): The averaged parameters.
-            source_param (Tensor): The source parameters.
-            steps (int): The number of times the parameters have been
-                updated.
-        """
-        momentum = max(self.momentum,
-                       self.gamma / (self.gamma + self.steps.item()))
-        averaged_param.lerp_(source_param, momentum)
