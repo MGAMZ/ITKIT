@@ -58,7 +58,7 @@ class StandardFileFormatter:
             input_image_mha, input_label_mha = None, None
             if isinstance(image_path, str) and ".dcm" in image_path:
                 input_image_mha, input_label_mha = self.convert_one_sample_dcm(image_path, label_path)
-            elif ".nii.gz" in image_path:
+            elif ".nii" in image_path:
                 input_image_mha, input_label_mha = self.convert_one_sample_nii(image_path, label_path)
             if input_image_mha is None:
                 convertion_log["id"] = "error"
