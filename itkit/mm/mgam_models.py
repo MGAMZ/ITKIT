@@ -143,8 +143,6 @@ class mgam_Seg_Lite(BaseModel):
         
         if use_half:
             self.half()
-        
-        pdb.set_trace()
 
     def forward(self,
                 inputs: Tensor,
