@@ -290,17 +290,15 @@ class MonaiSegMetrics(BaseMetric):
         
         for data_sample in data_samples:
             # Extract prediction and ground truth
-            pred_label = data_sample['pred_sem_seg']['data'].squeeze()  # [H, W]
-            label = data_sample['gt_sem_seg']['data'].squeeze().to(pred_label)  # [H, W]
+            pred_label = data_sample['pred_sem_seg']['data'].squeeze()  # [Z, Y, X]
+            label = data_sample['gt_sem_seg']['data'].squeeze().to(pred_label)  # [Z, Y, X]
             
             # Convert to one-hot format for MONAI metrics
-            # MONAI expects shape [B, C, H, W] with one-hot encoding
-            pred_onehot = self._to_onehot(pred_label, num_classes, self.ignore_index)  # [1, C, H, W]
-            label_onehot = self._to_onehot(label, num_classes, self.ignore_index)  # [1, C, H, W]
+            # MONAI expects shape [1, C, Z, Y, X] for 3D data
+            pred_onehot = self._to_onehot(pred_label, num_classes, self.ignore_index)  # [1, C, Z, Y, X]
+            label_onehot = self._to_onehot(label, num_classes, self.ignore_index)  # [1, C, Z, Y, X]
             
             # Call MONAI metrics - they internally accumulate to buffers
-            # Note: We call them but don't need to store return values
-            # The metrics accumulate results in their internal buffers via extend()
             self.dice_metric(y_pred=pred_onehot, y=label_onehot)
             self.iou_metric(y_pred=pred_onehot, y=label_onehot)
             self.confusion_metric(y_pred=pred_onehot, y=label_onehot)
@@ -317,52 +315,60 @@ class MonaiSegMetrics(BaseMetric):
         Returns:
             dict: The computed metrics including mDice, mIoU, mRecall, mPrecision.
         """
-        metrics = OrderedDict()
+        # Aggregate scores - don't use reduction to get raw per-class results
+        dice_scores = self.dice_metric.aggregate()  # [B, C] or [C]
+        if dice_scores.ndim > 1:
+            dice_scores = dice_scores.mean(dim=0)  # Average over batch: [C]
         
-        # Aggregate Dice scores
-        # aggregate() computes final results from internal buffers
-        dice_scores = self.dice_metric.aggregate(reduction="mean_channel")  # [C]
-        mean_dice = torch.nanmean(dice_scores).item() * 100
-        metrics['mDice'] = np.round(mean_dice, 2)
-        
-        # Aggregate IoU scores
-        iou_scores = self.iou_metric.aggregate(reduction="mean_channel")  # [C]
-        mean_iou = torch.nanmean(iou_scores).item() * 100
-        metrics['mIoU'] = np.round(mean_iou, 2)
+        iou_scores = self.iou_metric.aggregate()  # [B, C] or [C]
+        if iou_scores.ndim > 1:
+            iou_scores = iou_scores.mean(dim=0)  # Average over batch: [C]
         
         # Aggregate Recall and Precision from confusion matrix
-        confusion_results = self.confusion_metric.aggregate(
-            compute_sample=False, 
-            reduction="mean_channel"
-        )
-        # confusion_results is a list: [recall_tensor, precision_tensor]
-        recall_scores = confusion_results[0]  # [C]
-        precision_scores = confusion_results[1]  # [C]
+        confusion_results = self.confusion_metric.aggregate(compute_sample=False)
+        recall_scores = confusion_results[0]  # [B, C] or [C]
+        precision_scores = confusion_results[1]  # [B, C] or [C]
         
+        if recall_scores.ndim > 1:
+            recall_scores = recall_scores.mean(dim=0)  # [C]
+        if precision_scores.ndim > 1:
+            precision_scores = precision_scores.mean(dim=0)  # [C]
+        
+        mean_dice = torch.nanmean(dice_scores).item() * 100
+        mean_iou = torch.nanmean(iou_scores).item() * 100
         mean_recall = torch.nanmean(recall_scores).item() * 100
         mean_precision = torch.nanmean(precision_scores).item() * 100
-        metrics['mRecall'] = np.round(mean_recall, 2)
-        metrics['mPrecision'] = np.round(mean_precision, 2)
         
-        # Per-class results table
+        # Class averaged metrics (matching IoUMetric_PerClass format)
+        class_avged_metrics = OrderedDict()
+        class_avged_metrics['Dice'] = np.round(mean_dice, 2)
+        class_avged_metrics['IoU'] = np.round(mean_iou, 2)
+        class_avged_metrics['Recall'] = np.round(mean_recall, 2)
+        class_avged_metrics['Precision'] = np.round(mean_precision, 2)
+        
+        metrics = dict()
+        for key, val in class_avged_metrics.items():
+            metrics['m' + key] = val
+        
+        # Per-class results (matching IoUMetric_PerClass format)
         class_names = self.dataset_meta['classes']
-        per_class_results = OrderedDict()
-        per_class_results['Class'] = class_names
-        per_class_results['Dice'] = [f"{v.item() * 100:.2f}" for v in dice_scores]
-        per_class_results['IoU'] = [f"{v.item() * 100:.2f}" for v in iou_scores]
-        per_class_results['Recall'] = [f"{v.item() * 100:.2f}" for v in recall_scores]
-        per_class_results['Precision'] = [f"{v.item() * 100:.2f}" for v in precision_scores]
+        per_classes_formatted_dict = OrderedDict()
+        per_classes_formatted_dict['Class'] = class_names
+        per_classes_formatted_dict['Dice'] = [format(v.item() * 100, ".2f") for v in dice_scores]
+        per_classes_formatted_dict['IoU'] = [format(v.item() * 100, ".2f") for v in iou_scores]
+        per_classes_formatted_dict['Recall'] = [format(v.item() * 100, ".2f") for v in recall_scores]
+        per_classes_formatted_dict['Precision'] = [format(v.item() * 100, ".2f") for v in precision_scores]
         
-        # Create pretty table for logging
-        table = PrettyTable()
-        for key, val in per_class_results.items():
-            table.add_column(key, val)
+        # Create pretty table for terminal display
+        terminal_table = PrettyTable()
+        for key, val in per_classes_formatted_dict.items():
+            terminal_table.add_column(key, val)
         
-        print_log("Per class results:", 'current')
-        print_log("\n" + table.get_string(), logger='current')
+        # Provide per class results for logger hook
+        metrics['PerClass'] = per_classes_formatted_dict
         
-        # Store per-class results for potential use by logger hooks
-        metrics['PerClass'] = per_class_results
+        print_log('per class results:', 'current')
+        print_log('\n' + terminal_table.get_string(), logger='current')
         
         # Reset MONAI metrics for next evaluation round
         self.dice_metric.reset()
@@ -378,30 +384,36 @@ class MonaiSegMetrics(BaseMetric):
         ignore_index: int
     ) -> torch.Tensor:
         """
-        Convert label map to one-hot format.
+        Convert 3D label map to one-hot format.
         
         Args:
-            label_map (torch.Tensor): Label map with shape [H, W].
+            label_map (torch.Tensor): Label map with shape [Z, Y, X].
             num_classes (int): Number of classes.
             ignore_index (int): Index to ignore.
         
         Returns:
-            torch.Tensor: One-hot tensor with shape [1, C, H, W].
+            torch.Tensor: One-hot tensor with shape [1, C, Z, Y, X].
         """
-        # Create mask for valid pixels
-        valid_mask = (label_map != ignore_index)
+        # Create mask for valid voxels
+        valid_mask = (label_map != ignore_index)  # [Z, Y, X]
         
-        # Clip labels to valid range and create one-hot
-        label_map_clipped = torch.clamp(label_map, 0, num_classes - 1)
+        # Replace ignore_index with 0 to avoid out-of-range issues in one_hot
+        label_map_masked = torch.where(valid_mask, label_map, torch.zeros_like(label_map))
         
-        # Convert to one-hot: [H, W] -> [C, H, W]
+        # Clip to valid range [0, num_classes-1]
+        label_map_clipped = torch.clamp(label_map_masked, 0, num_classes - 1)
+        
+        # Convert to one-hot: [Z, Y, X] -> [Z, Y, X, C]
         onehot = torch.nn.functional.one_hot(
             label_map_clipped.long(), 
             num_classes=num_classes
-        ).permute(2, 0, 1).float()  # [C, H, W]
+        ).float()  # [Z, Y, X, C]
         
-        # Apply valid mask to ignore specified index
+        # Permute to channel-first: [Z, Y, X, C] -> [C, Z, Y, X]
+        onehot = onehot.permute(3, 0, 1, 2)
+        
+        # Apply valid mask to zero out ignored voxels across all channels
         onehot = onehot * valid_mask.unsqueeze(0).float()
         
-        # Add batch dimension: [C, H, W] -> [1, C, H, W]
+        # Add batch dimension: [C, Z, Y, X] -> [1, C, Z, Y, X]
         return onehot.unsqueeze(0)
