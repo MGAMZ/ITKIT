@@ -331,7 +331,7 @@ class DatasetProcessor(BaseITKProcessor):
     def start_from_arg(cls):
         argparser = argparse.ArgumentParser(description="Dataset Processor")
         argparser.add_argument('source_folder', type=str, help="Root folder containing 'image' and 'label' subfolders")
-        argparser.add_argument('--dest_folder', type=str, default=None, help="Destination folder to save results")
+        argparser.add_argument('--dest-folder', type=str, default=None, help="Destination folder to save results")
         argparser.add_argument('--mp', action='store_true', help="Enable multiprocessing")
         argparser.add_argument('--workers', type=int, default=None, help="Number of worker processes")
         argparser.add_argument('--recursive', action='store_true', help="Recursively search for files in subdirectories")
