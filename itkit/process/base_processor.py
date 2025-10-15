@@ -1,4 +1,5 @@
 import os, json, pdb
+import argparse
 from abc import ABC, abstractmethod
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
@@ -325,6 +326,17 @@ class DatasetProcessor(BaseITKProcessor):
         common_keys = set(img_files.keys()) & set(lbl_files.keys())
         pairs = [(img_files[key], lbl_files[key]) for key in common_keys]
         return pairs
+
+    @classmethod
+    def start_from_arg(cls):
+        argparser = argparse.ArgumentParser(description="Dataset Processor")
+        argparser.add_argument('source_folder', type=str, help="Root folder containing 'image' and 'label' subfolders")
+        argparser.add_argument('--dest_folder', type=str, default=None, help="Destination folder to save results")
+        argparser.add_argument('--mp', action='store_true', help="Enable multiprocessing")
+        argparser.add_argument('--workers', type=int, default=None, help="Number of worker processes")
+        argparser.add_argument('--recursive', action='store_true', help="Recursively search for files in subdirectories")
+        args = argparser.parse_args()
+        return cls(args.source_folder, args.dest_folder, args.mp, args.workers, args.recursive)
 
 
 class SingleFolderProcessor(BaseITKProcessor):
