@@ -1,9 +1,9 @@
 import os, re, pdb
-from copy import deepcopy
 from pathlib import Path
 from tqdm import tqdm
+from deprecated import deprecated
 
-from .base import BaseDataset
+from .base import BaseDataset, BaseDataModule
 
 
 class MhaDataset(BaseDataset):
@@ -65,7 +65,7 @@ class MhaDataset(BaseDataset):
     def __len__(self):
         return 20 if self.debug else len(self.available_series)
 
-
+@deprecated("The patched dataset structure now align to common MhaDataset, so there're no need to use this class.")
 class MhaPatchedDataset(MhaDataset):
     def index_dataset(self):
         splited_series = set(self._split())
@@ -81,3 +81,7 @@ class MhaPatchedDataset(MhaDataset):
                     "image_mha_path": image_mha_path,
                     "label_mha_path": label_mha_path
                 })
+
+
+class LargeVolumeDataModule(BaseDataModule):
+    ...
