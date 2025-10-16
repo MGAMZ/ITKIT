@@ -22,6 +22,7 @@ class PatchProcessor(DatasetProcessor):
                  patch_size: int | list[int],
                  patch_stride: int | list[int],
                  min_fg: float,
+                 keep_empty_label_prob: float,
                  still_save: bool,
                  mp: bool = False,
                  workers: int | None = None):
@@ -29,6 +30,7 @@ class PatchProcessor(DatasetProcessor):
         self.patch_size = patch_size
         self.patch_stride = patch_stride
         self.min_fg = min_fg
+        self.keep_empty_label_prob = keep_empty_label_prob
         self.still_save = still_save
         # Prepare global image/ and label/ output directories under destination
         self.image_dir = Path(self.dest_folder) / "image"
@@ -89,7 +91,7 @@ class PatchProcessor(DatasetProcessor):
                     else:
                         lbl_patch_np = lbl_arr[z:z+pZ, y:y+pY, x:x+pX]
                         fg_ratio = np.sum(lbl_patch_np > 0) / lbl_patch_np.size
-                        if fg_ratio < minimum_foreground_ratio:
+                        if (fg_ratio < minimum_foreground_ratio) or (np.random.rand() > self.keep_empty_label_prob):
                             save = False
                     
                     if save:
@@ -186,6 +188,8 @@ def parse_args():
                         help='Patch stride as int or three ints (Z Y X)')
     parser.add_argument('--minimum-foreground-ratio', type=float, default=0.0,
                         help='Minimum label foreground ratio to keep patch')
+    parser.add_argument('--keep-empty-label-prob', type=float, default=1.0,
+                         help='Probability to keep patches that contain only background (0.0-1.0)')
     parser.add_argument('--still-save-when-no-label', action='store_true',
                         help='If label missing, still extract patches unconditionally')
     parser.add_argument('--mp', action='store_true',
@@ -203,6 +207,7 @@ def main():
         patch_size = args.patch_size,
         patch_stride = args.patch_stride,
         min_fg = args.minimum_foreground_ratio,
+        keep_empty_label_prob = args.keep_empty_label_prob,
         still_save = args.still_save_when_no_label,
         mp = args.mp,
         workers = args.workers
