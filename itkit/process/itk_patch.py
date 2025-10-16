@@ -7,6 +7,14 @@ import SimpleITK as sitk
 from itkit.process.base_processor import DatasetProcessor
 
 
+def parse_patch_size(patched_dataset_folder: str | Path) -> list[int]:
+    patched_dataset_meta = Path(patched_dataset_folder) / 'crop_meta.json'
+    if not patched_dataset_meta.exists():
+        raise FileNotFoundError(f"Patched dataset meta file not found: {patched_dataset_meta}, cannot determine patch size.")
+
+    return json.load(open(patched_dataset_meta, 'r'))['patch_size']
+
+
 class PatchProcessor(DatasetProcessor):
     def __init__(self,
                  source_folder: Path | str,
