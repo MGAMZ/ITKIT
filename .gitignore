@@ -132,7 +132,6 @@ work_dirs/
 *.py~
 *.sh~
 
-*.ipynb
 dist/
 tmp/
 temp/
