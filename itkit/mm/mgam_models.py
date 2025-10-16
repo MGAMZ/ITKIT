@@ -585,7 +585,6 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             device = accumulate_device,
             pin_memory = False
         )
-        inputs = inputs.pin_memory()
 
         # calculate window slices
         window_slices = []

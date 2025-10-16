@@ -257,7 +257,6 @@ class Segmentation3D(SegmentationBase):
             device = self.slide_window_config.patch_accumulate_device,
             pin_memory = True,
         )
-        inputs = inputs.pin_memory()
         
         # Sliding window inference
         for z_idx in range(z_grids):
