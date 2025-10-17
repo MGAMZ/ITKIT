@@ -231,6 +231,7 @@ class Segmentation3D(SegmentationBase):
             temp_input = inputs[:, :, :min(z_crop, z_img), :min(y_crop, y_img), :min(x_crop, x_img)]
             temp_output = self.forward(temp_input.to(self.device))
             out_channels = temp_output.size(1)
+        del temp_input, temp_output
         
         # Calculate grid numbers
         z_grids = max(z_img - z_crop + z_stride - 1, 0) // z_stride + 1
@@ -285,12 +286,13 @@ class Segmentation3D(SegmentationBase):
                     # Device to Host's pin memory copy
                     preds[:, :, z1:z2, y1:y2, x1:x2] += patch_cache.copy_(crop_logits, non_blocking=True)
                     count_mat[:, :, z1:z2, y1:y2, x1:x2] += 1
-        
-        torch.cuda.empty_cache()
-        
+
         # Average overlapping predictions
         assert torch.all(count_mat > 0), "Some areas not covered by sliding window"
         logits = preds / count_mat
+        
+        del preds, count_mat, patch_cache
+        torch.cuda.empty_cache()
         
         return logits.to(inputs.device)
 
