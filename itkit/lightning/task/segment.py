@@ -66,7 +66,6 @@ class SegmentationBase(pl.LightningModule):
         fwd_dtype: torch.dtype = torch.float32
     ):
         super().__init__()
-        self.save_hyperparameters(ignore=['model', 'criterion'])
         self.model = model
         if isinstance(criterion, Sequence):
             self.criteria = list(criterion)
@@ -84,6 +83,8 @@ class SegmentationBase(pl.LightningModule):
         self.class_names = class_names or list(range(num_classes))
         self.eps = eps
         self.fwd_dtype = fwd_dtype
+        
+        self.save_hyperparameters(ignore=['model', 'criterion'])
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass through the model.
@@ -173,8 +174,8 @@ class SegmentationBase(pl.LightningModule):
         
         with torch.no_grad():
             for loss_name, loss_value in losses.items():
-                self.log(f'train/{loss_name}', loss_value.item(), on_step=True, on_epoch=True, logger=True)
-            self.log('train/total_loss', total_loss.item(), on_step=True, on_epoch=True, logger=True)
+                self.log(f'train/{loss_name}', loss_value.item(), on_step=True, on_epoch=True, logger=True, sync_dist=True)
+            self.log('train/total_loss', total_loss.item(), prog_bar=True, on_step=True, on_epoch=True, logger=True, sync_dist=True)
         
         return total_loss
 
@@ -184,13 +185,13 @@ class SegmentationBase(pl.LightningModule):
         
         losses = self._compute_losses(logits, gt_segs)
         for loss_name, loss_value in losses.items():
-            self.log(f'val/{loss_name}', loss_value, on_step=False, on_epoch=True, prog_bar=True)
+            self.log(f'val/{loss_name}', loss_value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         
         predictions = self._logits_to_predictions(logits) # [N, ...]
         
         metrics = self._compute_metrics(predictions, gt_segs)
         for metric_name, metric_value in metrics.items():
-            self.log(f'val/{metric_name}', metric_value, on_step=False, on_epoch=True, logger=True)
+            self.log(f'val/{metric_name}', metric_value, on_step=False, on_epoch=True, logger=True, sync_dist=True)
         
         return {'val_loss': sum(losses.values()),
                 'logits': logits,
@@ -346,11 +347,11 @@ class Seg3D_SlideWindowTrain(Segmentation3D):
         # log averaged losses
         total_loss_val = 0.0
         for k, v in avg_losses.items():
-            self.log(f'train/{k}', v, on_step=True, on_epoch=True, logger=True)
+            self.log(f'train/{k}', v, on_step=True, on_epoch=True, logger=True, sync_dist=True)
             total_loss_val += float(v)
 
         # also log total
-        self.log('train/total_loss', total_loss_val, on_step=False, on_epoch=True, logger=True, prog_bar=True)
+        self.log('train/total_loss', total_loss_val, on_step=False, on_epoch=True, logger=True, prog_bar=True, sync_dist=True)
 
         # return a tensor for compatibility
         return torch.tensor(total_loss_val)
