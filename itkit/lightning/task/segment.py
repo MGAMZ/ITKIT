@@ -286,6 +286,8 @@ class Segmentation3D(SegmentationBase):
                     preds[:, :, z1:z2, y1:y2, x1:x2] += patch_cache.copy_(crop_logits, non_blocking=True)
                     count_mat[:, :, z1:z2, y1:y2, x1:x2] += 1
         
+        torch.cuda.empty_cache()
+        
         # Average overlapping predictions
         assert torch.all(count_mat > 0), "Some areas not covered by sliding window"
         logits = preds / count_mat
