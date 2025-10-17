@@ -242,12 +242,21 @@ class Segmentation3D(SegmentationBase):
         preds = torch.zeros(
             size = (batch_size, out_channels, z_img, y_img, x_img),
             dtype = torch.float16,
-            device = self.slide_window_config.patch_accumulate_device
+            device = self.slide_window_config.patch_accumulate_device,
+            pin_memory = False,
         )
         count_mat = torch.zeros(
             size = (batch_size, 1, z_img, y_img, x_img),
             dtype = torch.uint8,
-            device = self.slide_window_config.patch_accumulate_device
+            device = self.slide_window_config.patch_accumulate_device,
+            pin_memory = False,
+        )
+        # Perform Device2Host copy with Host's pin memory is much faster than with normal RAM area.
+        patch_cache = torch.empty(
+            size = (batch_size, out_channels, z_crop, y_crop, x_crop),
+            dtype = torch.float16,
+            device = self.slide_window_config.patch_accumulate_device,
+            pin_memory = True,
         )
         
         # Sliding window inference
@@ -268,11 +277,14 @@ class Segmentation3D(SegmentationBase):
                     patch = inputs[:, :, z1:z2, y1:y2, x1:x2].to(self.device)
                     
                     # Forward
+                    # prevent crop_logits of previous patch inference from being overlapped by next patch copy
+                    # TODO NOT SURE IF THIS STILL HAPPEN, This is only observed when using `.copy(non_blocking=True)`.
+                    torch.cuda.synchronize()
                     crop_logits = self.forward(patch)
                     
                     # Accumulate results
-                    crop_logits = crop_logits.to(self.slide_window_config.patch_accumulate_device)
-                    preds[:, :, z1:z2, y1:y2, x1:x2] += crop_logits
+                    # Device to Host's pin memory copy
+                    preds[:, :, z1:z2, y1:y2, x1:x2] += patch_cache.copy_(crop_logits, non_blocking=True)
                     count_mat[:, :, z1:z2, y1:y2, x1:x2] += 1
         
         # Average overlapping predictions

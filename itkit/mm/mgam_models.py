@@ -574,16 +574,16 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
 
         # Create accumulation and count matrices on specified device
         preds = torch.zeros(
-            size=(batch_size, self.num_classes, z_padded, y_padded, x_padded),
-            dtype=torch.float16,
-            device=accumulate_device,
-            pin_memory=True
+            size = (batch_size, self.num_classes, z_padded, y_padded, x_padded),
+            dtype = torch.float16,
+            device = accumulate_device,
+            pin_memory = True
         )
         count_mat = torch.zeros(
-            size=(batch_size, 1, z_padded, y_padded, x_padded),
-            dtype=torch.uint8,
-            device=accumulate_device,
-            pin_memory=True
+            size = (batch_size, 1, z_padded, y_padded, x_padded),
+            dtype = torch.uint8,
+            device = accumulate_device,
+            pin_memory = False
         )
 
         # calculate window slices
@@ -619,9 +619,10 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                 batch_patches.append(crop_img.to(self.inference_config.forward_device))
             batch_patches = torch.cat(batch_patches, dim=0)  # [B, C, z_crop, y_crop, x_crop]
             
-            # torch.cuda.synchronize() # Optional: synchronize the data transfer from host to device
-            
             # run forward
+            # prevent crop_logits of previous patch inference from being overlapped by next patch copy
+            # HACK NOT SURE IF THIS STILL HAPPEN, This is only observed when using `.copy(non_blocking=True)`.
+            torch.cuda.synchronize()
             batch_seg_logits = self._forward(batch_patches)
 
             # accumulate results
@@ -629,8 +630,6 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                 preds[:, :, z_slice, y_slice, x_slice] += batch_seg_logits[j:j+1].to(accumulate_device, non_blocking=True)
                 count_mat[:, :, z_slice, y_slice, x_slice] += 1
             
-            # torch.cuda.synchronize() # Optional: synchronize the data transfer from device to host
-
         # 使用tensor操作进行断言检查，避免tensor到boolean转换
         min_count = torch.min(count_mat)
         assert min_count.item() > 0, "There are areas not covered by sliding windows"

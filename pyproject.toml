@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "itkit"
-version = "3.3.0.dev2"
+version = "3.3.0.dev4"
 requires-python = ">= 3.10"
 description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API"
 readme = "readme.md"
@@ -31,6 +31,8 @@ dependencies = [
   "colored",
   "albumentations",
   "ftfy",
+  "deprecated",
+  "pydantic",
 ]
 
 [project.optional-dependencies]
