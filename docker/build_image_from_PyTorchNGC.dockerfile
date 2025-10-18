@@ -21,10 +21,11 @@ Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 EOF
 
 RUN apt update
-RUN apt install -y git build-essential
+RUN apt install -y git build-essential libgl1
 RUN apt upgrade -y
 
 RUN git clone -b 'dev/main' --recursive https://github.com/MGAMZ/ITKIT.git
+RUN pip install --no-deps monai
 
 RUN pip install ./ITKIT[dev,medical_vision,pytorch,mm]
 

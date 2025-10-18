@@ -252,6 +252,12 @@ Notes
 
 **Unfortunately**, the upstream OpenMMLab project has gradually fallen out of maintenance, and I have to consider abandoning this portion of the development work.
 
+Please install `monai` package before you use functions in this section.
+
+```bash
+pip install --no-deps monai
+```
+
 ### Experiment Runner
 
 The repo provides an experiment runner based on `MMEngine`'s `Runner` class.
@@ -367,6 +373,12 @@ These plugins are located in `itkit/mm/mmeng_PlugIn.py`. Some if the designs act
 The repo is transferring the developping framework from OpenMIM to PyTorch Lightning, dur to the former is no longer maintained this years. PyTorch Lightning may be more useable in the future when dealing with specific training techniques.
 
 The codes are at `lightning/`.
+
+Please install `monai` package before you use functions in this section.
+
+```bash
+pip install --no-deps monai
+```
 
 ## Release Policy
 
