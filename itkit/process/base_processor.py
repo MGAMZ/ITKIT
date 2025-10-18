@@ -32,12 +32,13 @@ How to Choose a Processor:
         ├── case02.mha
         └── ...
 
-- Use `SeparateFoldersProcessor`: If your images and labels are in two
-  completely separate directories but share the same filenames.
-    /path/to/images/
+- Use `SeparateFoldersProcessor`: If you have two separate folders with
+  corresponding files that share the same filenames. This is generic and can
+  handle any file pair types (image-label, label-label, image-image, etc.).
+    /path/to/folder_A/
         ├── case01.mha
         └── case02.mha
-    /path/to/labels/
+    /path/to/folder_B/
         ├── case01.mha
         └── case02.mha
 
@@ -383,51 +384,57 @@ class SingleFolderProcessor(BaseITKProcessor):
 
 class SeparateFoldersProcessor(BaseITKProcessor):
     """
-    A processor for handling image and label files located in two separate folders.
+    A processor for handling file pairs located in two separate folders.
 
-    Use this class when your images and labels are not in the same parent directory,
-    but can be matched by filename.
+    Use this class when you have two separate folders containing corresponding files
+    that can be matched by filename. This is a generic processor that can handle
+    any type of file pairs (e.g., image-label, label-label, image-image, etc.).
+    
+    Examples:
+        - Image and label pairs in separate directories
+        - Two sets of labels that need to be compared or merged
+        - Original and processed versions of the same data
     """
     
     def __init__(self,
-                 img_folder: str,
-                 lbl_folder: str,
-                 out_img_folder: str | None = None,
-                 out_lbl_folder: str | None = None,
+                 folder_A: str,
+                 folder_B: str,
+                 output_folder_A: str | None = None,
+                 output_folder_B: str | None = None,
                  mp: bool = False,
                  workers: int | None = None):
         """
         Initializes the SeparateFoldersProcessor.
 
         Args:
-            img_folder (str): The directory containing image files.
-            lbl_folder (str): The directory containing label files.
-            out_img_folder (str | None): Directory to save processed images.
-            out_lbl_folder (str | None): Directory to save processed labels.
+            folder_A (str): The directory containing the first set of files.
+            folder_B (str): The directory containing the second set of files.
+            output_folder_A (str | None): Directory to save processed files from folder_A.
+            output_folder_B (str | None): Directory to save processed files from folder_B.
             mp (bool): Enable multiprocessing.
             workers (int | None): Number of worker processes.
         """
         super().__init__(mp, workers)
-        self.img_folder = img_folder
-        self.lbl_folder = lbl_folder
-        self.out_img_folder = out_img_folder
-        self.out_lbl_folder = out_lbl_folder
+        self.folder_A = folder_A
+        self.folder_B = folder_B
+        self.output_folder_A = output_folder_A
+        self.output_folder_B = output_folder_B
         # Set dest_folder for metadata saving purposes
-        self.dest_folder = out_img_folder or out_lbl_folder
+        self.dest_folder = output_folder_A or output_folder_B
     
     def get_items_to_process(self) -> list[tuple[str, str]]:
         """
-        Finds all corresponding image-label pairs from the two separate folders.
+        Finds all corresponding file pairs from the two separate folders.
 
         Returns:
-            list[tuple[str, str]]: A list of (image_path, label_path) tuples.
+            list[tuple[str, str]]: A list of (file_A_path, file_B_path) tuples.
         """
-        img_files_paths = self.find_files_flat(self.img_folder)
-        lbl_files_paths = self.find_files_flat(self.lbl_folder)
+        files_A_paths = self.find_files_flat(self.folder_A)
+        files_B_paths = self.find_files_flat(self.folder_B)
 
-        img_files = {self._normalize_filename(os.path.basename(f)): f for f in img_files_paths}
-        lbl_files = {self._normalize_filename(os.path.basename(f)): f for f in lbl_files_paths}
+        files_A = {self._normalize_filename(os.path.basename(f)): f for f in files_A_paths}
+        files_B = {self._normalize_filename(os.path.basename(f)): f for f in files_B_paths}
         
-        common_files = set(img_files.keys()) & set(lbl_files.keys())
-        pairs = [(img_files[f], lbl_files[f]) for f in common_files]
+        common_files = set(files_A.keys()) & set(files_B.keys())
+        pairs = [(files_A[f], files_B[f]) for f in common_files]
         return pairs
