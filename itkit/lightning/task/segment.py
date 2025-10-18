@@ -169,6 +169,10 @@ class SegmentationBase(pl.LightningModule):
         return metrics
 
     def training_step(self, batch: dict[str, Any], batch_idx: int) -> Tensor:
+        # HACK to reduce VRAM unknown occupation after sliding window inference (happened in validation)
+        if batch_idx == 0:
+            torch.cuda.empty_cache()
+        
         image, gt_segs = self._parse_batch(batch, self.device)
         logits: Tensor = self(image)
         
@@ -279,13 +283,14 @@ class Segmentation3D(SegmentationBase):
                     x1 = max(x2 - x_crop, 0)
                     
                     # Extract patch
-                    patch = inputs[:, :, z1:z2, y1:y2, x1:x2].to(self.device)
+                    patch = inputs[:, :, z1:z2, y1:y2, x1:x2].to(self.device, non_blocking=True)
                     
                     # Forward
                     # prevent crop_logits of previous patch inference from being overlapped by next patch copy
-                    # TODO NOT SURE IF THIS STILL HAPPEN, This is only observed when using `.copy(non_blocking=True)`.
+                    # TODO **NOT SURE IF THIS STILL HAPPEN**, This is only observed when using `.copy(non_blocking=True)`.
                     torch.cuda.synchronize()
-                    crop_logits = self.forward(patch)
+                    # NOTE Inconsistent dtype between Host and Device Tensor can severly impact the Device2Host transfer speed.
+                    crop_logits = self.forward(patch).to(dtype=patch_cache.dtype)
                     
                     # Accumulate results
                     # Device to Host's pin memory copy
