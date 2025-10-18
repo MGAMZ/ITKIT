@@ -627,7 +627,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
 
             # accumulate results
             for j, (z_slice, y_slice, x_slice) in enumerate(batch_slices):
-                preds[:, :, z_slice, y_slice, x_slice] += batch_seg_logits[j:j+1].to(accumulate_device, non_blocking=True)
+                preds[:, :, z_slice, y_slice, x_slice] += batch_seg_logits[j:j+1].to(accumulate_device)
                 count_mat[:, :, z_slice, y_slice, x_slice] += 1
             
         # 使用tensor操作进行断言检查，避免tensor到boolean转换
