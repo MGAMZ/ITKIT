@@ -21,7 +21,7 @@ Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 EOF
 
 RUN apt update
-RUN apt install -y git build-essential libgl1
+RUN apt install -y git build-essential libgl1 htop
 RUN apt upgrade -y
 
 RUN git clone -b 'dev/main' --recursive https://github.com/MGAMZ/ITKIT.git
