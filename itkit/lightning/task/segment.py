@@ -3,10 +3,13 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
+from deprecated import deprecated
 
 import torch
 from torch import Tensor
 import pytorch_lightning as pl
+
+from ..utils.profiler import snapshot_memory
 
 
 @dataclass
@@ -225,6 +228,7 @@ class Segmentation3D(SegmentationBase):
         z_stride, y_stride, x_stride = self.slide_window_config.patch_stride
         z_crop, y_crop, x_crop = self.slide_window_config.patch_size
         batch_size, _, z_img, y_img, x_img = inputs.size()
+        inputs_device = inputs.device
         
         # Get output channels from a small forward pass
         with torch.no_grad():
@@ -291,12 +295,18 @@ class Segmentation3D(SegmentationBase):
         assert torch.all(count_mat > 0), "Some areas not covered by sliding window"
         logits = preds / count_mat
         
-        del preds, count_mat, patch_cache
+        # TODO Analyze post-inference VRAM usage.
+        # import gc
+        # for ref in gc.get_referrers(inputs):
+        #     print(f"  - {type(ref)}: {ref if not isinstance(ref, dict) else 'dict with keys: ' + str(list(ref.keys())[:5])}")
+        del inputs, preds, count_mat, patch_cache
         torch.cuda.empty_cache()
+        # snapshot_memory("after_empty_cache", output_dir="./memory_reports")
         
-        return logits.to(inputs.device)
+        return logits.to(device=inputs_device)
 
-
+@deprecated("Seg3D_SlideWindowTrain includes complex manual optimization logic and is deprecated."
+            "After many practise, its improvement doesn't achieve my expect.")
 class Seg3D_SlideWindowTrain(Segmentation3D):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
