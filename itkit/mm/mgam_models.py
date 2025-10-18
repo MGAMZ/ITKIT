@@ -33,6 +33,7 @@ class InferenceConfig:
     patch_stride: tuple | None = None
     accumulate_device: str = 'cuda'
     forward_device: str = 'cuda'
+    forward_batch_windows: int = 1
     # When accumulate and forward devices differ, a chunk size along the last
     # dimension must be provided to avoid OOM during argmax transfer.
     argmax_batchsize: int | None = None
@@ -424,6 +425,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         return {'loss_' + cri.__class__.__name__: cri(seg_logits, gt_segs) 
                 for cri in self.criterion}
 
+    @torch.inference_mode()
     def predict(self, inputs:Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Sequence[BaseDataElement]:
         """Predict results from a batch of inputs and data samples.
 
@@ -518,11 +520,12 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             
         return seg_logits
 
+    @torch.inference_mode()
     def slide_inference(self,
                         inputs: Tensor,
-                        data_samples: Sequence[BaseDataElement]|None=None,
-                        force_cpu: bool=False,
-                        batch_windows: int=1) -> Tensor:
+                        data_samples: Sequence[BaseDataElement] | None = None,
+                        force_cpu: bool = False,
+                        forward_batch_windows: int | None = None) -> Tensor:
         """Perform sliding-window inference with overlapping sub-volumes.
 
         Args:
@@ -540,6 +543,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             f"elsewise, please set both to `None` to disable sliding window."
         z_stride, y_stride, x_stride = self.inference_config.patch_stride
         z_crop, y_crop, x_crop = self.inference_config.patch_size
+        batch_windows = forward_batch_windows or self.inference_config.forward_batch_windows
         batch_size, _, z_img, y_img, x_img = inputs.size()
         assert batch_size == 1, "Currently only batch_size=1 is supported for 3D sliding-window inference"
         
@@ -583,8 +587,27 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             size = (batch_size, 1, z_padded, y_padded, x_padded),
             dtype = torch.uint8,
             device = accumulate_device,
-            pin_memory = False
+            pin_memory = True
         )
+        patch_cache = torch.empty(
+            size = (batch_windows, self.num_classes, z_crop, y_crop, x_crop),
+            dtype = torch.float16,
+            device = accumulate_device,
+            pin_memory = True
+        )
+        
+        def _device_to_host_pinned_tensor(device_tensor: Tensor, non_blocking: bool = False) -> Tensor:
+            """Inplace ops on pinned tensor for efficient transfer."""
+            nonlocal patch_cache, preds
+            device_tensor = device_tensor.to(preds.dtype) # NOTE Inconsistent dtype can SEVERLY impact tranfer speed.
+            if device_tensor.shape == patch_cache.shape:
+                # If the shape matches, copy directly to patch_cache
+                patch_cache.copy_(device_tensor, non_blocking)
+            else:
+                # Otherwise, resize patch_cache to match the device tensor shape
+                patch_cache.resize_(device_tensor.shape)
+                patch_cache.copy_(device_tensor, non_blocking)
+            return patch_cache
 
         # calculate window slices
         window_slices = []
@@ -604,7 +627,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                     y1 = max(y2 - y_crop, 0)
                     x1 = max(x2 - x_crop, 0)
                     window_slices.append((slice(z1, z2), slice(y1, y2), slice(x1, x2)))
-                    
+        
         for i in tqdm(range(0, len(window_slices), batch_windows),
                       desc="Slide Win. Infer.",
                       disable=not (is_main_process() and self.allow_pbar),
@@ -615,19 +638,19 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             # prepare inference batch
             batch_patches = []
             for (z_slice, y_slice, x_slice) in batch_slices:
-                crop_img = padded_inputs[:, :, z_slice, y_slice, x_slice]
-                batch_patches.append(crop_img.to(self.inference_config.forward_device))
-            batch_patches = torch.cat(batch_patches, dim=0)  # [B, C, z_crop, y_crop, x_crop]
+                batch_patches.append(padded_inputs[:, :, z_slice, y_slice, x_slice])
+            batch_patches = torch.cat(batch_patches, dim=0).to(self.inference_config.forward_device)  # [B, C, z_crop, y_crop, x_crop]
             
             # run forward
             # prevent crop_logits of previous patch inference from being overlapped by next patch copy
             # HACK NOT SURE IF THIS STILL HAPPEN, This is only observed when using `.copy(non_blocking=True)`.
             torch.cuda.synchronize()
-            batch_seg_logits = self._forward(batch_patches)
+            patch_logits_on_device = self._forward(batch_patches)
+            patch_cache = _device_to_host_pinned_tensor(patch_logits_on_device)
 
             # accumulate results
             for j, (z_slice, y_slice, x_slice) in enumerate(batch_slices):
-                preds[:, :, z_slice, y_slice, x_slice] += batch_seg_logits[j:j+1].to(accumulate_device)
+                preds[:, :, z_slice, y_slice, x_slice] += patch_cache[j:j+1]
                 count_mat[:, :, z_slice, y_slice, x_slice] += 1
             
         # 使用tensor操作进行断言检查，避免tensor到boolean转换
