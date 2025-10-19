@@ -5,7 +5,9 @@ from collections import OrderedDict
 import torch
 import numpy as np
 from skimage.exposure import equalize_hist
-from monai.metrics import DiceMetric, ConfusionMatrixMetric, MeanIoU
+from monai.metrics.meandice import compute_dice
+from monai.metrics.meaniou import compute_iou
+from monai.metrics.confusion_matrix import get_confusion_matrix, compute_confusion_matrix_metric
 
 from mmengine.structures import PixelData
 from mmengine.logging import print_log
@@ -224,12 +226,12 @@ class PackSegInputs(BaseTransform):
 
 class MonaiSegMetrics(BaseMetric):
     """
-    A metric evaluator that leverages MONAI's DiceMetric, ConfusionMatrixMetric, and MeanIoU
+    A metric evaluator that leverages MONAI's metric computation algorithms
     to compute comprehensive segmentation metrics including Dice, IoU, Recall, and Precision.
     
     This class follows the BaseMetric interface from mmengine:
-    - process(): Collects predictions and ground truth from each batch
-    - compute_metrics(): Aggregates buffered data and computes final metrics
+    - process(): Computes per-sample metrics and stores in self.results
+    - compute_metrics(): Aggregates collected results from all ranks
     
     Args:
         ignore_index (int): Index that will be ignored in evaluation. Default: 255.
@@ -248,39 +250,15 @@ class MonaiSegMetrics(BaseMetric):
         prefix: str | None = None,
     ) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
-        
         self.ignore_index = ignore_index
         self.include_background = include_background
         self.num_classes = num_classes
-        
-        # Initialize MONAI metrics
-        # These are CumulativeIterationMetric instances that accumulate results internally
-        self.dice_metric = DiceMetric(
-            include_background=include_background,
-            reduction="none",  # We'll handle reduction in aggregate
-            get_not_nans=False,
-        )
-        # IoU
-        self.iou_metric = MeanIoU(
-            include_background=include_background,
-            reduction="none",
-            get_not_nans=False,
-        )
-        # ConfusionMatrixMetric for Recall and Precision
-        self.confusion_metric = ConfusionMatrixMetric(
-            include_background=include_background,
-            metric_name=["recall", "precision"],  # TPR and PPV
-            compute_sample=False,
-            reduction="none",
-            get_not_nans=False,
-        )
     
     def process(self, data_batch: dict, data_samples: list) -> None:
         """
         Process one batch of data and data_samples.
         
-        The processed results are stored internally in MONAI metrics' buffers
-        via their __call__ method.
+        Computes per-sample metrics using MONAI's functions and stores serializable results in self.results.
         
         Args:
             data_batch (dict): A batch of data from the dataloader.
@@ -293,44 +271,79 @@ class MonaiSegMetrics(BaseMetric):
             pred_label = data_sample['pred_sem_seg']['data'].squeeze()  # [Z, Y, X]
             label = data_sample['gt_sem_seg']['data'].squeeze().to(pred_label)  # [Z, Y, X]
             
-            # Convert to one-hot format for MONAI metrics
-            # MONAI expects shape [1, C, Z, Y, X] for 3D data
-            pred_onehot = self._to_onehot(pred_label, num_classes, self.ignore_index)  # [1, C, Z, Y, X]
-            label_onehot = self._to_onehot(label, num_classes, self.ignore_index)  # [1, C, Z, Y, X]
+            # Convert to one-hot format [1, C, Z, Y, X] as required by MONAI
+            pred_onehot = self._to_onehot(pred_label, num_classes, self.ignore_index)
+            label_onehot = self._to_onehot(label, num_classes, self.ignore_index)
             
-            # Call MONAI metrics - they internally accumulate to buffers
-            self.dice_metric(y_pred=pred_onehot, y=label_onehot)
-            self.iou_metric(y_pred=pred_onehot, y=label_onehot)
-            self.confusion_metric(y_pred=pred_onehot, y=label_onehot)
+            # Compute per-sample metrics using MONAI's official functions
+            # compute_dice returns [B, C], we have B=1 so squeeze to [C]
+            dice_score = compute_dice(
+                y_pred=pred_onehot, 
+                y=label_onehot,
+                include_background=self.include_background,
+                ignore_empty=True,
+                num_classes=num_classes
+            ).squeeze(0)  # [C]
+            
+            # compute_iou returns [B, C]
+            iou_score = compute_iou(
+                y_pred=pred_onehot,
+                y=label_onehot,
+                include_background=self.include_background,
+                ignore_empty=True
+            ).squeeze(0)  # [C]
+            
+            # get_confusion_matrix returns [B, C, 4] where last dim is [TP, FP, TN, FN]
+            confusion_matrix = get_confusion_matrix(
+                y_pred=pred_onehot,
+                y=label_onehot,
+                include_background=self.include_background
+            ).squeeze(0)  # [C, 4]
+            
+            # Compute recall and precision from confusion matrix using MONAI's function
+            # recall = TPR = TP / (TP + FN)
+            recall_score = compute_confusion_matrix_metric("recall", confusion_matrix)  # [C]
+            # precision = PPV = TP / (TP + FP)
+            precision_score = compute_confusion_matrix_metric("precision", confusion_matrix)  # [C]
+            
+            # Store serializable tensors in self.results (required by BaseMetric)
+            self.results.append({
+                'dice': dice_score.cpu(),
+                'iou': iou_score.cpu(),
+                'recall': recall_score.cpu(),
+                'precision': precision_score.cpu(),
+            })
     
     def compute_metrics(self, results: list) -> dict:
         """
         Compute the metrics from processed results.
         
-        Since MONAI metrics accumulate internally, we aggregate their buffers here.
+        Aggregates per-sample metrics collected from all processes.
         
         Args:
-            results (list): The processed results (not used as MONAI handles buffering).
+            results (list): The processed results collected from all ranks.
         
         Returns:
             dict: The computed metrics including mDice, mIoU, mRecall, mPrecision.
         """
-        # Aggregate Dice scores - mean_batch averages across samples but keeps per-class results
-        dice_scores = self.dice_metric.aggregate(reduction="mean_batch")  # [C]
+        if not results:
+            return {}
+        
+        # Stack all per-sample results
+        all_dice = torch.stack([r['dice'] for r in results])  # [N, C]
+        all_iou = torch.stack([r['iou'] for r in results])  # [N, C]
+        all_recall = torch.stack([r['recall'] for r in results])  # [N, C]
+        all_precision = torch.stack([r['precision'] for r in results])  # [N, C]
+        
+        # Compute mean across samples for each class
+        dice_scores = torch.nanmean(all_dice, dim=0)  # [C]
+        iou_scores = torch.nanmean(all_iou, dim=0)  # [C]
+        recall_scores = torch.nanmean(all_recall, dim=0)  # [C]
+        precision_scores = torch.nanmean(all_precision, dim=0)  # [C]
+        
+        # Compute mean across classes
         mean_dice = torch.nanmean(dice_scores).item() * 100
-        
-        # Aggregate IoU scores
-        iou_scores = self.iou_metric.aggregate(reduction="mean_batch")  # [C]
         mean_iou = torch.nanmean(iou_scores).item() * 100
-        
-        # Aggregate Recall and Precision from confusion matrix
-        confusion_results = self.confusion_metric.aggregate(
-            compute_sample=False, 
-            reduction="mean_batch"
-        )
-        recall_scores = confusion_results[0]  # [C]
-        precision_scores = confusion_results[1]  # [C]
-        
         mean_recall = torch.nanmean(recall_scores).item() * 100
         mean_precision = torch.nanmean(precision_scores).item() * 100
         
@@ -364,11 +377,6 @@ class MonaiSegMetrics(BaseMetric):
         
         print_log('per class results:', 'current')
         print_log('\n' + terminal_table.get_string(), logger='current')
-        
-        # Reset MONAI metrics for next evaluation round
-        self.dice_metric.reset()
-        self.iou_metric.reset()
-        self.confusion_metric.reset()
         
         return metrics
     

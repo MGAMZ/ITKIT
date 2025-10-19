@@ -182,7 +182,7 @@ class SegmentationBase(pl.LightningModule):
         with torch.no_grad():
             for loss_name, loss_value in losses.items():
                 self.log(f'train/{loss_name}', loss_value.item(), on_step=True, on_epoch=True, logger=True, sync_dist=True)
-            self.log('train/total_loss', total_loss.item(), prog_bar=True, on_step=True, on_epoch=True, logger=True, sync_dist=True)
+            self.log('train/total_loss', total_loss.item(), on_step=True, on_epoch=True, logger=True, sync_dist=True)
         
         return total_loss
 
