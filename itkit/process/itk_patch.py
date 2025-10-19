@@ -91,7 +91,9 @@ class PatchProcessor(DatasetProcessor):
                     else:
                         lbl_patch_np = lbl_arr[z:z+pZ, y:y+pY, x:x+pX]
                         fg_ratio = np.sum(lbl_patch_np > 0) / lbl_patch_np.size
-                        if (fg_ratio < minimum_foreground_ratio) or (np.random.rand() > self.keep_empty_label_prob):
+                        if (fg_ratio < minimum_foreground_ratio):
+                            save = False
+                        if fg_ratio == 0 and (np.random.rand() > self.keep_empty_label_prob):
                             save = False
                     
                     if save:
