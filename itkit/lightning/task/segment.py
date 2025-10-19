@@ -288,7 +288,8 @@ class Segmentation3D(SegmentationBase):
                     # Forward
                     # prevent crop_logits of previous patch inference from being overlapped by next patch copy
                     # TODO **NOT SURE IF THIS STILL HAPPEN**, This is only observed when using `.copy(non_blocking=True)`.
-                    torch.cuda.synchronize()
+                    if torch.cuda.is_available() and self.device.type == "cuda":
+                        torch.cuda.synchronize()
                     # NOTE Inconsistent dtype between Host and Device Tensor can severly impact the Device2Host transfer speed.
                     crop_logits = self.forward(patch).to(dtype=patch_cache.dtype)
                     
