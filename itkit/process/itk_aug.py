@@ -16,7 +16,14 @@ class AugProcessor(SeparateFoldersProcessor):
                  random_rots: list[int],
                  mp: bool = False,
                  workers: int | None = None):
-        super().__init__(img_folder, lbl_folder, out_img_folder, out_lbl_folder, mp, workers)
+        super().__init__(
+            folder_A = img_folder,
+            folder_B = lbl_folder,
+            output_folder_A = out_img_folder,
+            output_folder_B = out_lbl_folder,
+            mp = mp,
+            workers = workers
+        )
         self.num = num
         self.random_rots = random_rots
 
@@ -81,11 +88,11 @@ class AugProcessor(SeparateFoldersProcessor):
         for i in range(self.num):
             rotated_image, rotated_label = self.random_3d_rotate(image, label, self.random_rots)
             # save to mha
-            if self.out_img_folder:
-                aug_img_path = os.path.join(self.out_img_folder, f"{basename}_{i}.mha")
+            if self.output_folder_A:
+                aug_img_path = os.path.join(self.output_folder_A, f"{basename}_{i}.mha")
                 sitk.WriteImage(rotated_image, aug_img_path, True)
-            if self.out_lbl_folder:
-                aug_lbl_path = os.path.join(self.out_lbl_folder, f"{basename}_{i}.mha")
+            if self.output_folder_B:
+                aug_lbl_path = os.path.join(self.output_folder_B, f"{basename}_{i}.mha")
                 sitk.WriteImage(rotated_label, aug_lbl_path, True)
         
         return None  # No metadata for augmentation
