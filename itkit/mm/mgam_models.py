@@ -644,7 +644,8 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             # run forward
             # prevent crop_logits of previous patch inference from being overlapped by next patch copy
             # HACK NOT SURE IF THIS STILL HAPPEN, This is only observed when using `.copy(non_blocking=True)`.
-            torch.cuda.synchronize()
+            if torch.cuda.is_available() and torch.device(self.inference_config.forward_device).type == "cuda":
+                torch.cuda.synchronize()
             patch_logits_on_device = self._forward(batch_patches)
             patch_cache = _device_to_host_pinned_tensor(patch_logits_on_device)
 
