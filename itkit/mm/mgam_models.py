@@ -581,19 +581,19 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             size = (batch_size, self.num_classes, z_padded, y_padded, x_padded),
             dtype = torch.float16,
             device = accumulate_device,
-            pin_memory = True
+            pin_memory = True if accumulate_device.type == 'cpu' else False
         )
         count_mat = torch.zeros(
             size = (batch_size, 1, z_padded, y_padded, x_padded),
             dtype = torch.uint8,
             device = accumulate_device,
-            pin_memory = True
+            pin_memory = True if accumulate_device.type == 'cpu' else False
         )
         patch_cache = torch.empty(
             size = (batch_windows, self.num_classes, z_crop, y_crop, x_crop),
             dtype = torch.float16,
             device = accumulate_device,
-            pin_memory = True
+            pin_memory = True if accumulate_device.type == 'cpu' else False
         )
         
         def _device_to_host_pinned_tensor(device_tensor: Tensor, non_blocking: bool = False) -> Tensor:
