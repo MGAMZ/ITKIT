@@ -90,7 +90,7 @@ class BaseITKProcessor(ABC):
             extensions (tuple[str, ...]): A tuple of file extensions to look for.
         """
         self.mp = mp
-        self.workers = workers or cpu_count() // 2
+        self.workers = max(1, workers or (cpu_count() // 2))
         self.meta = {}
         self.extensions = extensions
         self.source_folder: str | None = None
