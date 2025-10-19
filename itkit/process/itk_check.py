@@ -93,20 +93,16 @@ class CheckProcessor(DatasetProcessor):
         pairs = self.get_items_to_process()
         series_meta = {}
         
-        results = self.process_items(pairs, "Checking files")
+        results = self.process_items(pairs, "Checking")
         
         # Collect results
-        for result in results:
-            if result is None:
-                continue
-            
-            for name, data in result.items():
-                series_meta[name] = {'size': data['size'], 'spacing': data['spacing']}
-                if data['reasons']:
-                    self.invalid.append((name, data['reasons']))
-                    tqdm.write(f"{name}: {'; '.join(data['reasons'])}")
-                else:
-                    self.valid_names.append(name)
+        for name, data in results.items():
+            series_meta[name] = {'size': data['size'], 'spacing': data['spacing']}
+            if data['reasons']:
+                self.invalid.append((name, data['reasons']))
+                tqdm.write(f"{name}: {'; '.join(data['reasons'])}")
+            else:
+                self.valid_names.append(name)
         
         # Save series_meta.json
         meta_path = get_series_meta_path(self.source_folder)

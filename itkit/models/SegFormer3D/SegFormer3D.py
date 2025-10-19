@@ -7,666 +7,630 @@
     year      = {2024},
     pages     = {4981-4988}
 }
+
+Modified to support arbitrary DWH input and optimized using SDPA.
 """
 
+import pdb
+from collections.abc import Sequence
+
 import torch
-import math
-import numpy as np
 from torch import nn
-
-
-def build_segformer3d_model(config):
-    model = SegFormer3D(
-        in_channels=config["model_parameters"]["in_channels"],
-        sr_ratios=config["model_parameters"]["sr_ratios"],
-        embed_dims=config["model_parameters"]["embed_dims"],
-        patch_kernel_size=config["model_parameters"]["patch_kernel_size"],
-        patch_stride=config["model_parameters"]["patch_stride"],
-        patch_padding=config["model_parameters"]["patch_padding"],
-        mlp_ratios=config["model_parameters"]["mlp_ratios"],
-        num_heads=config["model_parameters"]["num_heads"],
-        depths=config["model_parameters"]["depths"],
-        decoder_head_embedding_dim=config["model_parameters"][
-            "decoder_head_embedding_dim"
-        ],
-        num_classes=config["model_parameters"]["num_classes"],
-        decoder_dropout=config["model_parameters"]["decoder_dropout"],
-    )
-    return model
-
-
-class SegFormer3D(nn.Module):
-    def __init__(
-        self,
-        in_channels: int = 4,
-        sr_ratios: list = [4, 2, 1, 1],
-        embed_dims: list = [32, 64, 160, 256],
-        patch_kernel_size: list = [7, 3, 3, 3],
-        patch_stride: list = [4, 2, 2, 2],
-        patch_padding: list = [3, 1, 1, 1],
-        mlp_ratios: list = [4, 4, 4, 4],
-        num_heads: list = [1, 2, 5, 8],
-        depths: list = [2, 2, 2, 2],
-        decoder_head_embedding_dim: int = 256,
-        num_classes: int = 3,
-        decoder_dropout: float = 0.0,
-    ):
-        """
-        in_channels: number of the input channels
-        img_volume_dim: spatial resolution of the image volume (Depth, Width, Height)
-        sr_ratios: the rates at which to down sample the sequence length of the embedded patch
-        embed_dims: hidden size of the PatchEmbedded input
-        patch_kernel_size: kernel size for the convolution in the patch embedding module
-        patch_stride: stride for the convolution in the patch embedding module
-        patch_padding: padding for the convolution in the patch embedding module
-        mlp_ratios: at which rate increases the projection dim of the hidden_state in the mlp
-        num_heads: number of attention heads
-        depths: number of attention layers
-        decoder_head_embedding_dim: projection dimension of the mlp layer in the all-mlp-decoder module
-        num_classes: number of the output channel of the network
-        decoder_dropout: dropout rate of the concatenated feature maps
-
-        """
-        super().__init__()
-        self.segformer_encoder = MixVisionTransformer(
-            in_channels=in_channels,
-            sr_ratios=sr_ratios,
-            embed_dims=embed_dims,
-            patch_kernel_size=patch_kernel_size,
-            patch_stride=patch_stride,
-            patch_padding=patch_padding,
-            mlp_ratios=mlp_ratios,
-            num_heads=num_heads,
-            depths=depths,
-        )
-        # decoder takes in the feature maps in the reversed order
-        reversed_embed_dims = embed_dims[::-1]
-        self.segformer_decoder = SegFormerDecoderHead(
-            input_feature_dims=reversed_embed_dims,
-            decoder_head_embedding_dim=decoder_head_embedding_dim,
-            num_classes=num_classes,
-            dropout=decoder_dropout,
-        )
-        self.apply(self._init_weights)
-
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            nn.init.trunc_normal_(m.weight, std=0.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.BatchNorm2d):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.BatchNorm3d):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-            fan_out //= m.groups
-            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            if m.bias is not None:
-                m.bias.data.zero_()
-        elif isinstance(m, nn.Conv3d):
-            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.kernel_size[2] * m.out_channels
-            fan_out //= m.groups
-            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            if m.bias is not None:
-                m.bias.data.zero_()
-
-    def forward(self, x):
-        # embedding the input
-        x = self.segformer_encoder(x)
-        # # unpacking the embedded features generated by the transformer
-        c1 = x[0]
-        c2 = x[1]
-        c3 = x[2]
-        c4 = x[3]
-        # decoding the embedded features
-        x = self.segformer_decoder(c1, c2, c3, c4)
-        return x
-
-# ----------------------------------------------------- encoder -----------------------------------------------------
-class PatchEmbedding(nn.Module):
-    def __init__(
-        self,
-        in_channel: int = 4,
-        embed_dim: int = 768,
-        kernel_size: int = 7,
-        stride: int = 4,
-        padding: int = 3,
-    ):
-        """
-        in_channels: number of the channels in the input volume
-        embed_dim: embedding dimmesion of the patch
-        """
-        super().__init__()
-        self.patch_embeddings = nn.Conv3d(
-            in_channel,
-            embed_dim,
-            kernel_size=kernel_size,
-            stride=stride,
-            padding=padding,
-        )
-        self.norm = nn.LayerNorm(embed_dim)
-
-    def forward(self, x):
-        # standard embedding patch
-        patches = self.patch_embeddings(x)
-        patched_volume_size = patches.shape[2:]
-        patches = patches.flatten(2).transpose(1, 2)
-        patches = self.norm(patches)
-        return patches
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 
 class SelfAttention(nn.Module):
     def __init__(
         self,
-        embed_dim: int = 768,
-        num_heads: int = 8,
-        sr_ratio: int = 2,
+        embed_dim: int,
+        num_heads: int,
+        sr_ratio=None,
         qkv_bias: bool = False,
         attn_dropout: float = 0.0,
         proj_dropout: float = 0.0,
+        use_SDPA: bool = True,
     ):
-        """
-        embed_dim : hidden size of the PatchEmbedded input
-        num_heads: number of attention heads
-        sr_ratio: the rate at which to down sample the sequence length of the embedded patch
-        qkv_bias: whether or not the linear projection has bias
-        attn_dropout: the dropout rate of the attention component
-        proj_dropout: the dropout rate of the final linear projection
-        """
         super().__init__()
-        assert (
-            embed_dim % num_heads == 0
-        ), "Embedding dim should be divisible by number of heads!"
+        assert (embed_dim % num_heads == 0), \
+            "Embedding dim must be divisible by number of heads!"
 
         self.num_heads = num_heads
-        # embedding dimesion of each attention head
         self.attention_head_dim = embed_dim // num_heads
+        self.scale:float = self.attention_head_dim ** -0.5
 
-        # The same input is used to generate the query, key, and value,
-        # (batch_size, num_patches, hidden_size) -> (batch_size, num_patches, attention_head_size)
         self.query = nn.Linear(embed_dim, embed_dim, bias=qkv_bias)
-        self.key_value = nn.Linear(embed_dim, 2 * embed_dim, bias=qkv_bias)
+        self.key_value = nn.Linear(embed_dim, embed_dim * 2, bias=qkv_bias)
+        self.attn_dropout_p = attn_dropout
         self.attn_dropout = nn.Dropout(attn_dropout)
         self.proj = nn.Linear(embed_dim, embed_dim)
         self.proj_dropout = nn.Dropout(proj_dropout)
+        self.use_SDPA = use_SDPA and hasattr(F, "scaled_dot_product_attention")
 
-        self.sr_ratio = sr_ratio
-        if sr_ratio > 1:
-            self.sr = nn.Conv3d(
-                embed_dim, embed_dim, kernel_size=sr_ratio, stride=sr_ratio
-            )
+        if not self.use_SDPA:
+            print("Warning: scaled_dot_product_attention not available or disabled. Using manual attention implementation.")
+
+        if sr_ratio is None:
+            sr_ratio = 1
+        if isinstance(sr_ratio, int):
+            self.sr_ratio = (sr_ratio, sr_ratio, sr_ratio)
+        else:
+            assert len(sr_ratio) == 3
+            self.sr_ratio = tuple(sr_ratio)
+        if any(r > 1 for r in self.sr_ratio):
+            self.sr = nn.Conv3d(embed_dim, embed_dim, kernel_size=self.sr_ratio, stride=self.sr_ratio)
             self.sr_norm = nn.LayerNorm(embed_dim)
+        else:
+            self.sr = None
 
-    def forward(self, x, patched_volume_size=None):
-        # (batch_size, num_patches, hidden_size)
+    def forward(self, x:torch.Tensor, patched_volume_size):
         B, N, C = x.shape
-        if patched_volume_size is None:
-            d = w = h = cube_root(N)
-        else:
-            t = N / np.prod(patched_volume_size)
-            d = int(t * patched_volume_size[0])
-            w = int(t * patched_volume_size[1])
-            h = int(t * patched_volume_size[2])
+        D, W, H = patched_volume_size
 
-        # (batch_size, num_head, sequence_length, embed_dim)
-        q = (
-            self.query(x)
-            .reshape(B, N, self.num_heads, self.attention_head_dim)
-            .permute(0, 2, 1, 3)
-        )
+        # q shape: (B, num_heads, N, head_dim)
+        q:torch.Tensor = self.query(x).view(B, N, self.num_heads, self.attention_head_dim).permute(0, 2, 1, 3)
 
-        if self.sr_ratio > 1:
-            # (batch_size, sequence_length, embed_dim) -> (batch_size, embed_dim, patch_D, patch_H, patch_W)
-            x_ = x.permute(0, 2, 1).reshape(B, C, d, w, h)
-            # (batch_size, embed_dim, patch_D, patch_H, patch_W) -> (batch_size, embed_dim, patch_D/sr_ratio, patch_H/sr_ratio, patch_W/sr_ratio)
-            x_ = self.sr(x_).reshape(B, C, -1).permute(0, 2, 1)
-            # (batch_size, embed_dim, patch_D/sr_ratio, patch_H/sr_ratio, patch_W/sr_ratio) -> (batch_size, sequence_length, embed_dim)
-            # normalizing the layer
+        if self.sr is not None:
+            # x shape: (B, N, C) -> (B, C, N) -> (B, C, D, W, H)
+            x_ = x.permute(0, 2, 1).view(B, C, D, W, H)
+            x_ = self.sr(x_)
+            # x_ shape: (B, C, D'*W'*H') -> (B, D'*W'*H', C)
+            x_ = x_.flatten(2).transpose(1, 2)
             x_ = self.sr_norm(x_)
-            # (batch_size, num_patches, hidden_size)
-            kv = (
-                self.key_value(x_)
-                .reshape(B, -1, 2, self.num_heads, self.attention_head_dim)
-                .permute(2, 0, 3, 1, 4)
-            )
-            # (2, batch_size, num_heads, num_sequence, attention_head_dim)
+            # kv shape: (2, B, num_heads, N_kv, head_dim) where N_kv = D'*W'*H'
+            kv = self.key_value(x_)
+            kv = kv.view(B, -1, 2, self.num_heads, self.attention_head_dim).permute(2, 0, 3, 1, 4)
         else:
-            # (batch_size, num_patches, hidden_size)
-            kv = (
-                self.key_value(x)
-                .reshape(B, -1, 2, self.num_heads, self.attention_head_dim)
-                .permute(2, 0, 3, 1, 4)
+            # kv shape: (2, B, num_heads, N, head_dim)
+            kv = self.key_value(x)
+            kv = kv.view(B, N, 2, self.num_heads, self.attention_head_dim).permute(2, 0, 3, 1, 4)
+
+        # k, v shape: (B, num_heads, N_kv, head_dim)
+        kv: torch.Tensor
+        k, v = kv.unbind(0)
+
+        if self.use_SDPA:
+            # attn_output shape: (B, num_heads, N, head_dim)
+            attn_output = F.scaled_dot_product_attention(
+                q, k, v,
+                attn_mask=None,
+                dropout_p=self.attn_dropout_p if self.training else 0.0,
             )
-            # (2, batch_size, num_heads, num_sequence, attention_head_dim)
+        else:
+            attn = (q * self.scale) @ k.transpose(-2, -1)
+            attn = attn.softmax(dim=-1)
+            attn = self.attn_dropout(attn)
+            # attn_output shape: (B, num_heads, N, head_dim)
+            attn_output = attn @ v
 
-        k, v = kv[0], kv[1]
-
-        attention_score = (q @ k.transpose(-2, -1)) / math.sqrt(self.num_heads)
-        attnention_prob = attention_score.softmax(dim=-1)
-        attnention_prob = self.attn_dropout(attnention_prob)
-        out = (attnention_prob @ v).transpose(1, 2).reshape(B, N, C)
+        # attn_output shape: (B, num_heads, N, head_dim) -> (B, N, num_heads, head_dim) -> (B, N, C)
+        out = attn_output.transpose(1, 2).reshape(B, N, C)
         out = self.proj(out)
         out = self.proj_dropout(out)
         return out
 
 
+class DWConv(nn.Module):
+    """Depthwise Separable Convolution used in MLP"""
+    def __init__(self, dim: int):
+        super().__init__()
+        self.dwconv = nn.Conv3d(dim, dim, 3, 1, 1, bias=True, groups=dim)
+        self.bn = nn.BatchNorm3d(dim) # Consider replacing with LayerNorm if issues arise
+
+    def forward(self, x, patched_volume_size):
+        B, N, C = x.shape
+        # Use the provided spatial dimensions
+        D, W, H = patched_volume_size
+        if N == 0: # Handle empty sequences if they occur
+            return x
+
+        # Reshape for convolution: (B, N, C) -> (B, C, N) -> (B, C, D, W, H)
+        x = x.transpose(1, 2).view(B, C, D, W, H)
+        x = self.dwconv(x)
+        x = self.bn(x)
+        # Reshape back to sequence: (B, C, D, W, H) -> (B, C, N) -> (B, N, C)
+        x = x.flatten(2).transpose(1, 2)
+        return x
+
+
+class TransformerBlockMLP(nn.Module):
+    """MLP block with Depthwise Separable Convolution"""
+    def __init__(self, in_features: int, mlp_ratio: int, dropout: float):
+        super().__init__()
+        hidden_features = mlp_ratio * in_features
+        self.fc1 = nn.Linear(in_features, hidden_features)
+        self.dwconv = DWConv(dim=hidden_features)
+        self.act = nn.GELU()
+        self.fc2 = nn.Linear(hidden_features, in_features)
+        self.drop1 = nn.Dropout(dropout)
+        self.drop2 = nn.Dropout(dropout)
+
+    def forward(self, x, patched_volume_size):
+        x = self.fc1(x)
+        # Pass spatial dimensions to DWConv
+        x = self.dwconv(x, patched_volume_size)
+        x = self.act(x)
+        x = self.drop1(x)
+        x = self.fc2(x)
+        x = self.drop2(x)
+        return x
+
+
 class TransformerBlock(nn.Module):
     def __init__(
         self,
-        embed_dim: int = 768,
-        mlp_ratio: int = 2,
-        num_heads: int = 8,
-        sr_ratio: int = 2,
+        embed_dim: int,
+        num_heads: int,
+        mlp_ratio: int = 4, # Default MLP ratio often 4
+        sr_ratio: int = 1,
         qkv_bias: bool = False,
         attn_dropout: float = 0.0,
-        proj_dropout: float = 0.0,
+        proj_dropout: float = 0.0, # Typically same dropout for attn proj and mlp
+        use_SDPA: bool = True,
     ):
-        """
-        embed_dim : hidden size of the PatchEmbedded input
-        mlp_ratio: at which rate increasse the projection dim of the embedded patch in the _MLP component
-        num_heads: number of attention heads
-        sr_ratio: the rate at which to down sample the sequence length of the embedded patch
-        qkv_bias: whether or not the linear projection has bias
-        attn_dropout: the dropout rate of the attention component
-        proj_dropout: the dropout rate of the final linear projection
-        """
         super().__init__()
         self.norm1 = nn.LayerNorm(embed_dim)
-        self.attention = SelfAttention(
+        self.attn = SelfAttention(
             embed_dim=embed_dim,
             num_heads=num_heads,
             sr_ratio=sr_ratio,
             qkv_bias=qkv_bias,
             attn_dropout=attn_dropout,
             proj_dropout=proj_dropout,
+            use_SDPA=use_SDPA,
         )
         self.norm2 = nn.LayerNorm(embed_dim)
-        self.mlp = _MLP(in_feature=embed_dim, mlp_ratio=mlp_ratio, dropout=0.0)
+        self.mlp = TransformerBlockMLP(
+            in_features=embed_dim,
+            mlp_ratio=mlp_ratio,
+            dropout=proj_dropout, # Use proj_dropout for MLP dropout
+        )
 
-    def forward(self, x, patched_volume_size=None):
-        x = x + self.attention(self.norm1(x), patched_volume_size)
+    def forward(self, x, patched_volume_size):
+        # Pass spatial dimensions to attention and MLP
+        x = x + self.attn(self.norm1(x), patched_volume_size)
         x = x + self.mlp(self.norm2(x), patched_volume_size)
         return x
+
+
+class PatchEmbedding(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        embed_dim: int,
+        kernel_size: int,
+        stride: int,
+        padding: int,
+    ):
+        super().__init__()
+        # Convolutional layer for patch embedding
+        self.proj = nn.Conv3d(
+            in_channels,
+            embed_dim,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+        )
+        # Layer normalization applied after flattening
+        self.norm = nn.LayerNorm(embed_dim)
+
+    def forward(self, x):
+        # Apply convolution: (B, C_in, D, W, H) -> (B, C_embed, D', W', H')
+        x = self.proj(x)
+        # Get the spatial dimensions after convolution
+        patched_volume_size = x.shape[2:]
+        # Flatten spatial dimensions and transpose: (B, C_embed, D'*W'*H') -> (B, D'*W'*H', C_embed)
+        x = x.flatten(2).transpose(1, 2)
+        # Apply layer normalization
+        x = self.norm(x)
+        # Return both the embedded sequence and the spatial dimensions
+        return x, patched_volume_size
 
 
 class MixVisionTransformer(nn.Module):
     def __init__(
         self,
-        in_channels: int = 4,
-        sr_ratios: list = [8, 4, 2, 1],
-        embed_dims: list = [64, 128, 320, 512],
-        patch_kernel_size: list = [7, 3, 3, 3],
-        patch_stride: list = [4, 2, 2, 2],
-        patch_padding: list = [3, 1, 1, 1],
-        mlp_ratios: list = [2, 2, 2, 2],
-        num_heads: list = [1, 2, 5, 8],
-        depths: list = [2, 2, 2, 2],
+        in_channels: int,
+        embed_dims: Sequence,
+        num_heads: Sequence,
+        mlp_ratios: Sequence,
+        depths: Sequence,
+        sr_ratios: Sequence,
+        patch_kernel_size: Sequence,
+        patch_stride: Sequence,
+        patch_padding: Sequence,
+        qkv_bias: bool = True, # Common default
+        attn_dropout: float = 0.0,
+        proj_dropout: float = 0.0,
+        use_SDPA: bool = True,
     ):
-        """
-        in_channels: number of the input channels
-        img_volume_dim: spatial resolution of the image volume (Depth, Width, Height)
-        sr_ratios: the rates at which to down sample the sequence length of the embedded patch
-        embed_dims: hidden size of the PatchEmbedded input
-        patch_kernel_size: kernel size for the convolution in the patch embedding module
-        patch_stride: stride for the convolution in the patch embedding module
-        patch_padding: padding for the convolution in the patch embedding module
-        mlp_ratio: at which rate increasse the projection dim of the hidden_state in the mlp
-        num_heads: number of attenion heads
-        depth: number of attention layers
-        """
         super().__init__()
+        self.depths = depths
+        self.embed_dims = embed_dims
 
-        # patch embedding at different Pyramid level
-        self.embed_1 = PatchEmbedding(
-            in_channel=in_channels,
-            embed_dim=embed_dims[0],
-            kernel_size=patch_kernel_size[0],
-            stride=patch_stride[0],
-            padding=patch_padding[0],
-        )
-        self.embed_2 = PatchEmbedding(
-            in_channel=embed_dims[0],
-            embed_dim=embed_dims[1],
-            kernel_size=patch_kernel_size[1],
-            stride=patch_stride[1],
-            padding=patch_padding[1],
-        )
-        self.embed_3 = PatchEmbedding(
-            in_channel=embed_dims[1],
-            embed_dim=embed_dims[2],
-            kernel_size=patch_kernel_size[2],
-            stride=patch_stride[2],
-            padding=patch_padding[2],
-        )
-        self.embed_4 = PatchEmbedding(
-            in_channel=embed_dims[2],
-            embed_dim=embed_dims[3],
-            kernel_size=patch_kernel_size[3],
-            stride=patch_stride[3],
-            padding=patch_padding[3],
-        )
-
-        # block 1
-        self.tf_block1 = nn.ModuleList(
-            [
-                TransformerBlock(
-                    embed_dim=embed_dims[0],
-                    num_heads=num_heads[0],
-                    mlp_ratio=mlp_ratios[0],
-                    sr_ratio=sr_ratios[0],
-                    qkv_bias=True,
+        # Create Patch Embedding layers for each stage
+        self.patch_embeds = nn.ModuleList()
+        # Input channels for the first stage is in_channels, subsequent stages use previous embed_dim
+        input_ch = in_channels
+        for i in range(len(depths)):
+            self.patch_embeds.append(
+                PatchEmbedding(
+                    in_channels=input_ch,
+                    embed_dim=embed_dims[i],
+                    kernel_size=patch_kernel_size[i],
+                    stride=patch_stride[i],
+                    padding=patch_padding[i],
                 )
-                for _ in range(depths[0])
-            ]
-        )
-        self.norm1 = nn.LayerNorm(embed_dims[0])
+            )
+            input_ch = embed_dims[i] # Update input channel for the next stage
 
-        # block 2
-        self.tf_block2 = nn.ModuleList(
-            [
-                TransformerBlock(
-                    embed_dim=embed_dims[1],
-                    num_heads=num_heads[1],
-                    mlp_ratio=mlp_ratios[1],
-                    sr_ratio=sr_ratios[1],
-                    qkv_bias=True,
-                )
-                for _ in range(depths[1])
-            ]
-        )
-        self.norm2 = nn.LayerNorm(embed_dims[1])
+        # Create Transformer Blocks for each stage
+        self.blocks = nn.ModuleList()
+        for i in range(len(depths)):
+            stage_blocks = nn.ModuleList(
+                [
+                    TransformerBlock(
+                        embed_dim=embed_dims[i],
+                        num_heads=num_heads[i],
+                        mlp_ratio=mlp_ratios[i],
+                        sr_ratio=sr_ratios[i],
+                        qkv_bias=qkv_bias,
+                        attn_dropout=attn_dropout,
+                        proj_dropout=proj_dropout,
+                        use_SDPA=use_SDPA,
+                    )
+                    for _ in range(depths[i])
+                ]
+            )
+            self.blocks.append(stage_blocks)
 
-        # block 3
-        self.tf_block3 = nn.ModuleList(
-            [
-                TransformerBlock(
-                    embed_dim=embed_dims[2],
-                    num_heads=num_heads[2],
-                    mlp_ratio=mlp_ratios[2],
-                    sr_ratio=sr_ratios[2],
-                    qkv_bias=True,
-                )
-                for _ in range(depths[2])
-            ]
-        )
-        self.norm3 = nn.LayerNorm(embed_dims[2])
-
-        # block 4
-        self.tf_block4 = nn.ModuleList(
-            [
-                TransformerBlock(
-                    embed_dim=embed_dims[3],
-                    num_heads=num_heads[3],
-                    mlp_ratio=mlp_ratios[3],
-                    sr_ratio=sr_ratios[3],
-                    qkv_bias=True,
-                )
-                for _ in range(depths[3])
-            ]
-        )
-        self.norm4 = nn.LayerNorm(embed_dims[3])
+        # Layer Normalization after each stage's blocks
+        self.norms = nn.ModuleList([nn.LayerNorm(embed_dims[i]) for i in range(len(depths))])
 
     def forward(self, x):
-        out = []
-        # at each stage these are the following mappings:
-        # (batch_size, num_patches, hidden_state)
-        # (num_patches,) -> (D, H, W)
-        # (batch_size, num_patches, hidden_state) -> (batch_size, hidden_state, D, H, W)
+        outputs = []
+        B = x.shape[0]
 
-        # stage 1
-        x = self.embed_1(x)
-        B, N, C = x.shape
-        n = cube_root(N)
-        for i, blk in enumerate(self.tf_block1):
-            x = blk(x)
-        x = self.norm1(x)
-        # (B, N, C) -> (B, D, H, W, C) -> (B, C, D, H, W)
-        x = x.reshape(B, n, n, n, -1).permute(0, 4, 1, 2, 3).contiguous()
-        out.append(x)
+        for i in range(len(self.depths)):
+            # Apply patch embedding and get spatial size
+            x, patched_volume_size = self.patch_embeds[i](x)
+            D, W, H = patched_volume_size
 
-        # stage 2
-        x = self.embed_2(x)
-        B, N, C = x.shape
-        n = cube_root(N)
-        for i, blk in enumerate(self.tf_block2):
-            x = blk(x)
-        x = self.norm2(x)
-        # (B, N, C) -> (B, D, H, W, C) -> (B, C, D, H, W)
-        x = x.reshape(B, n, n, n, -1).permute(0, 4, 1, 2, 3).contiguous()
-        out.append(x)
+            # Apply transformer blocks for the current stage
+            for blk in self.blocks[i]: # type:ignore
+                # Pass the spatial size to each block
+                x = blk(x, patched_volume_size)
 
-        # stage 3
-        x = self.embed_3(x)
-        B, N, C = x.shape
-        n = cube_root(N)
-        for i, blk in enumerate(self.tf_block3):
-            x = blk(x)
-        x = self.norm3(x)
-        # (B, N, C) -> (B, D, H, W, C) -> (B, C, D, H, W)
-        x = x.reshape(B, n, n, n, -1).permute(0, 4, 1, 2, 3).contiguous()
-        out.append(x)
+            # Apply normalization
+            x = self.norms[i](x)
 
-        # stage 4
-        x = self.embed_4(x)
-        B, N, C = x.shape
-        n = cube_root(N)
-        for i, blk in enumerate(self.tf_block4):
-            x = blk(x)
-        x = self.norm4(x)
-        # (B, N, C) -> (B, D, H, W, C) -> (B, C, D, H, W)
-        x = x.reshape(B, n, n, n, -1).permute(0, 4, 1, 2, 3).contiguous()
-        out.append(x)
+            # Reshape back to spatial format (B, C, D, W, H) for output
+            C = x.shape[-1]
+            x = x.transpose(1, 2).view(B, C, D, W, H)
+            outputs.append(x)
+            # The output 'x' becomes the input for the next stage's PatchEmbedding
 
-        return out
+        return outputs
 
 
-class _MLP(nn.Module):
-    def __init__(self, in_feature, mlp_ratio=2, dropout=0.0):
-        super().__init__()
-        out_feature = mlp_ratio * in_feature
-        self.fc1 = nn.Linear(in_feature, out_feature)
-        self.dwconv = DWConv(dim=out_feature)
-        self.fc2 = nn.Linear(out_feature, in_feature)
-        self.act_fn = nn.GELU()
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x, pached_embed_size=None):
-        x = self.fc1(x)
-        x = self.dwconv(x, pached_embed_size)
-        x = self.act_fn(x)
-        x = self.dropout(x)
-        x = self.fc2(x)
-        x = self.dropout(x)
-        return x
-
-
-class DWConv(nn.Module):
-    def __init__(self, dim=768):
-        super().__init__()
-        self.dwconv = nn.Conv3d(dim, dim, 3, 1, 1, bias=True, groups=dim)
-        # added batchnorm (remove it ?)
-        self.bn = nn.BatchNorm3d(dim)
-
-    def forward(self, x, patched_volume_size=None):
-        B, N, C = x.shape
-        # (batch, patch_cube, hidden_size) -> (batch, hidden_size, D, H, W)
-        # assuming D = H = W, i.e. cube root of the patch is an integer number!
-        if patched_volume_size is None:
-            d = w = h = cube_root(N)
-        else:
-            t = N / np.prod(patched_volume_size)
-            d = int(t * patched_volume_size[0])
-            w = int(t * patched_volume_size[1])
-            h = int(t * patched_volume_size[2])
-        
-        x = x.transpose(1, 2).view(B, C, d, w, h)
-        x = self.dwconv(x)
-        # added batchnorm (remove it ?)
-        x = self.bn(x)
-        x = x.flatten(2).transpose(1, 2)
-        return x
-
-###################################################################################
-def cube_root(n):
-    return round(math.pow(n, (1 / 3)))
-    
-
-###################################################################################
-# ----------------------------------------------------- decoder -------------------
-class MLP_(nn.Module):
-    """
-    Linear Embedding
-    """
-
-    def __init__(self, input_dim=2048, embed_dim=768):
-        super().__init__()
-        self.proj = nn.Linear(input_dim, embed_dim)
-        self.bn = nn.LayerNorm(embed_dim)
-
-    def forward(self, x):
-        x = x.flatten(2).transpose(1, 2).contiguous()
-        x = self.proj(x)
-        # added batchnorm (remove it ?)
-        x = self.bn(x)
-        return x
-
-
-###################################################################################
 class SegFormerDecoderHead(nn.Module):
-    """
-    SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers
-    """
-
     def __init__(
         self,
-        input_feature_dims: list = [512, 320, 128, 64],
-        decoder_head_embedding_dim: int = 256,
-        num_classes: int = 3,
+        input_feature_dims: list, # Embed dims from encoder stages [C1, C2, C3, C4]
+        decoder_head_embedding_dim: int,
+        final_upsampler_scale_factor: int|tuple[int],
+        num_classes: int,
         dropout: float = 0.0,
     ):
-        """
-        input_feature_dims: list of the output features channels generated by the transformer encoder
-        decoder_head_embedding_dim: projection dimension of the mlp layer in the all-mlp-decoder module
-        num_classes: number of the output channels
-        dropout: dropout rate of the concatenated feature maps
-        """
         super().__init__()
-        self.linear_c4 = MLP_(
-            input_dim=input_feature_dims[0],
-            embed_dim=decoder_head_embedding_dim,
-        )
-        self.linear_c3 = MLP_(
-            input_dim=input_feature_dims[1],
-            embed_dim=decoder_head_embedding_dim,
-        )
-        self.linear_c2 = MLP_(
-            input_dim=input_feature_dims[2],
-            embed_dim=decoder_head_embedding_dim,
-        )
-        self.linear_c1 = MLP_(
-            input_dim=input_feature_dims[3],
-            embed_dim=decoder_head_embedding_dim,
-        )
-        # convolution module to combine feature maps generated by the mlps
-        self.linear_fuse = nn.Sequential(
+        
+        class DecoderMapping(nn.Module):
+            """Conv Embedding for Decoder"""
+            def __init__(self, input_dim: int, embed_dim: int):
+                super().__init__()
+                # Use 1x1x1 Conv to project channels, acts on Volume format
+                self.proj = nn.Conv3d(input_dim, embed_dim, kernel_size=1, stride=1, padding=0)
+                # Use BatchNorm or GroupNorm for Volume format
+                self.norm = nn.BatchNorm3d(embed_dim)
+                # Or: self.norm = nn.GroupNorm(num_groups=..., num_channels=embed_dim)
+
+            def forward(self, x):
+                # Input x: (B, C_in, D, W, H)
+                x = self.proj(x)
+                x = self.norm(x)
+                # Output x: (B, C_embed, D, W, H)
+                return x
+
+        # Conv embedding layers for features from each encoder stage
+        self.mlps = nn.ModuleList() # Keep name mlps for consistency or rename
+        for i in range(len(input_feature_dims)):
+            self.mlps.append(
+                # Use the new Conv-based mapping layer
+                DecoderMapping(
+                    input_dim=input_feature_dims[i],
+                    embed_dim=decoder_head_embedding_dim,
+                )
+            )
+
+        # ... (rest of __init__ remains the same) ...
+        self.fuse = nn.Sequential(
             nn.Conv3d(
-                in_channels=4 * decoder_head_embedding_dim,
+                in_channels=decoder_head_embedding_dim * len(input_feature_dims),
                 out_channels=decoder_head_embedding_dim,
                 kernel_size=1,
-                stride=1,
                 bias=False,
             ),
             nn.BatchNorm3d(decoder_head_embedding_dim),
             nn.ReLU(),
         )
         self.dropout = nn.Dropout(dropout)
+        self.predict = nn.Conv3d(decoder_head_embedding_dim, num_classes, kernel_size=1)
+        self.upsample = nn.Upsample(scale_factor=final_upsampler_scale_factor, 
+                                    mode="trilinear", align_corners=False)
 
-        # final linear projection layer
-        self.linear_pred = nn.Conv3d(
-            decoder_head_embedding_dim, num_classes, kernel_size=1
+    def forward(self, encoder_features):
+        # encoder_features is a list [c1, c2, c3, c4] from MixVisionTransformer
+        B = encoder_features[0].shape[0]
+        target_size = encoder_features[0].shape[2:] # Spatial size of the first stage
+
+        all_features = []
+        for i in range(len(encoder_features)):
+            # Apply Conv mapping directly on the Volume feature map
+            feat = self.mlps[i](encoder_features[i]) # Output: (B, C_decoder, Di, Wi, Hi)
+
+            # Interpolate to the target size (size of c1) if not already there
+            if feat.shape[2:] != target_size:
+                feat = F.interpolate(
+                    feat,
+                    size=target_size,
+                    mode="trilinear",
+                    align_corners=False,
+                )
+            all_features.append(feat)
+
+        # Concatenate features along the channel dimension
+        fused_features = torch.cat(all_features, dim=1)
+        fused_features = self.fuse(fused_features)
+
+        out = self.dropout(fused_features)
+        out = self.predict(out)
+        out = self.upsample(out)
+
+        return out
+
+
+class SegFormer3D(nn.Module):
+    def __init__(
+        self,
+        in_channels: int = 4,
+        # Default parameters inspired by SegFormer B0/B1 adapted for 3D
+        embed_dims: list = [32, 64, 160, 256],
+        num_heads: list = [1, 2, 5, 8],
+        mlp_ratios: list = [4, 4, 4, 4],
+        depths: list = [2, 2, 2, 2],
+        sr_ratios: list[int|tuple[int,int,int]] = [4, 2, 1, 1], # Sequence reduction ratios per stage
+        patch_kernel_size: list[int|tuple[int,int,int]] = [7, 3, 3, 3],
+        patch_stride: list[int|tuple[int,int,int]] = [4, 2, 2, 2],
+        patch_padding: list[int|tuple[int,int,int]] = [3, 1, 1, 1],
+        decoder_head_embedding_dim: int = 256,
+        num_classes: int = 3,
+        qkv_bias: bool = True,
+        attn_dropout: float = 0.0,
+        proj_dropout: float = 0.0,
+        decoder_dropout: float = 0.0,
+        use_SDPA: bool = True,
+    ):
+        super().__init__()
+
+        self.encoder = MixVisionTransformer(
+            in_channels=in_channels,
+            embed_dims=embed_dims,
+            num_heads=num_heads,
+            mlp_ratios=mlp_ratios,
+            depths=depths,
+            sr_ratios=sr_ratios,
+            patch_kernel_size=patch_kernel_size,
+            patch_stride=patch_stride,
+            patch_padding=patch_padding,
+            qkv_bias=qkv_bias,
+            attn_dropout=attn_dropout,
+            proj_dropout=proj_dropout,
+            use_SDPA=use_SDPA,
         )
 
-        # segformer decoder generates the final decoded feature map size at 1/4 of the original input volume size
-        self.upsample_volume = nn.Upsample(
-            scale_factor=4.0, mode="trilinear", align_corners=False
+        self.decoder = SegFormerDecoderHead(
+            # Decoder receives features in the order they are output by encoder
+            input_feature_dims=embed_dims,
+            decoder_head_embedding_dim=decoder_head_embedding_dim,
+            final_upsampler_scale_factor=patch_stride[0],
+            num_classes=num_classes,
+            dropout=decoder_dropout,
         )
 
-    def forward(self, c1, c2, c3, c4):
-       ############## _MLP decoder on C1-C4 ###########
-        n, _, _, _, _ = c4.shape
+        # 注入 Grad-CAM 用的属性和 hook
+        self.feature_maps = None
+        self.gradients = None
+        self.decoder.predict.register_forward_hook(self._forward_hook)
+        self.decoder.predict.register_full_backward_hook(self._backward_hook)
 
-        _c4 = (
-            self.linear_c4(c4)
-            .permute(0, 2, 1)
-            .reshape(n, -1, c4.shape[2], c4.shape[3], c4.shape[4])
-            .contiguous()
-        )
-        _c4 = torch.nn.functional.interpolate(
-            _c4,
-            size=c1.size()[2:],
-            mode="trilinear",
-            align_corners=False,
-        )
+    # HACK For reviewers' requirements.
+    def _forward_hook(self, module, input, output):
+        self.feature_maps = output
+    # HACK For reviewers' requirements.
+    def _backward_hook(self, module, grad_in, grad_out):
+        self.gradients = grad_out[0]
 
-        _c3 = (
-            self.linear_c3(c3)
-            .permute(0, 2, 1)
-            .reshape(n, -1, c3.shape[2], c3.shape[3], c3.shape[4])
-            .contiguous()
-        )
-        _c3 = torch.nn.functional.interpolate(
-            _c3,
-            size=c1.size()[2:],
-            mode="trilinear",
-            align_corners=False,
-        )
+    def forward(self, x, save_gradcam: bool = False, save_dir: str = 'tmp'):
+        encoder_features = self.encoder(x) # [N, C, Z, Y, X]
+        segmentation_output = self.decoder(encoder_features)
 
-        _c2 = (
-            self.linear_c2(c2)
-            .permute(0, 2, 1)
-            .reshape(n, -1, c2.shape[2], c2.shape[3], c2.shape[4])
-            .contiguous()
-        )
-        _c2 = torch.nn.functional.interpolate(
-            _c2,
-            size=c1.size()[2:],
-            mode="trilinear",
-            align_corners=False,
-        )
+        if save_gradcam:
+            import os
+            os.makedirs(save_dir, exist_ok=True)
+            num_classes = segmentation_output.shape[1]
+            self.zero_grad()
 
-        _c1 = (
-            self.linear_c1(c1)
-            .permute(0, 2, 1)
-            .reshape(n, -1, c1.shape[2], c1.shape[3], c1.shape[4])
-            .contiguous()
-        )
+            # HACK only for KiTS23 dataset
+            class_id = ['Background', 'Kidney', 'Tumor', 'Cyst']
+            
+            plt.figure(figsize=(20, 5))
+            
+            for cls in range(num_classes):
+                # 针对每个类别做反向传播
+                self.zero_grad()
+                score = segmentation_output[:, cls].sum()
+                score.backward(retain_graph=True)
 
-        _c = self.linear_fuse(torch.cat([_c4, _c3, _c2, _c1], dim=1))
+                grads = self.gradients           # (B, C, D, W, H)
+                fmap = self.feature_maps         # (B, C, D, W, H)
+                weights = grads.mean(dim=(2,3,4), keepdim=True)
+                cam = F.relu((weights * fmap).sum(dim=1, keepdim=True))
+                cam = cam - cam.min()
+                cam = cam / (cam.max() + 1e-8)
 
-        x = self.dropout(_c)
-        x = self.linear_pred(x)
-        x = self.upsample_volume(x)
+                cam_np = cam.detach().cpu().numpy()
+                cam_slice = cam_np[0, 0, cam_np.shape[2] // 2]
+                plt.subplot(1, num_classes, cls + 1)
+                plt.imshow(cam_slice, cmap='winter', alpha=0.6)
+                plt.title(f'{class_id[cls]}')
+                plt.axis('off')
+            
+            save_path = os.path.join(save_dir, 'KiTS23_GradCAM.png')
+            plt.savefig(save_path)
+            plt.close()
+            exit(1)
 
-        return x
+        return segmentation_output # [N, C, Z, Y, X]
 
-###################################################################################
-if __name__ == "__main__":
-    input = torch.randint(
-        low=0,
-        high=255,
-        size=(1, 4, 256, 256, 256),
-        dtype=torch.float,
+
+def forward_test():
+    # Test with non-cubic input
+    input_size = (1, 4, 16, 128, 128)
+    input_tensor = torch.randn(input_size) # Example: B, C, D, W, H
+    device = torch.device("cpu")
+
+    input_tensor = input_tensor.to(device)
+
+    # Create model with default parameters
+    model = SegFormer3D(
+        in_channels=4,
+        num_classes=3,
+        embed_dims=[512, 1024, 1024, 2048],
+        num_heads=[1, 2, 4, 8],
+        depths=[2, 2, 2, 2],
+        sr_ratios=[(4,4,4), (2,2,2), (1,2,2), (1,2,2)]
+    ).to(device)
+
+    model.eval()
+    with torch.no_grad():
+        output = model(input_tensor)
+    print(f"Input shape: {input_tensor.shape}")
+    print(f"Output shape: {output.shape}")
+
+    from ptflops import get_model_complexity_info
+    macs, params = get_model_complexity_info(
+        model,
+        input_size[1:],
+        as_strings=False,
+        verbose=True
     )
-    input = input.to("cuda:0")
-    segformer3D = SegFormer3D().to("cuda:0")
-    output = segformer3D(input)
-    print(output.shape)
+    print(f"FLOPs (Multiply-Accumulate): {macs}")
+    print(f"Params: {params}")
 
 
-###################################################################################
+def profiling_test():
+    import os
+    import pandas as pd
+    from datetime import datetime
+    
+    # Configuration
+    input_shape = (2, 1, 80, 80, 80) # B, C, D, W, H
+    num_classes = 3
+    warmup_iterations = 5
+    profile_iterations = 1 # Profiler usually needs only one detailed run
+    output_dir = "profiling_results" # Directory to save results
+    run_name = datetime.now().strftime("%Y%m%d_%H%M%S") # Unique name for this run
+    tensorboard_dir = os.path.join(output_dir, "tensorboard", run_name)
+    xlsx_filename = os.path.join(output_dir, f"segformer3d_profile_{run_name}.xlsx")
+
+    # Create output directories if they don't exist
+    os.makedirs(tensorboard_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(xlsx_filename), exist_ok=True)
+
+    # Set device
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+        print(f"Using device: {torch.cuda.get_device_name(device)}")
+    else:
+        device = torch.device("cpu")
+        print("CUDA not available, running on CPU.")
+
+    # Create model instance
+    model = SegFormer3D(
+        in_channels=input_shape[1],
+        num_classes=num_classes,
+    ).to(device)
+    model.eval() # Set to evaluation mode
+
+    # Create dummy input data
+    input_tensor = torch.randn(input_shape, device=device)
+
+    # Warm-up runs
+    print(f"Starting warm-up ({warmup_iterations} iterations)...")
+    for _ in range(warmup_iterations):
+        with torch.no_grad():
+            out = model(input_tensor)
+            print(out.shape)
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    print("Warm-up finished.")
+
+    # Profiling with TensorBoard handler
+    print(f"Starting profiling... TensorBoard logs will be saved to: {tensorboard_dir}")
+    # Define the TensorBoard trace handler
+    tb_handler = torch.profiler.tensorboard_trace_handler(tensorboard_dir)
+
+    with torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+        schedule=torch.profiler.schedule(wait=1, warmup=10, active=profile_iterations, repeat=1), # Use schedule for handler
+        on_trace_ready=tb_handler, # Pass the handler
+        record_shapes=True,
+        profile_memory=True,
+        with_stack=True
+    ) as prof:
+        with torch.no_grad():
+            for _ in range(10 + 1 + profile_iterations): # wait, warmup, active steps
+                output = model(input_tensor)
+                prof.step() # Signal the profiler schedule
+
+        print("Profiling finished.")
+        print("-" * 80)
+
+        # --- Print results to console (optional, kept for immediate feedback) ---
+        print("Profiler results sorted by total CUDA time (Top 20):")
+        print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=20))
+        print("-" * 80)
+        print("Profiler results grouped by call stack (Self CUDA time, Top 30):")
+        print(prof.key_averages(group_by_stack_n=10).table(sort_by="self_cuda_time_total", row_limit=30))
+        print("-" * 80)
+        print("Profiler results grouped by call stack (Total CUDA time, Top 30):")
+        print(prof.key_averages(group_by_stack_n=10).table(sort_by="cuda_time_total", row_limit=30))
+        print("-" * 80)
+
+        # --- TensorBoard Instructions ---
+        print("To view TensorBoard logs, run the following command in your terminal:")
+        print(f"tensorboard --logdir {os.path.join(output_dir, 'tensorboard')}")
+        print("-" * 80)
+
+        # Verify output shape as a sanity check
+        print(f"Input shape: {input_tensor.shape}")
+        print(f"Output shape: {output.shape}")
+        expected_shape = (input_shape[0], num_classes, *input_shape[2:])
+        assert output.shape == expected_shape, f"Output shape {output.shape} does not match expected {expected_shape}"
+        print("Output shape matches expected shape.")
+
+
+
+if __name__ == '__main__':
+    forward_test()

@@ -1,13 +1,9 @@
-import os
-import re
-import pdb
-import json
-import logging
-import orjson
+import os, re, pdb, json, logging, orjson
 from abc import abstractmethod
 from collections.abc import Generator, Iterable
 from tqdm import tqdm
 from typing_extensions import Literal
+from deprecated import deprecated
 
 from mmengine.registry import DATASETS
 from mmengine.logging import print_log, MMLogger
@@ -125,6 +121,7 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
         all_series = sorted(all_series, key=lambda x: abs(int(re.search(r"\d+", x).group())))
         train_end = int(len(all_series) * self.SPLIT_RATIO[0])
         val_end = train_end + int(len(all_series) * self.SPLIT_RATIO[1]) + 1
+        print_log(f"Length {len(all_series)} Train End at {train_end}, Val End at {val_end}", MMLogger.get_current_instance())
 
         if self.split == "train":
             return all_series[:train_end]
@@ -202,7 +199,6 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
         return kept
 
 
-
 class mgam_2D_MhaVolumeSlices(mgam_SeriesVolume):
     def sample_iterator(self) -> Generator[tuple[str, str], None, None]:
         for series in self._split():
@@ -270,35 +266,78 @@ class mgam_SeriesPatched_Structure(mgam_SeriesVolume):
         series_exist = os.listdir(self.data_root)
         series_avail = self._split()
         
-        for series in tqdm(series_exist,
-                           desc=f"Indexing {self.split} for {self.__class__.__name__}",
-                           leave=False,
-                           dynamic_ncols=True):
-            # series_id = series.split('_')
-            # if len(series_id) >= 3:
-            #     raise ValueError(
-            #         f"Series ID `{series}` is not in the expected format. "
-            #         "Expected format: <SeriesID>_<Optional augment idx>, "
-            #         f"encountered `{series}`."
-            #     )
-            if series not in series_avail:
-                continue
-            if self.mode == "sup" and series not in self.precrop_meta["anno_available"]:
-                continue
-            
-            series_folder = os.path.join(self.data_root, series)
-            try:
-                with open(os.path.join(series_folder, "SeriesMeta.json"), "r") as f:
-                    series_meta = json.load(f)
-            except FileNotFoundError:
-                print_log(f"{series} not found.", MMLogger.get_current_instance())
-                continue
-            
-            patch_npz_files = series_meta["class_within_patch"].keys()
-            for sample in [os.path.join(series_folder, file) 
-                           for file in patch_npz_files]:
-                yield (os.path.join(series_folder, sample.replace('_label', '_image')),
-                       os.path.join(series_folder, sample))
+        @deprecated(reason="The old patch method is deprecated, because it complicates the dataset structure.",
+                    version="3.3.0")
+        def _sample_iterator_backward_compatibility():
+            for series in tqdm(series_exist,
+                            desc=f"Indexing {self.split} for {self.__class__.__name__}",
+                            leave=False,
+                            dynamic_ncols=True):
+                # series_id = series.split('_')
+                # if len(series_id) >= 3:
+                #     raise ValueError(
+                #         f"Series ID `{series}` is not in the expected format. "
+                #         "Expected format: <SeriesID>_<Optional augment idx>, "
+                #         f"encountered `{series}`."
+                #     )
+                if series not in series_avail:
+                    continue
+                if self.mode == "sup" and series not in self.precrop_meta["anno_available"]:
+                    continue
+                
+                series_folder = os.path.join(self.data_root, series)
+                try:
+                    with open(os.path.join(series_folder, "SeriesMeta.json"), "r") as f:
+                        series_meta = json.load(f)
+                except FileNotFoundError:
+                    print_log(f"{series} not found.", MMLogger.get_current_instance())
+                    continue
+                
+                patch_npz_files = series_meta["class_within_patch"].keys()
+                for sample in [os.path.join(series_folder, file) 
+                            for file in patch_npz_files]:
+                    yield (os.path.join(series_folder, sample.replace('_label', '_image')),
+                        os.path.join(series_folder, sample))
+        
+        if 'image' in series_exist and 'label' in series_exist:
+            for series in tqdm(series_avail,
+                               desc=f"Indexing {self.split} for {self.__class__.__name__}",
+                               leave=False,
+                               dynamic_ncols=True):
+                if self.mode == "sup" and series not in self.precrop_meta["anno_available"]:
+                    continue
+                
+                image_folder = os.path.join(self.data_root, 'image')
+                label_folder = os.path.join(self.data_root, 'label')
+                
+                # List all image files that match the current series UID
+                # Files are in format: <seriesUID>_<patchID>.mha (e.g., 1.3.6.1.4.1.9328.50.4.0095_p0.mha)
+                if not os.path.exists(image_folder):
+                    print_log(f"Image folder not found: {image_folder}", MMLogger.get_current_instance(), logging.WARN)
+                    continue
+                
+                all_image_files = [f for f in os.listdir(image_folder) if f.endswith('.mha')]
+                
+                # Filter files that belong to current series
+                series_image_files = [f for f in all_image_files if f.startswith(series + '_')]
+                
+                for image_filename in series_image_files:
+                    image_path = os.path.join(image_folder, image_filename)
+                    label_path = os.path.join(label_folder, image_filename)
+                    
+                    # Check if corresponding label file exists (for sup mode)
+                    if self.mode == "sup" and not os.path.exists(label_path):
+                        print_log(f"Label file not found for {image_filename}: {label_path}", 
+                                  MMLogger.get_current_instance(), logging.DEBUG)
+                        continue
+                    
+                    yield (image_path, label_path)
+        
+        else:
+            print_log("Dataset structure does not match the new expected format. Falling back to backward compatibility mode.",
+                      MMLogger.get_current_instance(),
+                      logging.WARNING)
+            _sample_iterator_backward_compatibility()
 
 
 class mgam_concat_dataset(ConcatDataset):
@@ -344,6 +383,8 @@ class mgam_concat_dataset(ConcatDataset):
         
         print_log(f"ConcatDataset loaded {len(self)} samples.", MMLogger.get_current_instance())
 
+
+# --- Unsupervised Dataset ---
 
 
 class unsup_base:
