@@ -181,6 +181,7 @@ Parameters
 - **--patch-size**: Patch size as single int or three ints (Z Y X).  
 - **--patch-stride**: Patch stride as single int or three ints (Z Y X).  
 - **--minimum-foreground-ratio**: Minimum label foreground ratio to keep a patch (float, default 0.0).  
+- **--keep-empty-label-prob**: Probability to keep patches that contain only background (0.0-1.0).
 - **--still-save-when-no-label**: If set and label missing, save patches regardless.  
 - **--mp**: Use multiprocessing to process cases in parallel.
 
