@@ -49,6 +49,65 @@ def test_itk_check_main(tmp_path, monkeypatch):
 
 
 @pytest.mark.process
+def test_itk_check_symlink_mode(tmp_path, monkeypatch):
+    """Test itk_check symlink mode with relative paths from different CWD"""
+    pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
+    import SimpleITK as sitk
+    from itkit.process import itk_check
+
+    # Create sample data
+    sample = tmp_path / "sample"
+    img_dir = sample / "image"
+    lbl_dir = sample / "label"
+    _write_mha(img_dir / "case.mha", _make_toy_image())
+    _write_mha(lbl_dir / "case.mha", _make_toy_label())
+
+    # Create output directory
+    output = tmp_path / "output"
+    
+    # Create a working directory and change to it
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    
+    # Save original CWD
+    orig_cwd = os.getcwd()
+    try:
+        os.chdir(work_dir)
+        
+        # Use relative paths to test symlink creation from different CWD
+        sample_rel = os.path.relpath(sample, work_dir)
+        output_rel = os.path.relpath(output, work_dir)
+        
+        monkeypatch.setenv("PYTHONHASHSEED", "0")
+        monkeypatch.setenv("OMP_NUM_THREADS", "1")
+        monkeypatch.setenv("MKL_NUM_THREADS", "1")
+        monkeypatch.setenv("OPENBLAS_NUM_THREADS", "1")
+
+        monkeypatch.setattr(sys, "argv", [
+            "itk_check", "symlink", sample_rel, "-o", output_rel
+        ])
+        itk_check.main()
+        
+        # Verify symlinks are created and work correctly
+        out_img = output / "image" / "case.mha"
+        out_lbl = output / "label" / "case.mha"
+        
+        assert out_img.exists(), "Image symlink should exist"
+        assert out_lbl.exists(), "Label symlink should exist"
+        assert out_img.is_symlink(), "Image file should be a symlink"
+        assert out_lbl.is_symlink(), "Label file should be a symlink"
+        
+        # Verify we can read through symlinks
+        img = sitk.ReadImage(str(out_img))
+        assert img is not None, "Should be able to read image through symlink"
+        lbl = sitk.ReadImage(str(out_lbl))
+        assert lbl is not None, "Should be able to read label through symlink"
+        
+    finally:
+        os.chdir(orig_cwd)
+
+
+@pytest.mark.process
 def test_itk_resample_main(tmp_path, monkeypatch):
     pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
     from itkit.process import itk_resample

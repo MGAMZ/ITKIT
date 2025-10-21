@@ -152,8 +152,9 @@ class CheckProcessor(DatasetProcessor):
             success_count = 0
             for name in self.valid_names:
                 try:
-                    img_src = os.path.join(self.source_folder, 'image', name)
-                    lbl_src = os.path.join(self.source_folder, 'label', name)
+                    # Use absolute paths for symlinks to ensure they work from any CWD
+                    img_src = os.path.abspath(os.path.join(self.source_folder, 'image', name))
+                    lbl_src = os.path.abspath(os.path.join(self.source_folder, 'label', name))
                     os.symlink(img_src, os.path.join(out_img_dir, name))
                     os.symlink(lbl_src, os.path.join(out_lbl_dir, name))
                     success_count += 1
