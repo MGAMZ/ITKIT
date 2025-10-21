@@ -5,7 +5,7 @@ from tqdm import tqdm
 import orjson
 import pandas as pd
 
-from ..base import mgam_SemiSup_3D_Mha, mgam_SemiSup_Precropped_Npz
+from ..base import mgam_SemiSup_3D_Mha, mgam_SemiSup_Precropped_Npz, mgam_SeriesPatched_Structure
 from .meta import CLASS_INDEX_MAP, generate_subset_class_map_and_label_map, generate_reduced_class_map_and_label_map
 
 
@@ -76,10 +76,11 @@ class Tsd_base:
             activate_series = self.meta_table[self.meta_table['split']==self.split]
             return activate_series['image_id'].tolist()
 
-
 class Tsd_Mha(Tsd_base, mgam_SemiSup_3D_Mha):
     ...
 
-
 class Tsd3D_PreCrop_Npz(Tsd_base, mgam_SemiSup_Precropped_Npz):
+    ...
+
+class Tsd_Patch(Tsd_base, mgam_SeriesPatched_Structure):
     ...
