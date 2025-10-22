@@ -189,6 +189,7 @@ class CheckProcessor(DatasetProcessor):
             else:
                 print(f"Found {len(self.invalid)} invalid samples")
 
+
 def main():
     parser = argparse.ArgumentParser(description="Check itk dataset samples (mha) under image/label for size/spacing rules.")
     parser.add_argument("mode", choices=['check', 'delete', 'copy', 'symlink'], help="Operation mode: check (validate only), delete (remove invalid), copy (copy valid files), symlink (symlink valid files)")

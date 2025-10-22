@@ -130,7 +130,7 @@ itk_resample <field> <source_folder> <dest_folder> [--spacing Z Y X] [--size Z Y
 
 Parameters
 
-- **field**: "image" or "label", will determine the output dtype and interpolation method.
+- **field**: "image" or "label" or "dataset", will determine the output dtype and interpolation method.
 - **source_folder**: Folder containing source image files (.mha/.nii/.nii.gz/.mhd).  
 - **dest_folder**: Destination folder for resampled files (created if missing).  
 - **--spacing** Z Y X: Target spacing per dimension (ZYX order). Use -1 to ignore a dimension.  
