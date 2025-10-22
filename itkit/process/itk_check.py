@@ -152,10 +152,13 @@ class CheckProcessor(DatasetProcessor):
             success_count = 0
             for name in self.valid_names:
                 try:
-                    img_src = os.path.join(self.source_folder, 'image', name)
-                    lbl_src = os.path.join(self.source_folder, 'label', name)
-                    os.symlink(img_src, os.path.join(out_img_dir, name))
-                    os.symlink(lbl_src, os.path.join(out_lbl_dir, name))
+                    # Use absolute paths to ensure symlinks work regardless of CWD
+                    img_src = os.path.abspath(os.path.join(self.source_folder, 'image', name))
+                    lbl_src = os.path.abspath(os.path.join(self.source_folder, 'label', name))
+                    img_dst = os.path.join(out_img_dir, name)
+                    lbl_dst = os.path.join(out_lbl_dir, name)
+                    os.symlink(img_src, img_dst)
+                    os.symlink(lbl_src, lbl_dst)
                     success_count += 1
                 except Exception as e:
                     print(f"Error symlinking {name}: {e}")
