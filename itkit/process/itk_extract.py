@@ -1,4 +1,4 @@
-import os, argparse, json
+import os, argparse, json, sys
 
 import numpy as np
 import SimpleITK as sitk
@@ -161,7 +161,7 @@ def main():
 
     except ValueError as e:
         print(f"Error parsing arguments: {e}")
-        return
+        sys.exit(1)
 
     # Save configuration
     config_data = vars(args)
