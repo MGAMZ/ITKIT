@@ -1,6 +1,6 @@
 # mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API
 
-[![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![SimpleITK >= 2.5.0](https://img.shields.io/badge/SimpleITK-%3E%3D2.5-yellow)](https://github.com/SimpleITK/SimpleITK) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 `mgam-ITKIT` is a user-friendly toolkit built on `SimpleITK` and `Python`, designed for common data preprocessing operations in data-driven CT medical image analysis. It assumes a straightforward data sample structure and offers intuitive functions for checking, resampling, pre-segmenting, aligning, and enhancing such data. Each operation is specified by a dedicated command-line entry with a clear parameter list.
 
@@ -68,6 +68,23 @@ Optional dependencies:
 - gui: if you want to use the PyQt6 GUI app.
 
 ---
+
+## Dataset Structure
+
+The following dataset structure is supported and assumed in all the `ITKIT` operations:
+
+```plaintext
+dataset_root
+├── image
+│   ├── a.mha
+│   ├── b.mha
+│   └── ...
+├── label
+│   ├── a.mha
+│   ├── b.mha
+│   └── ...
+└── series_meta.json
+```
 
 ## ITK Preprocessing
 
@@ -268,7 +285,7 @@ For use of our private runner class, the following gloval variables need to be s
 - `mm_testdir`: The directory to store the test results. Used when `mmrun` command is called with `--test` flag.
 - `mm_configdir`: The directory where the config file is located, we specify a structure for all experiment configs.
 
-```text
+```plaintext
 mm_configdir
 ├── 0.1.Config1
 │   ├── mgam.py (Requires exactly this name to store non-model configs)
