@@ -365,6 +365,7 @@ For the following datasets, we provide restructure scripts to convert them from 
 10. **[SA_Med2D](https://arxiv.org/abs/2308.16184)**: Junlong Cheng, et al. SAM-Med2D. arXiv, 2308.16184, 2023.
 11. **[TCGA](https://www.cancer.gov/ccg/research/genome-sequencing/tcga)**
 12. **[Totalsegmentator](https://pubs.rsna.org/doi/10.1148/ryai.230024)**: Wasserthal Jakob, et al. TotalSegmentator: Robust Segmentation of 104 Anatomic Structures in CT Images. Radiology: Artificial Intelligence, 5, 5, 2023.
+13. **[LiTS](https://www.sciencedirect.com/science/article/pii/S1361841522003085)**: Bilic, Patrick and Christ, Patrick and Li, Hongwei Bran and Vorontsov, Eugene and Ben-Cohen, Avi and Kaissis, Georgios and Szeskin, Adi and Jacobs, Colin and Mamani, Gabriel Efrain Humpire and Chartrand, Gabriel and others. The liver tumor segmentation benchmark (lits). Medical Image Analysis, volume 84, 2023, 102680, doi:10.1016/j.media.2022.102680.
 
 ### MMEngine Plugins
 
