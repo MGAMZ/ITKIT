@@ -1,6 +1,6 @@
 # mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API
 
-[![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![SimpleITK >= 2.5.0](https://img.shields.io/badge/SimpleITK-%3E%3D2.5-yellow)](https://github.com/SimpleITK/SimpleITK) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 `mgam-ITKIT` is a user-friendly toolkit built on `SimpleITK` and `Python`, designed for common data preprocessing operations in data-driven CT medical image analysis. It assumes a straightforward data sample structure and offers intuitive functions for checking, resampling, pre-segmenting, aligning, and enhancing such data. Each operation is specified by a dedicated command-line entry with a clear parameter list.
 
@@ -69,6 +69,23 @@ Optional dependencies:
 
 ---
 
+## Dataset Structure
+
+The following dataset structure is supported and assumed in all the `ITKIT` operations:
+
+```plaintext
+dataset_root
+├── image
+│   ├── a.mha
+│   ├── b.mha
+│   └── ...
+├── label
+│   ├── a.mha
+│   ├── b.mha
+│   └── ...
+└── series_meta.json
+```
+
 ## ITK Preprocessing
 
 You may see `--help` to see more details for each command.
@@ -130,7 +147,7 @@ itk_resample <field> <source_folder> <dest_folder> [--spacing Z Y X] [--size Z Y
 
 Parameters
 
-- **field**: "image" or "label", will determine the output dtype and interpolation method.
+- **field**: "image" or "label" or "dataset", will determine the output dtype and interpolation method.
 - **source_folder**: Folder containing source image files (.mha/.nii/.nii.gz/.mhd).  
 - **dest_folder**: Destination folder for resampled files (created if missing).  
 - **--spacing** Z Y X: Target spacing per dimension (ZYX order). Use -1 to ignore a dimension.  
@@ -181,6 +198,7 @@ Parameters
 - **--patch-size**: Patch size as single int or three ints (Z Y X).  
 - **--patch-stride**: Patch stride as single int or three ints (Z Y X).  
 - **--minimum-foreground-ratio**: Minimum label foreground ratio to keep a patch (float, default 0.0).  
+- **--keep-empty-label-prob**: Probability to keep patches that contain only background (0.0-1.0).
 - **--still-save-when-no-label**: If set and label missing, save patches regardless.  
 - **--mp**: Use multiprocessing to process cases in parallel.
 
@@ -267,7 +285,7 @@ For use of our private runner class, the following gloval variables need to be s
 - `mm_testdir`: The directory to store the test results. Used when `mmrun` command is called with `--test` flag.
 - `mm_configdir`: The directory where the config file is located, we specify a structure for all experiment configs.
 
-```text
+```plaintext
 mm_configdir
 ├── 0.1.Config1
 │   ├── mgam.py (Requires exactly this name to store non-model configs)
@@ -347,6 +365,7 @@ For the following datasets, we provide restructure scripts to convert them from 
 10. **[SA_Med2D](https://arxiv.org/abs/2308.16184)**: Junlong Cheng, et al. SAM-Med2D. arXiv, 2308.16184, 2023.
 11. **[TCGA](https://www.cancer.gov/ccg/research/genome-sequencing/tcga)**
 12. **[Totalsegmentator](https://pubs.rsna.org/doi/10.1148/ryai.230024)**: Wasserthal Jakob, et al. TotalSegmentator: Robust Segmentation of 104 Anatomic Structures in CT Images. Radiology: Artificial Intelligence, 5, 5, 2023.
+13. **[LiTS](https://www.sciencedirect.com/science/article/pii/S1361841522003085)**: Bilic, Patrick and Christ, Patrick and Li, Hongwei Bran and Vorontsov, Eugene and Ben-Cohen, Avi and Kaissis, Georgios and Szeskin, Adi and Jacobs, Colin and Mamani, Gabriel Efrain Humpire and Chartrand, Gabriel and others. The liver tumor segmentation benchmark (lits). Medical Image Analysis, volume 84, 2023, 102680, doi:10.1016/j.media.2022.102680.
 
 ### MMEngine Plugins
 

@@ -12,7 +12,8 @@ class _ResampleMixin:
     """Mixin class for shared resampling logic."""
     
     def resample_one_sample(self, input_path:str, field:str, output_path:str):
-        """Resample a single sample"""
+        # Normalize extension to .mha
+        output_path = output_path.replace(".nii.gz", ".mha").replace(".nii", ".mha").replace(".mhd", ".mha")
         if os.path.exists(output_path):
             return None
             
