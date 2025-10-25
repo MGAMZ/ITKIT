@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.python-version == '3.14' }}
 
     strategy:
       matrix:
@@ -31,7 +32,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e '.[dev,gui,medical_vision]'
     - name: Test with pytest
-      continue-on-error: ${{ matrix.python-version == '3.14' }}
       env:
         QT_QPA_PLATFORM: offscreen
       run: |
