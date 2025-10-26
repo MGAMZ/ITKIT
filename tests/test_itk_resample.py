@@ -4,8 +4,12 @@ import pytest
 import numpy as np
 import SimpleITK as sitk
 from unittest.mock import patch, MagicMock
+from typing import Literal
 
-from itkit.process.itk_resample import ResampleProcessor, SingleResampleProcessor, parse_args, validate_and_prepare_args, main, _ResampleMixin
+from itkit.process.itk_resample import (
+    ResampleProcessor, SingleResampleProcessor, parse_args, 
+    validate_and_prepare_args, main, _ResampleMixin, ResamplingMode
+)
 
 
 @pytest.fixture
@@ -34,6 +38,12 @@ class TestValidateAndPrepareArgs:
         args.target_folder = None
         args.spacing = ["2.0", "-1", "2.0"]
         args.size = ["-1", "128", "-1"]
+        args.source_folder = "/src"
+        args.dest_folder = "/dst"
+        args.recursive = False
+        args.mode = "dataset"
+        args.mp = False
+        args.workers = None
         target_spacing, target_size = validate_and_prepare_args(args)
         assert target_spacing == [2.0, -1, 2.0]
         assert target_size == [-1, 128, -1]
@@ -44,6 +54,12 @@ class TestValidateAndPrepareArgs:
             args.target_folder = tmpdir
             args.spacing = ["-1", "-1", "-1"]
             args.size = ["-1", "-1", "-1"]
+            args.source_folder = "/src"
+            args.dest_folder = "/dst"
+            args.recursive = False
+            args.mode = "dataset"
+            args.mp = False
+            args.workers = None
             target_spacing, target_size = validate_and_prepare_args(args)
             assert target_spacing == [-1, -1, -1]
             assert target_size == [-1, -1, -1]
@@ -69,6 +85,12 @@ class TestValidateAndPrepareArgs:
         args.target_folder = None
         args.spacing = ["-1", "-1", "-1"]
         args.size = ["-1", "-1", "-1"]
+        args.source_folder = "/src"
+        args.dest_folder = "/dst"
+        args.recursive = False
+        args.mode = "dataset"
+        args.mp = False
+        args.workers = None
         target_spacing, target_size = validate_and_prepare_args(args)
         assert target_spacing is None
         assert target_size is None
@@ -78,6 +100,12 @@ class TestValidateAndPrepareArgs:
         args.target_folder = None
         args.spacing = ["2.0", "-1", "-1"]
         args.size = ["-1", "128", "-1"]
+        args.source_folder = "/src"
+        args.dest_folder = "/dst"
+        args.recursive = False
+        args.mode = "dataset"
+        args.mp = False
+        args.workers = None
         # This should not raise, as they are for different dimensions
         target_spacing, target_size = validate_and_prepare_args(args)
         assert target_spacing == [2.0, -1, -1]
@@ -95,11 +123,19 @@ class TestValidateAndPrepareArgs:
 @pytest.mark.itk_process
 class TestResampleProcessor:
     def test_init(self):
-        processor = ResampleProcessor("/src", "/dst", [1.0, -1, 1.0], [-1, 128, -1], False, False, None, None)
+        processor = ResampleProcessor("/src", "/dst", [1.0, -1, 1.0], [-1, 128, -1], mp=False, workers=None, target_folder=None)
         assert processor.source_folder == "/src"
         assert processor.dest_folder == "/dst"
         assert processor.target_spacing == [1.0, -1, 1.0]
         assert processor.target_size == [-1, 128, -1]
+        # Should be in SPACING_SIZE mode when target_folder is None
+        assert processor.resampling_mode == ResamplingMode.SPACING_SIZE
+
+    def test_init_target_image_mode(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            processor = ResampleProcessor("/src", "/dst", [1.0, -1, 1.0], [-1, 128, -1], mp=False, workers=None, target_folder=tmpdir)
+            # Should be in TARGET_IMAGE mode when target_folder is provided
+            assert processor.resampling_mode == ResamplingMode.TARGET_IMAGE
 
     def test_process_one_spacing_size(self, sample_image, sample_label):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -112,7 +148,7 @@ class TestResampleProcessor:
             sitk.WriteImage(sample_image, src_img)
             sitk.WriteImage(sample_label, src_lbl)
 
-            processor = ResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, 5, -1], False, False, None, None)
+            processor = ResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, 5, -1], mp=False, workers=None, target_folder=None)
             result = processor.process_one((src_img, src_lbl))
             assert result is not None
             assert os.path.exists(dst_img)
@@ -127,7 +163,7 @@ class TestResampleProcessor:
             # Pre-create dest file
             sitk.WriteImage(sample_image, dst_img)
 
-            processor = ResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], False, False, None, None)
+            processor = ResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], mp=False, workers=None, target_folder=None)
             result = processor.process_one((src_img, src_img))  # Use src_img for both to avoid None
             assert result is not None  # Should process since label is provided
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -138,7 +174,7 @@ class TestResampleProcessor:
             # Pre-create dest file
             sitk.WriteImage(sample_image, dst_img)
 
-            processor = ResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], False, False, None, None)
+            processor = ResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], mp=False, workers=None, target_folder=None)
             result = processor.process_one((src_img, src_img))  # Use src_img for both to avoid None
             assert result is not None  # Should process since label is provided
 
@@ -155,7 +191,7 @@ class TestResampleProcessor:
             sitk.WriteImage(sample_image, src_img)
             sitk.WriteImage(sample_label, src_lbl)
 
-            processor = ResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], False, True, 2, None)
+            processor = ResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], mp=True, workers=2, target_folder=None)
             processor.process()
             assert os.path.exists(dst_img)
             assert os.path.exists(dst_lbl)
@@ -180,10 +216,18 @@ class TestResampleProcessor:
 @pytest.mark.itk_process
 class TestSingleResampleProcessor:
     def test_init(self):
-        processor = SingleResampleProcessor("/src", "/dst", [1.0, -1, 1.0], [-1, 128, -1], "image", False, False, None, None)
+        processor = SingleResampleProcessor("/src", "/dst", [1.0, -1, 1.0], [-1, 128, -1], "image", recursive=False, mp=False, workers=None, target_folder=None)
         assert processor.source_folder == "/src"
         assert processor.dest_folder == "/dst"
         assert processor.field == "image"
+        # Should be in SPACING_SIZE mode when target_folder is None
+        assert processor.resampling_mode == ResamplingMode.SPACING_SIZE
+
+    def test_init_target_image_mode(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            processor = SingleResampleProcessor("/src", "/dst", [1.0, -1, 1.0], [-1, 128, -1], "image", recursive=False, mp=False, workers=None, target_folder=tmpdir)
+            # Should be in TARGET_IMAGE mode when target_folder is provided
+            assert processor.resampling_mode == ResamplingMode.TARGET_IMAGE
 
     def test_process_one(self, sample_image):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -192,7 +236,7 @@ class TestSingleResampleProcessor:
             os.makedirs(os.path.join(tmpdir, "dst"), exist_ok=True)
             sitk.WriteImage(sample_image, src_path)
 
-            processor = SingleResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], "image", False, False, None, None)
+            processor = SingleResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], "image", recursive=False, mp=False, workers=None, target_folder=None)
             result = processor.process_one(src_path)
             assert result is not None
             assert os.path.exists(dst_path)
@@ -206,7 +250,7 @@ class TestSingleResampleProcessor:
             os.makedirs(os.path.join(tmpdir, "dst", "subdir"), exist_ok=True)
             sitk.WriteImage(sample_image, src_path)
 
-            processor = SingleResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], "image", True, False, None, None)
+            processor = SingleResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], "image", recursive=True, mp=False, workers=None, target_folder=None)
             processor.process()
             assert os.path.exists(dst_path)
 
@@ -216,7 +260,7 @@ class TestSingleResampleProcessor:
             expected_output = os.path.join(tmpdir, "dst", "input.mha")
             sitk.WriteImage(sample_image, input_path)
 
-            processor = SingleResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], "image", False, False, None, None)
+            processor = SingleResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], "image", recursive=False, mp=False, workers=None, target_folder=None)
             result = processor.process_one(input_path)
             assert os.path.exists(expected_output)
 
@@ -258,26 +302,41 @@ class TestMain:
             with pytest.raises(ValueError, match="--spacing must have 3 values"):
                 main()
 
-    def test_main_no_resampling_rules(self):
+    def test_main_no_resampling_rules_no_target(self):
+        """Test that main() raises error when no resampling rules and no target folder."""
         with tempfile.TemporaryDirectory() as tmpdir:
             src = os.path.join(tmpdir, 'src')
             dst = os.path.join(tmpdir, 'dst')
             os.makedirs(src, exist_ok=True)
             with patch('sys.argv', ['itk_resample.py', 'dataset', src, dst]):
-                # Should not raise, just print warning and return
-                main()
-                # Check no processing happened
-                assert not os.path.exists(os.path.join(dst, 'image'))
+                # Should raise ValueError because no resampling parameters are specified
+                with pytest.raises(ValueError, match="No resampling parameters specified"):
+                    main()
 
 
 @pytest.mark.itk_process
 class TestResampleMixin:
     class TestProcessor(_ResampleMixin):
-        def __init__(self, target_spacing, target_size, target_folder=None):
+        """Test processor for testing _ResampleMixin methods in isolation."""
+        def __init__(self, target_spacing, target_size, target_folder=None, resampling_mode=None):
             self.target_spacing = target_spacing
             self.target_size = target_size
             self.target_folder = target_folder
             self.source_folder = "/tmp/src"
+            
+            # Determine mode if not specified
+            if resampling_mode is not None:
+                self.resampling_mode = resampling_mode
+            elif target_folder is not None:
+                self.resampling_mode = ResamplingMode.TARGET_IMAGE
+            else:
+                self.resampling_mode = ResamplingMode.SPACING_SIZE
+        
+        def _get_target_path(self, input_path: str, field: Literal['image', 'label']) -> str | None:
+            """Simple target path resolution for testing."""
+            if self.target_folder is None:
+                return None
+            return os.path.join(self.target_folder, os.path.basename(input_path))
 
     def test_resample_one_sample_success(self, sample_image):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -289,7 +348,7 @@ class TestResampleMixin:
             result = processor.resample_one_sample(input_path, "image", output_path)
             assert result is not None
             assert os.path.exists(output_path)
-            assert "input.mha" in result
+            assert result.name == "input.mha"
 
     def test_resample_one_sample_skip_existing(self, sample_image):
         with tempfile.TemporaryDirectory() as tmpdir:
