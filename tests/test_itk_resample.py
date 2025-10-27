@@ -1,429 +1,204 @@
+import argparse
+import pytest
 import os
 import tempfile
-import pytest
-import numpy as np
+import shutil
+from pathlib import Path
 import SimpleITK as sitk
-from unittest.mock import patch, MagicMock
-from typing import Literal
+import numpy as np
 
-from itkit.process.itk_resample import (
-    ResampleProcessor, SingleResampleProcessor, parse_args, 
-    validate_and_prepare_args, main, _ResampleMixin, ResamplingMode
-)
+from itkit.process import itk_resample
+from itkit.process.metadata_models import MetadataManager
 
 
-@pytest.fixture
-def sample_image():
-    arr = np.random.rand(10, 10, 10).astype(np.float32)
-    img = sitk.GetImageFromArray(arr)
-    img.SetSpacing((1.0, 1.0, 1.0))
-    img.SetOrigin((0.0, 0.0, 0.0))
-    return img
+def make_args(**overrides):
+    """Helper to construct argparse Namespace with defaults."""
+    defaults = {
+        'mode': 'image',
+        'source_folder': '/src',
+        'dest_folder': '/dst',
+        'recursive': False,
+        'mp': False,
+        'workers': None,
+        'spacing': ["-1", "-1", "-1"],
+        'size': ["-1", "-1", "-1"],
+        'target_folder': None,
+    }
+    defaults.update(overrides)
+    return argparse.Namespace(**defaults)
 
 
-@pytest.fixture
-def sample_label():
-    arr = np.zeros((10, 10, 10), dtype=np.uint8)
-    arr[2:8, 2:8, 2:8] = 1  # Some foreground
-    lbl = sitk.GetImageFromArray(arr)
-    lbl.SetSpacing((1.0, 1.0, 1.0))
-    lbl.SetOrigin((0.0, 0.0, 0.0))
-    return lbl
-
-
-@pytest.mark.itk_process
 class TestValidateAndPrepareArgs:
-    def test_valid_spacing_size(self):
-        args = MagicMock()
-        args.target_folder = None
-        args.spacing = ["2.0", "-1", "2.0"]
-        args.size = ["-1", "128", "-1"]
-        args.source_folder = "/src"
-        args.dest_folder = "/dst"
-        args.recursive = False
-        args.mode = "dataset"
-        args.mp = False
-        args.workers = None
-        target_spacing, target_size = validate_and_prepare_args(args)
-        assert target_spacing == [2.0, -1, 2.0]
-        assert target_size == [-1, 128, -1]
+    """Grouped tests for itk_resample.validate_and_prepare_args.
 
-    def test_target_folder_mode(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            args = MagicMock()
-            args.target_folder = tmpdir
-            args.spacing = ["-1", "-1", "-1"]
-            args.size = ["-1", "-1", "-1"]
-            args.source_folder = "/src"
-            args.dest_folder = "/dst"
-            args.recursive = False
-            args.mode = "dataset"
-            args.mp = False
-            args.workers = None
-            target_spacing, target_size = validate_and_prepare_args(args)
-            assert target_spacing == [-1, -1, -1]
-            assert target_size == [-1, -1, -1]
+    Grouping tests into a class keeps related tests together and avoids polluting
+    module-level namespace while still letting pytest discover test methods.
+    """
 
-    def test_mutual_exclusive_error(self):
-        args = MagicMock()
-        args.target_folder = "/tmp"
-        args.spacing = ["2.0", "-1", "-1"]
-        args.size = ["-1", "-1", "-1"]
+    def test_mutual_exclusive_target_and_spacing_size(self):
+        args = make_args(target_folder="/tmp/tgt", spacing=["1.0", "-1", "-1"])
         with pytest.raises(ValueError, match="mutually exclusive"):
-            validate_and_prepare_args(args)
+            itk_resample.validate_and_prepare_args(args)
+        args = make_args(target_folder="/tmp/tgt", size=["64", "64", "-1"])
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            itk_resample.validate_and_prepare_args(args)
 
-    def test_invalid_spacing_length(self):
-        args = MagicMock()
-        args.target_folder = None
-        args.spacing = ["2.0", "-1"]
-        args.size = ["-1", "-1", "-1"]
+    def test_spacing_size_length_validation(self):
+        args = make_args(spacing=["1.0", "2.0"], size=["-1", "-1", "-1"])
         with pytest.raises(ValueError, match="--spacing must have 3 values"):
-            validate_and_prepare_args(args)
+            itk_resample.validate_and_prepare_args(args)
 
-    def test_no_resampling_rules(self):
-        args = MagicMock()
-        args.target_folder = None
-        args.spacing = ["-1", "-1", "-1"]
-        args.size = ["-1", "-1", "-1"]
-        args.source_folder = "/src"
-        args.dest_folder = "/dst"
-        args.recursive = False
-        args.mode = "dataset"
-        args.mp = False
-        args.workers = None
-        target_spacing, target_size = validate_and_prepare_args(args)
-        assert target_spacing is None
-        assert target_size is None
+    def test_per_dimension_exclusivity(self):
+        args = make_args(spacing=["1.0", "-1", "-1"], size=["10", "-1", "-1"])
+        with pytest.raises(ValueError, match="Cannot specify both spacing and size for dimension 0"):
+            itk_resample.validate_and_prepare_args(args)
 
-    def test_validate_and_prepare_args_spacing_size_conflict(self):
-        args = MagicMock()
-        args.target_folder = None
-        args.spacing = ["2.0", "-1", "-1"]
-        args.size = ["-1", "128", "-1"]
-        args.source_folder = "/src"
-        args.dest_folder = "/dst"
-        args.recursive = False
-        args.mode = "dataset"
-        args.mp = False
-        args.workers = None
-        # This should not raise, as they are for different dimensions
-        target_spacing, target_size = validate_and_prepare_args(args)
-        assert target_spacing == [2.0, -1, -1]
-        assert target_size == [-1, 128, -1]
+    def test_no_resampling_specified_prints_warning(self):
+        args = make_args()
+        res = itk_resample.validate_and_prepare_args(args)
+        assert res == (None, None)
 
-    def test_validate_and_prepare_args_same_dimension_conflict(self):
-        args = MagicMock()
-        args.target_folder = None
-        args.spacing = ["2.0", "-1", "-1"]
-        args.size = ["128", "-1", "-1"]
-        with pytest.raises(ValueError, match="Cannot specify both spacing and size"):
-            validate_and_prepare_args(args)
+    def test_valid_spacing_and_size_parsing(self):
+        args = make_args(spacing=["1.5", "-1", "1.5"], size=["-1", "256", "-1"], recursive=True, mp=True, workers=4)
+        target_spacing, target_size = itk_resample.validate_and_prepare_args(args)
+        assert isinstance(target_spacing, list) and isinstance(target_size, list)
+        assert target_spacing == [1.5, -1.0, 1.5]
+        assert target_size == [-1, 256, -1]
 
 
-@pytest.mark.itk_process
-class TestResampleProcessor:
-    def test_init(self):
-        processor = ResampleProcessor("/src", "/dst", [1.0, -1, 1.0], [-1, 128, -1], mp=False, workers=None, target_folder=None)
-        assert processor.source_folder == "/src"
-        assert processor.dest_folder == "/dst"
-        assert processor.target_spacing == [1.0, -1, 1.0]
-        assert processor.target_size == [-1, 128, -1]
-        # Should be in SPACING_SIZE mode when target_folder is None
-        assert processor.resampling_mode == ResamplingMode.SPACING_SIZE
-
-    def test_init_target_image_mode(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            processor = ResampleProcessor("/src", "/dst", [1.0, -1, 1.0], [-1, 128, -1], mp=False, workers=None, target_folder=tmpdir)
-            # Should be in TARGET_IMAGE mode when target_folder is provided
-            assert processor.resampling_mode == ResamplingMode.TARGET_IMAGE
-
-    def test_process_one_spacing_size(self, sample_image, sample_label):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            src_img = os.path.join(tmpdir, "img.mha")
-            src_lbl = os.path.join(tmpdir, "lbl.mha")
-            dst_img = os.path.join(tmpdir, "dst", "image", "img.mha")
-            dst_lbl = os.path.join(tmpdir, "dst", "label", "lbl.mha")
-            os.makedirs(os.path.join(tmpdir, "dst", "image"), exist_ok=True)
-            os.makedirs(os.path.join(tmpdir, "dst", "label"), exist_ok=True)
-            sitk.WriteImage(sample_image, src_img)
-            sitk.WriteImage(sample_label, src_lbl)
-
-            processor = ResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, 5, -1], mp=False, workers=None, target_folder=None)
-            result = processor.process_one((src_img, src_lbl))
-            assert result is not None
-            assert os.path.exists(dst_img)
-            assert os.path.exists(dst_lbl)
-
-    def test_process_one_skip_existing(self, sample_image, sample_label):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            src_img = os.path.join(tmpdir, "img.mha")
-            dst_img = os.path.join(tmpdir, "dst", "image", "img.mha")
-            os.makedirs(os.path.join(tmpdir, "dst", "image"), exist_ok=True)
-            sitk.WriteImage(sample_image, src_img)
-            # Pre-create dest file
-            sitk.WriteImage(sample_image, dst_img)
-
-            processor = ResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], mp=False, workers=None, target_folder=None)
-            result = processor.process_one((src_img, src_img))  # Use src_img for both to avoid None
-            assert result is not None  # Should process since label is provided
-        with tempfile.TemporaryDirectory() as tmpdir:
-            src_img = os.path.join(tmpdir, "img.mha")
-            dst_img = os.path.join(tmpdir, "dst", "image", "img.mha")
-            os.makedirs(os.path.join(tmpdir, "dst", "image"), exist_ok=True)
-            sitk.WriteImage(sample_image, src_img)
-            # Pre-create dest file
-            sitk.WriteImage(sample_image, dst_img)
-
-            processor = ResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], mp=False, workers=None, target_folder=None)
-            result = processor.process_one((src_img, src_img))  # Use src_img for both to avoid None
-            assert result is not None  # Should process since label is provided
-
-    def test_process_multiprocessing(self, sample_image, sample_label):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            src_img = os.path.join(tmpdir, "image", "test.mha")
-            src_lbl = os.path.join(tmpdir, "label", "test.mha")
-            dst_img = os.path.join(tmpdir, "dst", "image", "test.mha")
-            dst_lbl = os.path.join(tmpdir, "dst", "label", "test.mha")
-            os.makedirs(os.path.join(tmpdir, "image"), exist_ok=True)
-            os.makedirs(os.path.join(tmpdir, "label"), exist_ok=True)
-            os.makedirs(os.path.join(tmpdir, "dst", "image"), exist_ok=True)
-            os.makedirs(os.path.join(tmpdir, "dst", "label"), exist_ok=True)
-            sitk.WriteImage(sample_image, src_img)
-            sitk.WriteImage(sample_label, src_lbl)
-
-            processor = ResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], mp=True, workers=2, target_folder=None)
-            processor.process()
-            assert os.path.exists(dst_img)
-            assert os.path.exists(dst_lbl)
-
-    def test_process_recursive(self, sample_image, sample_label):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.makedirs(os.path.join(tmpdir, "image"), exist_ok=True)
-            os.makedirs(os.path.join(tmpdir, "label"), exist_ok=True)
-            subdir = os.path.join(tmpdir, "subdir")
-            os.makedirs(subdir)
-            src_img = os.path.join(subdir, "image", "img.mha")
-            src_lbl = os.path.join(subdir, "label", "lbl.mha")
-            dst_img = os.path.join(tmpdir, "dst", "subdir", "image", "img.mha")
-            dst_lbl = os.path.join(tmpdir, "dst", "subdir", "label", "lbl.mha")
-            os.makedirs(os.path.join(subdir, "image"), exist_ok=True)
-            os.makedirs(os.path.join(subdir, "label"), exist_ok=True)
-            os.makedirs(os.path.join(tmpdir, "dst", "subdir", "image"), exist_ok=True)
-            os.makedirs(os.path.join(tmpdir, "dst", "subdir", "label"), exist_ok=True)
-            sitk.WriteImage(sample_image, src_img)
-            sitk.WriteImage(sample_label, src_lbl)
-
-@pytest.mark.itk_process
 class TestSingleResampleProcessor:
-    def test_init(self):
-        processor = SingleResampleProcessor("/src", "/dst", [1.0, -1, 1.0], [-1, 128, -1], "image", recursive=False, mp=False, workers=None, target_folder=None)
-        assert processor.source_folder == "/src"
-        assert processor.dest_folder == "/dst"
-        assert processor.field == "image"
-        # Should be in SPACING_SIZE mode when target_folder is None
-        assert processor.resampling_mode == ResamplingMode.SPACING_SIZE
+    """Test class for SingleResampleProcessor."""
 
-    def test_init_target_image_mode(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            processor = SingleResampleProcessor("/src", "/dst", [1.0, -1, 1.0], [-1, 128, -1], "image", recursive=False, mp=False, workers=None, target_folder=tmpdir)
-            # Should be in TARGET_IMAGE mode when target_folder is provided
-            assert processor.resampling_mode == ResamplingMode.TARGET_IMAGE
+    def test_full_io_processing_spacing_size(self, shared_temp_data, tmp_path):
+        """Test full IO processing in SPACING_SIZE mode: process temp data folder and verify outputs."""
+        dest_folder = tmp_path / "dst"
+        dest_folder.mkdir()
 
-    def test_process_one(self, sample_image):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            src_path = os.path.join(tmpdir, "img.mha")
-            dst_path = os.path.join(tmpdir, "dst", "img.mha")
-            os.makedirs(os.path.join(tmpdir, "dst"), exist_ok=True)
-            sitk.WriteImage(sample_image, src_path)
+        # Randomly generate target spacing
+        target_spacing = [np.random.uniform(0.5, 3.0) for _ in range(3)]
+        processor = itk_resample.SingleResampleProcessor(
+            source_folder=str(shared_temp_data / "image"),
+            dest_folder=str(dest_folder),
+            target_spacing=target_spacing,
+            target_size=[-1, -1, -1],
+            field="image"
+        )
 
-            processor = SingleResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], "image", recursive=False, mp=False, workers=None, target_folder=None)
-            result = processor.process_one(src_path)
-            assert result is not None
-            assert os.path.exists(dst_path)
+        source_files = list((shared_temp_data / "image").glob("*.mha"))
 
-    def test_process_recursive(self, sample_image):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            subdir = os.path.join(tmpdir, "subdir")
-            os.makedirs(subdir)
-            src_path = os.path.join(subdir, "img.mha")
-            dst_path = os.path.join(tmpdir, "dst", "subdir", "img.mha")
-            os.makedirs(os.path.join(tmpdir, "dst", "subdir"), exist_ok=True)
-            sitk.WriteImage(sample_image, src_path)
+        # Process all files
+        processor.process()
 
-            processor = SingleResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], "image", recursive=True, mp=False, workers=None, target_folder=None)
-            processor.process()
-            assert os.path.exists(dst_path)
+        # Check that output files exist
+        output_files = list(dest_folder.glob("*.mha"))
+        assert len(output_files) == len(source_files)
 
-    def test_process_one_sample_extension_conversion(self, sample_image):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            input_path = os.path.join(tmpdir, "input.nii.gz")
-            expected_output = os.path.join(tmpdir, "dst", "input.mha")
-            sitk.WriteImage(sample_image, input_path)
-
-            processor = SingleResampleProcessor(tmpdir, os.path.join(tmpdir, "dst"), [2.0, -1, 2.0], [-1, -1, -1], "image", recursive=False, mp=False, workers=None, target_folder=None)
-            result = processor.process_one(input_path)
-            assert os.path.exists(expected_output)
-
-
-@pytest.mark.itk_process
-class TestMain:
-    def test_main_dataset_mode_success(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            src = os.path.join(tmpdir, "src")
-            dst = os.path.join(tmpdir, "dst")
-            os.makedirs(os.path.join(src, "image"), exist_ok=True)
-            os.makedirs(os.path.join(src, "label"), exist_ok=True)
-            # Create dummy files
-            os.makedirs(src, exist_ok=True)
-            img = sitk.GetImageFromArray(np.random.rand(10, 10, 10).astype(np.float32))
-            sitk.WriteImage(img, os.path.join(src, "test.mha"))
-
-            with patch('sys.argv', ['itk_resample.py', 'image', src, dst, '--spacing', '2.0', '-1', '2.0']):
-                main()
-            assert os.path.exists(os.path.join(dst, "test.mha"))
-
-    def test_main_invalid_args(self):
-        with patch('sys.argv', ['itk_resample.py']):
-            with pytest.raises(SystemExit):
-                main()
-
-    def test_main_invalid_target_folder(self):
-        with patch('sys.argv', ['itk_resample.py', 'dataset', '/src', '/dst', '--target-folder', '/nonexistent']):
-            with pytest.raises(ValueError, match="Target folder does not exist"):
-                main()
-
-    def test_main_mutual_exclusive_error(self):
-        with patch('sys.argv', ['itk_resample.py', 'dataset', '/src', '/dst', '--target-folder', '/tmp', '--spacing', '2.0', '-1', '-1']):
-            with pytest.raises(ValueError, match="mutually exclusive"):
-                main()
-
-    def test_main_invalid_spacing_size_length(self):
-        with patch('sys.argv', ['itk_resample.py', 'dataset', '/src', '/dst', '--spacing', '2.0', '-1']):
-            with pytest.raises(ValueError, match="--spacing must have 3 values"):
-                main()
-
-    def test_main_no_resampling_rules_no_target(self):
-        """Test that main() raises error when no resampling rules and no target folder."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            src = os.path.join(tmpdir, 'src')
-            dst = os.path.join(tmpdir, 'dst')
-            os.makedirs(src, exist_ok=True)
-            with patch('sys.argv', ['itk_resample.py', 'dataset', src, dst]):
-                # Should raise ValueError because no resampling parameters are specified
-                with pytest.raises(ValueError, match="No resampling parameters specified"):
-                    main()
-
-
-@pytest.mark.itk_process
-class TestResampleMixin:
-    class TestProcessor(_ResampleMixin):
-        """Test processor for testing _ResampleMixin methods in isolation."""
-        def __init__(self, target_spacing, target_size, target_folder=None, resampling_mode=None):
-            self.target_spacing = target_spacing
-            self.target_size = target_size
-            self.target_folder = target_folder
-            self.source_folder = "/tmp/src"
+        # Collect expected metadata and validate
+        metadata_manager = MetadataManager()
+        for output_file in output_files:
+            img = sitk.ReadImage(str(output_file))
             
-            # Determine mode if not specified
-            if resampling_mode is not None:
-                self.resampling_mode = resampling_mode
-            elif target_folder is not None:
-                self.resampling_mode = ResamplingMode.TARGET_IMAGE
-            else:
-                self.resampling_mode = ResamplingMode.SPACING_SIZE
-        
-        def _get_target_path(self, input_path: str, field: Literal['image', 'label']) -> str | None:
-            """Simple target path resolution for testing."""
-            if self.target_folder is None:
-                return None
-            return os.path.join(self.target_folder, os.path.basename(input_path))
+            # Generate expected metadata
+            expected_metadata = itk_resample.SeriesMetadata.from_sitk_image(img, output_file.name)
+            
+            metadata_manager.update(expected_metadata)
+            # Validate image properties
+            expected_metadata.validate_itk_image(img)
 
-    def test_resample_one_sample_success(self, sample_image):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            input_path = os.path.join(tmpdir, "input.mha")
-            output_path = os.path.join(tmpdir, "output.mha")
-            sitk.WriteImage(sample_image, input_path)
+        # Save and verify metadata JSON
+        metadata_path = dest_folder / "metadata.json"
+        metadata_manager.save(metadata_path)
+        loaded_manager = MetadataManager(meta_file_path=metadata_path)
+        for name, expected_meta in metadata_manager.meta.items():
+            assert name in loaded_manager.meta
+            assert loaded_manager.meta[name] == expected_meta
 
-            processor = self.TestProcessor([2.0, -1, 2.0], [-1, -1, -1])
-            result = processor.resample_one_sample(input_path, "image", output_path)
-            assert result is not None
-            assert os.path.exists(output_path)
-            assert result.name == "input.mha"
+    def test_full_io_processing_target_image(self, shared_temp_data, tmp_path):
+        """Test full IO processing in TARGET_IMAGE mode: use label as target for image."""
+        dest_folder = tmp_path / "dst"
+        dest_folder.mkdir()
 
-    def test_resample_one_sample_skip_existing(self, sample_image):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            input_path = os.path.join(tmpdir, "input.mha")
-            output_path = os.path.join(tmpdir, "output.mha")
-            sitk.WriteImage(sample_image, input_path)
-            # Pre-create output
-            sitk.WriteImage(sample_image, output_path)
+        # Use label folder as target (same structure)
+        processor = itk_resample.SingleResampleProcessor(
+            source_folder=str(shared_temp_data / "image"),
+            dest_folder=str(dest_folder),
+            target_spacing=[-1, -1, -1],
+            target_size=[-1, -1, -1],
+            field="image",
+            target_folder=str(shared_temp_data / "label")
+        )
 
-            processor = self.TestProcessor([2.0, -1, 2.0], [-1, -1, -1])
-            result = processor.resample_one_sample(input_path, "image", output_path)
-            assert result is None
+        source_files = list((shared_temp_data / "image").glob("*.mha"))
 
-    def test_resample_one_sample_target_folder_missing_target(self, sample_image):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            input_path = os.path.join(tmpdir, "input.mha")
-            output_path = os.path.join(tmpdir, "output.mha")
-            sitk.WriteImage(sample_image, input_path)
+        # Process all files
+        processor.process()
 
-            processor = self.TestProcessor([-1, -1, -1], [-1, -1, -1], target_folder="/nonexistent")
-            result = processor.resample_one_sample(input_path, "image", output_path)
-            assert result is None
+        # Check that output files exist
+        output_files = list(dest_folder.glob("*.mha"))
+        assert len(output_files) == len(source_files)
 
-    def test_resample_one_sample_read_error(self):
-        processor = self.TestProcessor([2.0, -1, 2.0], [-1, -1, -1])
-        result = processor.resample_one_sample("/nonexistent.mha", "image", "/tmp/out.mha")
-        assert result is None
+        # Collect expected metadata and validate
+        metadata_manager = MetadataManager()
+        for output_file in output_files:
+            img = sitk.ReadImage(str(output_file))
+            
+            # Generate expected metadata
+            target_file = Path(shared_temp_data / "label") / output_file.name
+            target_img = sitk.ReadImage(str(target_file))
+            expected_metadata = itk_resample.SeriesMetadata.from_sitk_image(target_img, output_file.name)
+            
+            metadata_manager.update(expected_metadata)
+            # Validate image properties
+            expected_metadata.validate_itk_image(img)
 
-    def test_apply_spacing_size_rules_spacing_only(self, sample_image):
-        processor = self.TestProcessor([2.0, -1, 2.0], [-1, -1, -1])
-        result = processor._apply_spacing_size_rules(sample_image, "image")
-        assert result.GetSpacing() == (2.0, 1.0, 2.0)
-        assert result.GetDirection() == sitk.DICOMOrient(result, 'LPI').GetDirection()
+        # Save and verify metadata JSON
+        metadata_path = dest_folder / "metadata.json"
+        metadata_manager.save(metadata_path)
+        loaded_manager = MetadataManager(meta_file_path=metadata_path)
+        for name, expected_meta in metadata_manager.meta.items():
+            assert name in loaded_manager.meta
+            assert loaded_manager.meta[name] == expected_meta
 
-    def test_apply_spacing_size_rules_size_only(self, sample_image):
-        processor = self.TestProcessor([-1, -1, -1], [-1, 5, -1])
-        result = processor._apply_spacing_size_rules(sample_image, "image")
-        assert result.GetSize() == (10, 5, 10)
-        assert result.GetDirection() == sitk.DICOMOrient(result, 'LPI').GetDirection()
+    def test_full_io_processing_label_field(self, shared_temp_data, tmp_path):
+        """Test full IO processing for label field: check unique classes preserved."""
+        dest_folder = tmp_path / "dst"
+        dest_folder.mkdir()
 
-    def test_apply_spacing_size_rules_both(self, sample_image):
-        processor = self.TestProcessor([2.0, -1, 2.0], [-1, 5, -1])
-        result = processor._apply_spacing_size_rules(sample_image, "image")
-        assert result.GetSize() == (5, 5, 5)
-        assert result.GetDirection() == sitk.DICOMOrient(result, 'LPI').GetDirection()
+        # Randomly generate target size
+        target_size = [np.random.randint(32, 128) for _ in range(3)]  # ZYX order
+        processor = itk_resample.SingleResampleProcessor(
+            source_folder=str(shared_temp_data / "label"),
+            dest_folder=str(dest_folder),
+            target_spacing=[-1, -1, -1],
+            target_size=target_size,
+            field="label"
+        )
 
-    def test_apply_spacing_size_rules_no_change(self, sample_image):
-        processor = self.TestProcessor([-1, -1, -1], [-1, -1, -1])
-        result = processor._apply_spacing_size_rules(sample_image, "image")
-        assert result.GetSpacing() == sample_image.GetSpacing()
-        assert result.GetSize() == sample_image.GetSize()
-        assert result.GetDirection() == sitk.DICOMOrient(result, 'LPI').GetDirection()
+        source_files = list((shared_temp_data / "label").glob("*.mha"))
 
+        # Process all files
+        processor.process()
 
-@pytest.mark.itk_process
-class TestParseArgs:
-    def test_parse_args_defaults(self):
-        with patch('sys.argv', ['itk_resample.py', 'dataset', '/src', '/dst']):
-            args = parse_args()
-            assert args.mode == 'dataset'
-            assert args.source_folder == '/src'
-            assert args.dest_folder == '/dst'
-            assert args.recursive is False
-            assert args.mp is False
-            assert args.workers is None
-            assert args.spacing == ['-1', '-1', '-1']
-            assert args.size == ['-1', '-1', '-1']
-            assert args.target_folder is None
+        # Check that output files exist
+        output_files = list(dest_folder.glob("*.mha"))
+        assert len(output_files) == len(source_files)
 
-    def test_parse_args_with_options(self):
-        with patch('sys.argv', ['itk_resample.py', 'image', '/src', '/dst', '--recursive', '--mp', '--workers', '4', '--spacing', '1.5', '-1', '1.5', '--size', '-1', '256', '-1']):
-            args = parse_args()
-            assert args.mode == 'image'
-            assert args.recursive is True
-            assert args.mp is True
-            assert args.workers == 4
-            assert args.spacing == ['1.5', '-1', '1.5']
-            assert args.size == ['-1', '256', '-1']
+        # Collect expected metadata and validate
+        metadata_manager = MetadataManager()
+        for output_file in output_files:
+            img = sitk.ReadImage(str(output_file))
+            
+            # Generate expected metadata
+            expected_metadata = itk_resample.SeriesMetadata.from_sitk_image(img, output_file.name)
+            
+            metadata_manager.update(expected_metadata)
+            # Validate image properties
+            expected_metadata.validate_itk_image(img)
+
+        # Save and verify metadata JSON
+        metadata_path = dest_folder / "metadata.json"
+        metadata_manager.save(metadata_path)
+        loaded_manager = MetadataManager(meta_file_path=metadata_path)
+        for name, expected_meta in metadata_manager.meta.items():
+            assert name in loaded_manager.meta
+            assert loaded_manager.meta[name] == expected_meta

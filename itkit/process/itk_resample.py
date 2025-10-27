@@ -72,7 +72,7 @@ class _ResampleMixin:
             return None
 
         return SeriesMetadata(
-            name=os.path.basename(input_path),
+            name=Path(output_path).name,
             spacing=image_resampled.GetSpacing()[::-1],
             size=image_resampled.GetSize()[::-1],
             origin=image_resampled.GetOrigin()[::-1],

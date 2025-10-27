@@ -1,5 +1,8 @@
 import pdb, json
 from pathlib import Path
+
+import numpy as np
+import SimpleITK as sitk
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -19,6 +22,23 @@ class SeriesMetadata(BaseModel):
     size: tuple[int, int, int] = Field(..., description="Image size (Z, Y, X)")
     origin: tuple[float, float, float] = Field(..., description="Image origin (Z, Y, X)")
     include_classes: tuple[int, ...] | None = Field(None, description="Classes to include in processing")
+    
+    @classmethod
+    def from_sitk_image(cls, image: sitk.Image, name: str) -> 'SeriesMetadata':
+        # `sitkUInt8` is treated as label image with possible classes 0-255
+        if image.GetPixelID() == sitk.sitkUInt8:
+            img_arr = sitk.GetArrayFromImage(image)
+            include_classes = np.unique(img_arr).tolist()
+        else:
+            include_classes = None
+        
+        return cls(
+            name=name,
+            spacing=tuple(image.GetSpacing()[::-1]),
+            size=tuple(image.GetSize()[::-1]),
+            origin=tuple(image.GetOrigin()[::-1]),
+            include_classes=include_classes
+        )
     
     @field_validator('spacing', mode='before')
     @classmethod
@@ -40,6 +60,31 @@ class SeriesMetadata(BaseModel):
         if isinstance(v, (list, tuple)):
             return tuple(float(x) for x in v)
         raise ValueError("origin must be a list or tuple")
+
+    def validate_itk_image(self, image: sitk.Image) -> bool:
+        # Get image properties (XYZ order)
+        img_spacing = image.GetSpacing()
+        img_size = image.GetSize()
+        img_origin = image.GetOrigin()
+        
+        # Convert to ZYX order for comparison
+        img_spacing_zyx = tuple(img_spacing[::-1])
+        img_size_zyx = tuple(img_size[::-1])
+        img_origin_zyx = tuple(img_origin[::-1])
+        
+        # Validate spacing
+        if not np.allclose(img_spacing_zyx, self.spacing, rtol=1e-5):
+            raise ValueError(f"Spacing mismatch: expected {self.spacing}, got {img_spacing_zyx}")
+        
+        # Validate size
+        if img_size_zyx != self.size:
+            raise ValueError(f"Size mismatch: expected {self.size}, got {img_size_zyx}")
+        
+        # Validate origin
+        if not np.allclose(img_origin_zyx, self.origin, rtol=1e-5):
+            raise ValueError(f"Origin mismatch: expected {self.origin}, got {img_origin_zyx}")
+        
+        return True
 
 
 class MetadataManager:
