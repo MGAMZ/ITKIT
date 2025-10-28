@@ -124,24 +124,27 @@ class BaseITKProcessor:
             base = base[:-4]
         return base
 
-    def process(self):
+    def process(self, desc: str | None = None):
+        if desc is not None:
+            self.task_description = desc
         items = self.get_items_to_process()
-        return self.process_items(items)
+        return self.process_items(items, desc)
 
-    def process_items(self, items: list):
+    def process_items(self, items: list, desc: str | None = None):
+        desc = desc or self.task_description
         if not items:
-            print(f"No items found for {self.task_description}.")
+            print(f"No items found for {desc}.")
             return {}
         
         if self.mp:
             with Pool(self.workers) as pool:
                 results = list(tqdm(pool.imap_unordered(self.process_one, items),
                                     total=len(items),
-                                    desc=self.task_description,
+                                    desc=desc,
                                     dynamic_ncols=True))
         else:
             results = []
-            for item in tqdm(items, desc=self.task_description, dynamic_ncols=True):
+            for item in tqdm(items, desc=desc, dynamic_ncols=True):
                 results.append(self.process_one(item))
         
         # Collect metadata from the results
@@ -219,8 +222,8 @@ class SingleFolderProcessor(BaseITKProcessor):
     def source_meta_path(self) -> Path | None:
         return Path(self.source_folder) / "meta.json"
     
-    def process(self):
-        super().process()
+    def process(self, desc: str | None = None):
+        super().process(desc)
         if self.dest_folder is not None:
             self.save_meta(Path(self.dest_folder) / "meta.json")
 
@@ -351,8 +354,8 @@ class DatasetProcessor(BaseITKProcessor):
     def source_meta_path(self) -> Path:
         return Path(self.source_folder) / "meta.json"
 
-    def process(self):
-        super().process()
+    def process(self, desc: str | None = None):
+        super().process(desc)
         if self.dest_folder is not None:
             self.save_meta(Path(self.dest_folder) / "meta.json")
             self.save_meta(Path(self.dest_folder) / "image" / "meta.json")

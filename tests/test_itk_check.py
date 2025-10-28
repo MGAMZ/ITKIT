@@ -108,7 +108,6 @@ class TestCheckProcessor:
             
             processor1 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
             processor1.process()
-            processor1.save_meta()
             
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             assert os.path.exists(meta_path)
@@ -270,7 +269,6 @@ class TestCheckProcessor:
             
             processor = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
             processor.process()
-            processor.save_meta()
             
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             assert os.path.exists(meta_path)
@@ -461,7 +459,6 @@ class TestCheckProcessor:
             # First check: should be invalid due to high Z spacing (5.0 > 2.0)
             processor1 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
             processor1.process()
-            processor1.save_meta()  # Explicitly save metadata
             
             # Verify first check correctly identified invalid sample
             assert len(processor1.invalid) == 1, f"Expected 1 invalid, got {len(processor1.invalid)}"

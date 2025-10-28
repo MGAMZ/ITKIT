@@ -5,6 +5,7 @@ from enum import Enum
 import SimpleITK as sitk
 from itkit.process.base_processor import DatasetProcessor, SingleFolderProcessor
 from itkit.process.meta_json import load_series_meta, get_series_meta_path
+from itkit.process.metadata_models import SeriesMetadata
 
 
 DIM_MAP = {"Z": 0, "Y": 1, "X": 2}
@@ -82,19 +83,6 @@ class ValidationMixin:
                 reasons.append(f"size[{i0}]={size[i0]} vs size[{i1}]={size[i1]} differ")
 
         return reasons
-
-    def _read_image_metadata(
-        self, img_path: str
-    ) -> tuple[list[int], list[float], list[str]]:
-        """Read image and return (size, spacing, reasons)"""
-        try:
-            img = sitk.ReadImage(img_path)
-            size = list(img.GetSize()[::-1])  # Convert to ZYX
-            spacing = list(img.GetSpacing()[::-1])
-            reasons = self.validate_sample_metadata(size, spacing)
-            return size, spacing, reasons
-        except Exception as e:
-            return [], [], [f"Failed to read: {str(e)}"]
 
     def fast_check_with_meta(self, series_meta: dict, item_dict: dict):
         """Fast check using existing series_meta.json
@@ -227,23 +215,28 @@ class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
         mp: bool = False,
         workers: int | None = None,
     ):
-        DatasetProcessor.__init__(
-            self, source_folder, output_dir, mp, workers, recursive=False
-        )
+        DatasetProcessor.__init__(self, source_folder, dest_folder=None, mp=mp, workers=workers)
         ValidationMixin.__init__(self, cfg, mode)
+        self.output_dir = output_dir
 
-    def process_one(self, args: tuple[str, str]) -> dict | None:
+    def process_one(self, args: tuple[str, str]) -> SeriesMetadata | None:
         """Process one image/label pair"""
         img_path, lbl_path = args
         name = os.path.basename(img_path)
-        size, spacing, reasons = self._read_image_metadata(img_path)
-
-        if reasons:
-            self.invalid.append((name, reasons, (img_path, lbl_path)))
-        else:
-            self.valid_items.append((name, (img_path, lbl_path)))
-
-        return {name: {"size": size, "spacing": spacing}} if size else None
+        
+        try:
+            lbl = sitk.ReadImage(lbl_path)
+            size = list(lbl.GetSize()[::-1])
+            spacing = list(lbl.GetSpacing()[::-1])
+            reasons = self.validate_sample_metadata(size, spacing)
+            if reasons:
+                self.invalid.append((name, reasons, (img_path, lbl_path)))
+            else:
+                self.valid_items.append((name, (img_path, lbl_path)))
+            return SeriesMetadata.from_sitk_image(lbl, name)
+        except Exception as e:
+            self.invalid.append((name, [f"Failed to read: {str(e)}"], (img_path, lbl_path)))
+            return None
 
     def process(self, desc: str = "Checking") -> dict:
         """Main processing with fast check support"""
@@ -259,14 +252,12 @@ class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
             super().process(desc)
 
         # Execute operations based on mode
-        self.execute_operation(self.dest_folder)
+        self.execute_operation(self.output_dir)
         
         # Save metadata to source folder in check mode
-        if not self.dest_folder:
+        if not self.output_dir:
             meta_path = get_series_meta_path(self.source_folder)
             self.save_meta(meta_path)
-        
-        return self.meta
 
 
 class SingleCheckProcessor(SingleFolderProcessor, ValidationMixin):
@@ -282,21 +273,31 @@ class SingleCheckProcessor(SingleFolderProcessor, ValidationMixin):
         workers: int | None = None,
     ):
         SingleFolderProcessor.__init__(
-            self, source_folder, output_dir, mp, workers, recursive=False
+            self, source_folder, dest_folder=None, mp=mp, workers=workers, recursive=False
         )
         ValidationMixin.__init__(self, cfg, mode)
+        self.output_dir = output_dir
 
-    def process_one(self, img_path: str) -> dict | None:
+    def process_one(self, img_path: str) -> SeriesMetadata | None:
         """Process one image file"""
         name = os.path.basename(img_path)
-        size, spacing, reasons = self._read_image_metadata(img_path)
-
-        if reasons:
-            self.invalid.append((name, reasons, img_path))
-        else:
-            self.valid_items.append((name, img_path))
-
-        return {name: {"size": size, "spacing": spacing}} if size else None
+        
+        try:
+            img = sitk.ReadImage(img_path)
+            size = list(img.GetSize()[::-1])
+            spacing = list(img.GetSpacing()[::-1])
+            reasons = self.validate_sample_metadata(size, spacing)
+            
+            if reasons:
+                self.invalid.append((name, reasons, img_path))
+            else:
+                self.valid_items.append((name, img_path))
+            
+            # Always return metadata if image can be read
+            return SeriesMetadata.from_sitk_image(img, name)
+        except Exception as e:
+            self.invalid.append((name, [f"Failed to read: {str(e)}"], img_path))
+            return None
 
     def process(self, desc: str = "Checking") -> dict:
         """Main processing with fast check support"""
@@ -312,14 +313,12 @@ class SingleCheckProcessor(SingleFolderProcessor, ValidationMixin):
             super().process(desc)
 
         # Execute operations based on mode
-        self.execute_operation(self.dest_folder)
+        self.execute_operation(self.output_dir)
         
         # Save metadata to source folder in check mode
-        if not self.dest_folder:
+        if not self.output_dir:
             meta_path = get_series_meta_path(self.source_folder)
             self.save_meta(meta_path)
-        
-        return self.meta
 
 
 def CheckProcessor(
@@ -467,7 +466,6 @@ Examples:
 
     # Process and save metadata
     processor.process("Checking")
-    processor.save_meta()
 
     print("Check completed.")
 
