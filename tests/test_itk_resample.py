@@ -27,7 +27,7 @@ def make_args(**overrides):
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
 
-
+@pytest.mark.itk_process
 class TestValidateAndPrepareArgs:
     """Grouped tests for itk_resample.validate_and_prepare_args.
 
@@ -65,7 +65,7 @@ class TestValidateAndPrepareArgs:
         assert target_spacing == [1.5, -1.0, 1.5]
         assert target_size == [-1, 256, -1]
 
-
+@pytest.mark.itk_process
 class TestSingleResampleProcessor:
     """Test class for SingleResampleProcessor."""
 

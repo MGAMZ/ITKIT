@@ -241,7 +241,14 @@ class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
     def process(self, desc: str = "Checking") -> dict:
         """Main processing with fast check support"""
         # Try fast check first
-        series_meta = load_series_meta(self.source_folder)
+        try:
+            series_meta = load_series_meta(self.source_folder)
+        except json.JSONDecodeError:
+            print("series_meta.json is corrupted, removing and performing full check.")
+            meta_path = get_series_meta_path(self.source_folder)
+            os.remove(meta_path)
+            series_meta = None
+            
         if series_meta is not None:
             print("Found existing series_meta.json, performing fast check.")
             items = self.get_items_to_process()
