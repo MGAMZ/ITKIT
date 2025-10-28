@@ -321,16 +321,26 @@ class SingleCheckProcessor(SingleFolderProcessor, ValidationMixin):
             self.save_meta(meta_path)
 
 
+def detect_processor_type(source_folder: str) -> ProcessorType:
+    """Detect processor type based on folder structure"""
+    img_dir = os.path.join(source_folder, 'image')
+    lbl_dir = os.path.join(source_folder, 'label')
+    if os.path.isdir(img_dir) and os.path.isdir(lbl_dir):
+        return ProcessorType.DATASET
+    else:
+        return ProcessorType.SINGLE
+
+
 def CheckProcessor(
     source_folder: str,
     cfg: dict,
     mode: str,
-    processor_type: ProcessorType = ProcessorType.DATASET,
     output_dir: str | None = None,
     mp: bool = False,
     workers: int | None = None,
 ):
     """Factory function to create appropriate check processor"""
+    processor_type = detect_processor_type(source_folder)
     if processor_type == ProcessorType.DATASET:
         return DatasetCheckProcessor(source_folder, cfg, mode, output_dir, mp, workers)
     else:
@@ -338,22 +348,8 @@ def CheckProcessor(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Check itk dataset samples (mha) for size/spacing rules. "
-        "Supports both dataset (image/label pairs) and single folder structures.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Check dataset with image/label pairs
-  %(prog)s check /path/to/data --processor-type dataset --min-size -1 128 128
-  
-  # Check single folder of images
-  %(prog)s check /path/to/images --processor-type single --max-spacing 2.0 2.0 2.0
-  
-  # Symlink valid samples from dataset
-  %(prog)s symlink /path/to/data -o /path/to/output --processor-type dataset --same-spacing X Y
-        """,
-    )
+    parser = argparse.ArgumentParser(description="ITK Dataset/Sample Checker")
+
     parser.add_argument(
         "mode",
         choices=["check", "delete", "copy", "symlink"],
@@ -363,12 +359,6 @@ Examples:
     parser.add_argument("sample_folder", help="Path to sample folder")
     parser.add_argument(
         "-o", "--output", help="Output directory (required for copy/symlink modes)"
-    )
-    parser.add_argument(
-        "--processor-type",
-        choices=["dataset", "single"],
-        default="dataset",
-        help="Processor type: dataset (image/label pairs) or single (single folder)",
     )
 
     # Size constraints
@@ -449,16 +439,10 @@ Examples:
     }
 
     # Create processor and run
-    processor_type = (
-        ProcessorType.DATASET
-        if args.processor_type == "dataset"
-        else ProcessorType.SINGLE
-    )
     processor = CheckProcessor(
         source_folder = args.sample_folder,
         cfg = cfg,
         mode = args.mode,
-        processor_type = processor_type,
         output_dir = args.output,
         mp = args.mp,
         workers = args.workers,
