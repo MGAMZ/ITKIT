@@ -3,7 +3,7 @@ import json
 import tempfile
 import pytest
 import SimpleITK as sitk
-from itkit.process.itk_check import CheckProcessor, ProcessorType
+from itkit.process.itk_check import CheckProcessor
 
 
 def create_test_image(path: str, size: tuple, spacing: tuple):
@@ -46,7 +46,6 @@ class TestCheckProcessor:
                 source_folder=tmpdir,
                 cfg=cfg,
                 mode='check',
-                processor_type=ProcessorType.DATASET,
                 mp=False
             )
             processor.process()
@@ -75,7 +74,6 @@ class TestCheckProcessor:
                 source_folder=tmpdir,
                 cfg=cfg,
                 mode='check',
-                processor_type=ProcessorType.SINGLE,
                 mp=False
             )
             processor.process()
@@ -106,13 +104,13 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor1 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
+            processor1 = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor1.process()
             
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             assert os.path.exists(meta_path)
             
-            processor2 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
+            processor2 = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor2.process()
             
             assert len(processor2.valid_items) == 1
@@ -145,7 +143,7 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor = CheckProcessor(tmpdir, cfg, 'delete', ProcessorType.DATASET, mp=False)
+            processor = CheckProcessor(tmpdir, cfg, 'delete', mp=False)
             processor.process()
             
             assert os.path.exists(valid_img)
@@ -178,7 +176,7 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor = CheckProcessor(src_dir, cfg, 'copy', ProcessorType.DATASET, 
+            processor = CheckProcessor(src_dir, cfg, 'copy', 
                                       output_dir=out_dir, mp=False)
             processor.process()
             
@@ -213,7 +211,7 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor = CheckProcessor(src_dir, cfg, 'symlink', ProcessorType.DATASET,
+            processor = CheckProcessor(src_dir, cfg, 'symlink',
                                       output_dir=out_dir, mp=False)
             processor.process()
             
@@ -237,13 +235,13 @@ class TestCheckProcessor:
                 'same_spacing': (1, 2),
                 'same_size': None,
             }
-            processor = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.SINGLE, mp=False)
+            processor = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor.process()
             assert len(processor.valid_items) == 1
             
             cfg['same_spacing'] = None
             cfg['same_size'] = (1, 2)
-            processor = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.SINGLE, mp=False)
+            processor = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor.process()
             assert len(processor.valid_items) == 1
 
@@ -267,7 +265,7 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
+            processor = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor.process()
             
             meta_path = os.path.join(tmpdir, 'series_meta.json')
@@ -301,7 +299,7 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor = CheckProcessor(src_dir, cfg, 'copy', ProcessorType.SINGLE,
+            processor = CheckProcessor(src_dir, cfg, 'copy',
                                       output_dir=out_dir, mp=False)
             processor.process()
             
@@ -328,7 +326,7 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor = CheckProcessor(src_dir, cfg, 'symlink', ProcessorType.SINGLE,
+            processor = CheckProcessor(src_dir, cfg, 'symlink',
                                       output_dir=out_dir, mp=False)
             processor.process()
             
@@ -351,7 +349,7 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.SINGLE, mp=False)
+            processor = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor.process()
             
             assert len(processor.valid_items) == 1
@@ -372,7 +370,7 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.SINGLE, mp=False)
+            processor = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor.process()
             
             assert len(processor.valid_items) == 1
@@ -402,7 +400,7 @@ class TestCheckProcessor:
             }
             
             # First check: generate series_meta.json
-            processor1 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
+            processor1 = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor1.process()
             
             # Verify initial results: sample1 valid, sample2 invalid
@@ -425,7 +423,7 @@ class TestCheckProcessor:
                 json.dump(meta, f)
             
             # Second check: with corrupted metadata
-            processor2 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
+            processor2 = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor2.process()
             
             # Verify that fast check is mislead by corrupted metadata
@@ -457,7 +455,7 @@ class TestCheckProcessor:
             }
             
             # First check: should be invalid due to high Z spacing (5.0 > 2.0)
-            processor1 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
+            processor1 = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor1.process()
             
             # Verify first check correctly identified invalid sample
@@ -481,7 +479,7 @@ class TestCheckProcessor:
             print(f"Corrupted metadata: {meta['test1.mha']}")
             
             # Second check: fast path should use corrupted metadata and be fooled
-            processor2 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
+            processor2 = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor2.process()
             
             # Now fast check thinks it's valid based on corrupted metadata
@@ -519,7 +517,7 @@ class TestCheckProcessor:
             }
             
             # First check: generate metadata
-            processor1 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
+            processor1 = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor1.process()
             
             assert len(processor1.valid_items) == 2
@@ -536,7 +534,7 @@ class TestCheckProcessor:
                 json.dump(meta, f)
             
             # Second check: only processes sample1 due to missing entry
-            processor2 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
+            processor2 = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor2.process()
             
             # Only sample1 is in valid_items (sample2 skipped due to missing metadata)
@@ -566,7 +564,7 @@ class TestCheckProcessor:
             }
             
             # First check: both should be invalid
-            processor1 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
+            processor1 = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor1.process()
             
             assert len(processor1.invalid) == 2
@@ -585,7 +583,7 @@ class TestCheckProcessor:
                 json.dump(meta, f)
             
             # Second check: all appear valid due to corruption
-            processor2 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False)
+            processor2 = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor2.process()
             
             assert len(processor2.valid_items) == 2
@@ -607,7 +605,7 @@ class TestCheckProcessor:
             }
             
             # First check
-            processor1 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.SINGLE, mp=False)
+            processor1 = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor1.process()
             
             assert len(processor1.valid_items) == 1
@@ -626,7 +624,7 @@ class TestCheckProcessor:
                 json.dump(meta, f)
             
             # Second check with corrupted metadata
-            processor2 = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.SINGLE, mp=False)
+            processor2 = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor2.process()
             
             assert len(processor2.valid_items) == 2
@@ -653,7 +651,7 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.DATASET, mp=False, workers=2)
+            processor = CheckProcessor(tmpdir, cfg, 'check', mp=False, workers=2)
             processor.process()
             
             assert len(processor.valid_items) == 10
@@ -673,7 +671,7 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.SINGLE, mp=False)
+            processor = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor.process()
             
             assert len(processor.valid_items) == 0
@@ -694,7 +692,7 @@ class TestCheckProcessor:
                 'same_size': (0, 1),  # Z and Y: 64 != 128
             }
             
-            processor = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.SINGLE, mp=False)
+            processor = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor.process()
             
             assert len(processor.valid_items) == 0
@@ -717,7 +715,7 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.SINGLE, mp=False)
+            processor = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor.process()
             
             assert len(processor.valid_items) == 0
@@ -738,7 +736,7 @@ class TestCheckProcessor:
                 'same_size': None,
             }
             
-            processor = CheckProcessor(tmpdir, cfg, 'check', ProcessorType.SINGLE, mp=False)
+            processor = CheckProcessor(tmpdir, cfg, 'check', mp=False)
             processor.process()
             
             assert len(processor.valid_items) == 1  # Z=32 <50 but skipped, Y,X ok
@@ -796,8 +794,9 @@ class TestCheckProcessor:
     def test_copy_mode_no_output_dir(self):
         """Test copy mode without output_dir raises error"""
         with tempfile.TemporaryDirectory() as tmpdir:
+            create_test_image(os.path.join(tmpdir, 'test.mha'), (64, 128, 128), (1.0, 0.5, 0.5))
             cfg = {'min_size': None, 'max_size': None, 'min_spacing': None, 'max_spacing': None, 'same_spacing': None, 'same_size': None}
-            processor = CheckProcessor(tmpdir, cfg, 'copy', ProcessorType.SINGLE, mp=False)
+            processor = CheckProcessor(tmpdir, cfg, 'copy', mp=False)
             # In code, it prints error and returns, so no exception, but for test, check that no operation happens
             processor.process()
             # Since no output_dir, should not create anything, but test is limited
@@ -806,6 +805,6 @@ class TestCheckProcessor:
         """Test symlink mode without output_dir"""
         with tempfile.TemporaryDirectory() as tmpdir:
             cfg = {'min_size': None, 'max_size': None, 'min_spacing': None, 'max_spacing': None, 'same_spacing': None, 'same_size': None}
-            processor = CheckProcessor(tmpdir, cfg, 'symlink', ProcessorType.SINGLE, mp=False)
+            processor = CheckProcessor(tmpdir, cfg, 'symlink', mp=False)
             processor.process()  # Should print error and not crash
             assert len(processor.valid_items) == 0  # No files, but test the error path
