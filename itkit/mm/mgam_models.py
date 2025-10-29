@@ -33,7 +33,6 @@ class InferenceConfig:
     patch_stride: tuple | None = None
     accumulate_device: str = 'cuda'
     forward_device: str = 'cuda'
-    forward_batch_windows: int = 1
     # When accumulate and forward devices differ, a chunk size along the last
     # dimension must be provided to avoid OOM during argmax transfer.
     argmax_batchsize: int | None = None
@@ -524,8 +523,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
     def slide_inference(self,
                         inputs: Tensor,
                         data_samples: Sequence[BaseDataElement] | None = None,
-                        force_cpu: bool = False,
-                        forward_batch_windows: int | None = None) -> Tensor:
+                        force_cpu: bool = False) -> Tensor:
         """Perform sliding-window inference with overlapping sub-volumes.
 
         Args:
@@ -543,7 +541,6 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             f"elsewise, please set both to `None` to disable sliding window."
         z_stride, y_stride, x_stride = self.inference_config.patch_stride
         z_crop, y_crop, x_crop = self.inference_config.patch_size
-        batch_windows = forward_batch_windows or self.inference_config.forward_batch_windows
         batch_size, _, z_img, y_img, x_img = inputs.size()
         assert batch_size == 1, "Currently only batch_size=1 is supported for 3D sliding-window inference"
         
@@ -590,7 +587,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             pin_memory = False
         )
         patch_cache = torch.empty(
-            size = (batch_windows, self.num_classes, z_crop, y_crop, x_crop),
+            size = (1, self.num_classes, z_crop, y_crop, x_crop),
             dtype = torch.float16,
             device = accumulate_device,
             pin_memory = True if accumulate_device.type == 'cpu' else False
@@ -628,32 +625,26 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                     x1 = max(x2 - x_crop, 0)
                     window_slices.append((slice(z1, z2), slice(y1, y2), slice(x1, x2)))
         
-        for i in tqdm(range(0, len(window_slices), batch_windows),
-                      desc="Slide Win. Infer.",
-                      disable=not (is_main_process() and self.allow_pbar),
-                      dynamic_ncols=True,
-                      leave=False):
-            batch_slices = window_slices[i:i+batch_windows]
-            
-            # prepare inference batch
-            batch_patches = []
-            for (z_slice, y_slice, x_slice) in batch_slices:
-                batch_patches.append(padded_inputs[:, :, z_slice, y_slice, x_slice])
-            batch_patches = torch.cat(batch_patches, dim=0).to(self.inference_config.forward_device)  # [B, C, z_crop, y_crop, x_crop]
+        for (z_slice, y_slice, x_slice) in tqdm(
+            window_slices,
+            desc="Slide Win. Infer.",
+            disable=not (is_main_process() and self.allow_pbar),
+            dynamic_ncols=True,
+            leave=False
+        ):
+            window_input = padded_inputs[:, :, z_slice, y_slice, x_slice].to(self.inference_config.forward_device)
             
             # run forward
             # prevent crop_logits of previous patch inference from being overlapped by next patch copy
             # HACK NOT SURE IF THIS STILL HAPPEN, This is only observed when using `.copy(non_blocking=True)`.
             if torch.cuda.is_available() and torch.device(self.inference_config.forward_device).type == "cuda":
                 torch.cuda.synchronize()
-            patch_logits_on_device = self._forward(batch_patches)
+            patch_logits_on_device = self._forward(window_input)
             patch_cache = _device_to_host_pinned_tensor(patch_logits_on_device)
-
-            # accumulate results
-            for j, (z_slice, y_slice, x_slice) in enumerate(batch_slices):
-                preds[:, :, z_slice, y_slice, x_slice] += patch_cache[j:j+1]
-                count_mat[:, :, z_slice, y_slice, x_slice] += 1
             
+            preds[:, :, z_slice, y_slice, x_slice] += patch_cache
+            count_mat[:, :, z_slice, y_slice, x_slice] += 1
+        
         # 使用tensor操作进行断言检查，避免tensor到boolean转换
         min_count = torch.min(count_mat)
         assert min_count.item() > 0, "There are areas not covered by sliding windows"
