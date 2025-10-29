@@ -592,19 +592,6 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             device = accumulate_device,
             pin_memory = True if accumulate_device.type == 'cpu' else False
         )
-        
-        def _device_to_host_pinned_tensor(device_tensor: Tensor, non_blocking: bool = False) -> Tensor:
-            """Inplace ops on pinned tensor for efficient transfer."""
-            nonlocal patch_cache, preds
-            device_tensor = device_tensor.to(preds.dtype) # NOTE Inconsistent dtype can SEVERLY impact tranfer speed.
-            if device_tensor.shape == patch_cache.shape:
-                # If the shape matches, copy directly to patch_cache
-                patch_cache.copy_(device_tensor, non_blocking)
-            else:
-                # Otherwise, resize patch_cache to match the device tensor shape
-                patch_cache.resize_(device_tensor.shape)
-                patch_cache.copy_(device_tensor, non_blocking)
-            return patch_cache
 
         # calculate window slices
         window_slices = []
@@ -624,7 +611,21 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                     y1 = max(y2 - y_crop, 0)
                     x1 = max(x2 - x_crop, 0)
                     window_slices.append((slice(z1, z2), slice(y1, y2), slice(x1, x2)))
-        
+
+        def _device_to_host_pinned_tensor(device_tensor: Tensor, non_blocking: bool = False) -> Tensor:
+            """Inplace ops on pinned tensor for efficient transfer."""
+            nonlocal patch_cache, preds
+            device_tensor = device_tensor.to(preds.dtype) # NOTE Inconsistent dtype can SEVERLY impact tranfer speed.
+            if device_tensor.shape == patch_cache.shape:
+                # If the shape matches, copy directly to patch_cache
+                patch_cache.copy_(device_tensor, non_blocking)
+            else:
+                # Otherwise, resize patch_cache to match the device tensor shape
+                patch_cache.resize_(device_tensor.shape)
+                patch_cache.copy_(device_tensor, non_blocking)
+            return patch_cache
+
+        # sliding window forward
         for (z_slice, y_slice, x_slice) in tqdm(
             window_slices,
             desc="Slide Win. Infer.",
@@ -634,7 +635,6 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         ):
             window_input = padded_inputs[:, :, z_slice, y_slice, x_slice].to(self.inference_config.forward_device)
             
-            # run forward
             # prevent crop_logits of previous patch inference from being overlapped by next patch copy
             # HACK NOT SURE IF THIS STILL HAPPEN, This is only observed when using `.copy(non_blocking=True)`.
             if torch.cuda.is_available() and torch.device(self.inference_config.forward_device).type == "cuda":
@@ -645,10 +645,9 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             preds[:, :, z_slice, y_slice, x_slice] += patch_cache
             count_mat[:, :, z_slice, y_slice, x_slice] += 1
         
-        # 使用tensor操作进行断言检查，避免tensor到boolean转换
+        # Average Logits
         min_count = torch.min(count_mat)
         assert min_count.item() > 0, "There are areas not covered by sliding windows"
-        # 计算平均值
         seg_logits = (preds / count_mat).to(dtype=torch.float16)
         
         # Crop back to original size if padding was applied
