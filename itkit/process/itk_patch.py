@@ -4,15 +4,73 @@ from tqdm import tqdm
 
 import numpy as np
 import SimpleITK as sitk
+from pydantic import BaseModel, Field
+
 from itkit.process.base_processor import DatasetProcessor
+from itkit.process.metadata_models import SeriesMetadata
+
+
+class ProcessOneResult(BaseModel):
+    """Result from processing one image-label pair.
+    
+    Contains both the patch-level metadata (for meta.json) and 
+    source-level metadata (for crop_meta.json).
+    """
+    patch_metadata_list: list[SeriesMetadata] = Field(default_factory=list, description="Metadata for each extracted patch")
+    source_metadata: 'PatchMetadata' = Field(..., description="Metadata about the source series")
+
+
+class PatchMetadata(BaseModel):
+    """Metadata for a single source series that was patched."""
+    series_id: str = Field(..., description="Source series identifier")
+    shape: tuple[int, int, int] = Field(..., description="Original image shape (Z, Y, X)")
+    num_patches: int = Field(..., description="Number of patches extracted")
+    anno_available: bool = Field(True, description="Whether annotations are available")
+    class_within_patch: dict[str, list[int]] = Field(default_factory=dict, description="Mapping patch filename to unique classes")
+
+
+class CropMetadata(BaseModel):
+    """Overall metadata for patch extraction operation."""
+    src_folder: str = Field(..., description="Source dataset folder")
+    dst_folder: str = Field(..., description="Destination folder for patches")
+    patch_size: list[int] = Field(..., description="Patch size (Z, Y, X)")
+    patch_stride: list[int] = Field(..., description="Patch stride (Z, Y, X)")
+    anno_available: list[str] = Field(default_factory=list, description="List of series IDs with available annotations")
+    patch_meta: dict[str, PatchMetadata] = Field(default_factory=dict, description="Per-series patch metadata")
+
+    def save(self, path: str | Path):
+        """Save crop metadata to JSON file."""
+        data = self.model_dump(mode="json")
+        Path(path).write_text(json.dumps(data, indent=4))
+
+    @classmethod
+    def load(cls, path: str | Path) -> 'CropMetadata':
+        """Load crop metadata from JSON file."""
+        data = json.loads(Path(path).read_text())
+        return cls.model_validate(data)
 
 
 def parse_patch_size(patched_dataset_folder: str | Path) -> list[int]:
+    """Parse patch size from crop metadata file.
+    
+    Args:
+        patched_dataset_folder: Path to the patched dataset folder
+        
+    Returns:
+        Patch size as [Z, Y, X]
+        
+    Raises:
+        FileNotFoundError: If crop_meta.json doesn't exist
+    """
     patched_dataset_meta = Path(patched_dataset_folder) / 'crop_meta.json'
     if not patched_dataset_meta.exists():
-        raise FileNotFoundError(f"Patched dataset meta file not found: {patched_dataset_meta}, cannot determine patch size.")
+        raise FileNotFoundError(
+            f"Patched dataset meta file not found: {patched_dataset_meta}, "
+            f"cannot determine patch size."
+        )
 
-    return json.load(open(patched_dataset_meta, 'r'))['patch_size']
+    crop_meta = CropMetadata.load(patched_dataset_meta)
+    return crop_meta.patch_size
 
 
 class PatchProcessor(DatasetProcessor):
@@ -26,7 +84,7 @@ class PatchProcessor(DatasetProcessor):
                  still_save: bool,
                  mp: bool = False,
                  workers: int | None = None):
-        super().__init__(str(source_folder), str(dst_folder), mp, workers, recursive=True) # Patch extraction is inherently recursive
+        super().__init__(str(source_folder), str(dst_folder), mp=mp, workers=workers)
         self.patch_size = patch_size
         self.patch_stride = patch_stride
         self.min_fg = min_fg
@@ -37,6 +95,19 @@ class PatchProcessor(DatasetProcessor):
         self.label_dir = Path(self.dest_folder) / "label"
         self.image_dir.mkdir(parents=True, exist_ok=True)
         self.label_dir.mkdir(parents=True, exist_ok=True)
+        # Track source-level metadata (collected after processing)
+        self.source_metadata: dict[str, PatchMetadata] = {}
+
+    def _collect_results(self, results: list):
+        # Collect metadata from the results
+        for res in results:
+            if res and isinstance(res, ProcessOneResult):
+                # Collect patch-level metadata for meta.json
+                for patch_meta in res.patch_metadata_list:
+                    self.meta_manager.update(patch_meta, allow_and_overwrite_existed=self.ALLOW_AND_OVERWRITE_EXISTED_METADATA)
+                
+                # Collect source-level metadata for crop_meta.json
+                self.source_metadata[res.source_metadata.series_id] = res.source_metadata
 
     def extract_patches(self,
                         image: sitk.Image,
@@ -118,7 +189,16 @@ class PatchProcessor(DatasetProcessor):
                         patches.append((img_patch, lbl_patch))
         return patches
 
-    def process_one(self, args: tuple[str, str]) -> dict | None:
+    def process_one(self, args: tuple[str, str]) -> ProcessOneResult | None:
+        """Process one image-label pair and extract patches.
+        
+        Args:
+            args: Tuple of (image_path, label_path)
+            
+        Returns:
+            ProcessOneResult containing patch metadata list and source metadata,
+            or None if processing failed
+        """
         img_path, lbl_path = args
         case_name = os.path.basename(self._normalize_filename(img_path))
 
@@ -130,29 +210,44 @@ class PatchProcessor(DatasetProcessor):
             if not self.is_valid_sample(image, label):
                 return None
             
-            class_within_patch = {}
             patches = self.extract_patches(image, label, self.patch_size, self.patch_stride, self.min_fg, self.still_save)
+            
+            patch_metadata_list = []
+            class_within_patch = {}
+            
+            # Save patches and collect metadata for each patch
             for idx, (img_patch, lbl_patch) in enumerate(patches):
                 # Use unified filenames across image/ and label/ dirs so they correspond 1:1
                 fname_base = f"{case_name}_p{idx}.mha"
+                
                 # Save image patch
                 sitk.WriteImage(img_patch, str(self.image_dir / fname_base), True)
+                
                 if lbl_patch is not None:
                     # Log unique classes in this patch
-                    class_within_patch[fname_base] = np.unique(sitk.GetArrayFromImage(lbl_patch)).tolist()
+                    lbl_arr = sitk.GetArrayFromImage(lbl_patch)
+                    class_within_patch[fname_base] = np.unique(lbl_arr).tolist()
                     # Save label patch
                     sitk.WriteImage(lbl_patch, str(self.label_dir / fname_base), True)
+                    
+                    # Create metadata for this patch from the label
+                    patch_meta = SeriesMetadata.from_sitk_image(lbl_patch, fname_base)
+                    patch_metadata_list.append(patch_meta)
             
-            # Simplified per-series meta (no per-patch child meta and no per-case JSON file)
-            series_meta = {
-                "series_id": case_name,
-                "shape": list(img_arr.shape),
-                "num_patches": len(patches),
-                "anno_available": True,
-                "class_within_patch": class_within_patch
-            }
+            # Create source-level metadata using PatchMetadata model
+            source_meta = PatchMetadata(
+                series_id=case_name,
+                shape=tuple(img_arr.shape),
+                num_patches=len(patches),
+                anno_available=True,
+                class_within_patch=class_within_patch
+            )
             
-            return {case_name: series_meta}
+            # Return combined result
+            return ProcessOneResult(
+                patch_metadata_list=patch_metadata_list,
+                source_metadata=source_meta
+            )
         
         except Exception as e:
             tqdm.write(f"Failed processing case {case_name}: {e}")
@@ -215,29 +310,34 @@ def main():
         workers = args.workers
     )
     
-    results: dict = {}
     try:
-        results = processor.process("Patching")
+        processor.process("Patching")
+        
+        # Save standard metadata files (only contains patch-level metadata)
+        # These meta.json files contain SeriesMetadata for each patch
+        processor.save_meta(args.dst_folder / "meta.json")
+        processor.save_meta(args.dst_folder / "image" / "meta.json")
+        processor.save_meta(args.dst_folder / "label" / "meta.json")
+        
+        # Create and save CropMetadata (contains source-level information)
+        crop_meta = CropMetadata(
+            src_folder=str(args.src_folder),
+            dst_folder=str(args.dst_folder),
+            patch_size=args.patch_size,
+            patch_stride=args.patch_stride,
+            anno_available=list(processor.source_metadata.keys()),
+            patch_meta=processor.source_metadata
+        )
+        crop_meta.save(args.dst_folder / "crop_meta.json")
+        
+        print(f"Patching completed. Results saved to {args.dst_folder}")
+        print(f"  - Processed {len(processor.source_metadata)} cases")
+        print(f"  - Generated {len(processor.meta_manager.meta)} patches")
     
     except Exception as e:
         import traceback
         traceback.print_exc()
-        results = processor.meta
-    
-    finally:
-        # Write overall crop metadata
-        valid_series = list(results.keys())
-        crop_meta = {
-            "src_folder": str(args.src_folder),
-            "dst_folder": str(args.dst_folder),
-            "patch_size": args.patch_size,
-            "patch_stride": args.patch_stride,
-            "anno_available": valid_series,
-            "patch_meta": results
-        }
-        os.makedirs(args.dst_folder, exist_ok=True)
-        with open(args.dst_folder / "crop_meta.json", "w") as f:
-            json.dump(crop_meta, f, indent=4)
+        print(f"Error during processing: {e}")
 
 
 if __name__ == '__main__':

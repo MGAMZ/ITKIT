@@ -33,8 +33,17 @@ class TestPatchProcessor:
     def test_parse_patch_size(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             meta_path = Path(tmpdir) / 'crop_meta.json'
-            with open(meta_path, 'w') as f:
-                json.dump({'patch_size': [64, 64, 64]}, f)
+            # Create a complete CropMetadata and save it
+            from itkit.process.itk_patch import CropMetadata
+            crop_meta = CropMetadata(
+                src_folder='/tmp/src',
+                dst_folder='/tmp/dst',
+                patch_size=[64, 64, 64],
+                patch_stride=[32, 32, 32],
+                anno_available=[],
+                patch_meta={}
+            )
+            crop_meta.save(meta_path)
             result = parse_patch_size(tmpdir)
             assert result == [64, 64, 64]
 
@@ -87,8 +96,18 @@ class TestPatchProcessor:
             processor = PatchProcessor(tmpdir, tmpdir + '/dst', [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
             result = processor.process_one((str(img_path), str(lbl_path)))
             assert result is not None
-            assert 'img' in result
-            assert result['img']['num_patches'] > 0
+            # Check that result is ProcessOneResult
+            from itkit.process.itk_patch import ProcessOneResult
+            assert isinstance(result, ProcessOneResult)
+            # Check patch metadata list
+            assert len(result.patch_metadata_list) > 0
+            for meta in result.patch_metadata_list:
+                assert hasattr(meta, 'name')
+                assert hasattr(meta, 'spacing')
+                assert hasattr(meta, 'size')
+            # Check source metadata
+            assert result.source_metadata.series_id == 'img'
+            assert result.source_metadata.num_patches > 0
 
     def test_main_subprocess(self, ):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -278,7 +297,9 @@ class TestPatchProcessor:
                 sys.executable, '-m', 'itkit.process.itk_patch',
                 str(src), str(dst), '--patch-size', '4', '4', '4', '--patch-stride', '2', '2', '2'
             ], capture_output=True, text=True)
-            assert proc.returncode == 0
+            assert proc.returncode == 0, f"Process failed: {proc.stderr}"
+            
+            # Check crop_meta.json exists and has correct structure
             meta_path = dst / 'crop_meta.json'
             assert meta_path.exists()
             with open(meta_path) as f:
@@ -286,6 +307,12 @@ class TestPatchProcessor:
             assert 'patch_size' in meta
             assert 'patch_meta' in meta
             assert 'test' in meta['patch_meta']
+            assert meta['patch_meta']['test']['num_patches'] > 0
+            
+            # Check that standard meta.json files also exist
+            assert (dst / "meta.json").exists()
+            assert (dst / "image" / "meta.json").exists()
+            assert (dst / "label" / "meta.json").exists()
 
     def test_multiprocessing_mode(self):
         # Simple test: mp=True should not crash immediately

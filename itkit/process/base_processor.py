@@ -117,20 +117,11 @@ class BaseITKProcessor:
                 files.append(os.path.join(folder, f))
         return files
 
-    def _normalize_filename(self, filepath: str) -> str:
-        base = os.path.splitext(filepath)[0]
-        # Handle double extensions like .nii.gz
-        if base.endswith('.nii'):
-            base = base[:-4]
-        return base
-
     def process(self, desc: str | None = None):
         if desc is not None:
             self.task_description = desc
         items = self.get_items_to_process()
-        return self.process_items(items, desc)
-
-    def process_items(self, items: list, desc: str | None = None):
+        
         desc = desc or self.task_description
         if not items:
             print(f"No items found for {desc}.")
@@ -147,10 +138,7 @@ class BaseITKProcessor:
             for item in tqdm(items, desc=desc, dynamic_ncols=True):
                 results.append(self.process_one(item))
         
-        # Collect metadata from the results
-        for res in results:
-            if res:
-                self.meta_manager.update(res, allow_and_overwrite_existed=self.ALLOW_AND_OVERWRITE_EXISTED_METADATA)
+        self._collect_results(results)
 
     def save_meta(self, meta_path:str|Path):
         self.meta_manager.save(meta_path)
@@ -168,7 +156,7 @@ class BaseITKProcessor:
         """
 
     @abstractmethod
-    def process_one(self, args) -> SeriesMetadata | None:
+    def process_one(self, args) -> list[SeriesMetadata] | SeriesMetadata | None:
         """
         Abstract method to process a single item.
 
@@ -185,6 +173,26 @@ class BaseITKProcessor:
             The dictionary will be collected and can be saved with `save_meta`.
             Return `None` if no metadata should be recorded for this item.
         """
+
+    def _normalize_filename(self, filepath: str) -> str:
+        base = os.path.splitext(filepath)[0]
+        # Handle double extensions like .nii.gz
+        if base.endswith('.nii'):
+            base = base[:-4]
+        return base
+
+    def _collect_results(self, results: list):
+        # Collect metadata from the results
+        # Support both single SeriesMetadata and list[SeriesMetadata]
+        for res in results:
+            if res:
+                if isinstance(res, list):
+                    # Handle list of metadata (e.g., from patch extraction)
+                    for meta in res:
+                        self.meta_manager.update(meta, allow_and_overwrite_existed=self.ALLOW_AND_OVERWRITE_EXISTED_METADATA)
+                else:
+                    # Handle single metadata
+                    self.meta_manager.update(res, allow_and_overwrite_existed=self.ALLOW_AND_OVERWRITE_EXISTED_METADATA)
 
 
 class SingleFolderProcessor(BaseITKProcessor):
