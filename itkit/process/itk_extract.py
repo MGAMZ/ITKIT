@@ -4,6 +4,7 @@ import numpy as np
 import SimpleITK as sitk
 
 from itkit.process.base_processor import SingleFolderProcessor
+from itkit.process.metadata_models import SeriesMetadata
 
 DEFAULT_LABEL_DTYPE = np.uint8
 
@@ -18,10 +19,10 @@ class ExtractProcessor(SingleFolderProcessor):
                  recursive: bool = False,
                  mp: bool = False,
                  workers: int | None = None):
-        super().__init__(source_folder, dest_folder, mp, workers, recursive)
+        super().__init__(source_folder, dest_folder, recursive, mp=mp, workers=workers, task_description="Extracting labels")
         self.label_mapping = label_mapping
     
-    def process_one(self, file_path: str) -> dict | None:
+    def process_one(self, file_path: str) -> SeriesMetadata | None:
         """Process one file"""
         # Determine output path  
         if self.recursive:
@@ -38,7 +39,7 @@ class ExtractProcessor(SingleFolderProcessor):
         
         return self._extract_one_sample(file_path, output_path)
     
-    def _extract_one_sample(self, input_path: str, output_path: str) -> dict | None:
+    def _extract_one_sample(self, input_path: str, output_path: str) -> SeriesMetadata | None:
         """Extract and remap labels from a single sample"""
         # Check if output already exists
         if os.path.exists(output_path):
@@ -91,15 +92,14 @@ class ExtractProcessor(SingleFolderProcessor):
             print(f"Error writing {output_path}: {e}")
             return None
 
-        # Return metadata
-        name = os.path.basename(input_path)
-        return {name: {
-            "original_labels": sorted(list(original_labels)),
-            "extracted_labels": sorted(list(extracted_labels)),
-            "mapping": {str(k): v for k, v in self.label_mapping.items()},
-            "output_shape": output_array.shape,
-            "output_dtype": str(output_array.dtype)
-        }}
+        # Return metadata using SeriesMetadata
+        return SeriesMetadata(
+            name=os.path.basename(output_path),
+            spacing=tuple(output_itk.GetSpacing()[::-1]),
+            size=tuple(output_itk.GetSize()[::-1]),
+            origin=tuple(output_itk.GetOrigin()[::-1]),
+            include_classes=tuple(sorted(extracted_labels)) if extracted_labels else None
+        )
 
 
 def parse_label_mappings(mapping_strings: list[str]) -> dict:
@@ -179,7 +179,6 @@ def main():
         args.recursive, args.mp, args.workers
     )
     processor.process()
-    processor.save_meta(os.path.join(args.dest_folder, "extract_meta.json"))
     
     print(f"Label extraction completed. The extracted dataset is saved in {args.dest_folder}.")
 
