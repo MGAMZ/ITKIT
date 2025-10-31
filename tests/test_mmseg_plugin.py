@@ -1,12 +1,11 @@
 import pytest
-import torch
+
+torch = pytest.importorskip("torch", reason="PyTorch not installed")
 
 from itkit.mm.mmseg_PlugIn import MonaiSegMetrics
 
-
 @pytest.mark.torch
 class TestMonaiSegMetrics:
-    """Test suite for MonaiSegMetrics class."""
 
     def setup_method(self):
         """Set up test fixtures before each test method."""
