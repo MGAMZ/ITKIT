@@ -1,12 +1,10 @@
 import pytest
 import torch
-import numpy as np
-from mmengine.structures import PixelData
-from mmseg.structures import SegDataSample
 
 from itkit.mm.mmseg_PlugIn import MonaiSegMetrics
 
 
+@pytest.mark.torch
 class TestMonaiSegMetrics:
     """Test suite for MonaiSegMetrics class."""
 

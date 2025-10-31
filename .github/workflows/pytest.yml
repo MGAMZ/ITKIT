@@ -35,4 +35,4 @@ jobs:
       env:
         QT_QPA_PLATFORM: offscreen
       run: |
-        pytest -sv --ignore itkit/tests/test_mmseg_plugin.py
+        pytest -sv -m "not torch"
