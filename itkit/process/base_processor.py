@@ -233,6 +233,7 @@ class SingleFolderProcessor(BaseITKProcessor):
     def process(self, desc: str | None = None):
         super().process(desc)
         if self.dest_folder is not None:
+            os.makedirs(self.dest_folder, exist_ok=True)
             self.save_meta(Path(self.dest_folder) / "meta.json")
 
 

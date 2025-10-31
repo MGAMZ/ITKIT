@@ -27,7 +27,7 @@ class TestOrientProcessor:
             img_path = os.path.join(src_dir, 'test.mha')
             create_test_image(img_path, direction=(1, 0, 0, 0, 1, 0, 0, 0, 1))  # Identity
             
-            processor = OrientProcessor(src_dir, dst_dir, 'LPI', mp=False)
+            processor = OrientProcessor(src_dir, dst_dir, 'LPI', field='image', mp=False)
             processor.process()
             
             dst_path = os.path.join(dst_dir, 'test.mha')
@@ -50,8 +50,8 @@ class TestOrientProcessor:
             
             dst_path = os.path.join(dst_dir, 'test.mha')
             create_test_image(dst_path)  # Pre-create dest
-            
-            processor = OrientProcessor(src_dir, dst_dir, 'LPI', mp=False)
+    
+            processor = OrientProcessor(src_dir, dst_dir, 'LPI', field='image', mp=False)
             processor.process()
             
             # Should not overwrite, but since it's the same, check mtime or something, but for now, just ensure no error
@@ -67,8 +67,8 @@ class TestOrientProcessor:
             invalid_path = os.path.join(src_dir, 'invalid.mha')
             with open(invalid_path, 'w') as f:
                 f.write("not an image")
-            
-            processor = OrientProcessor(src_dir, dst_dir, 'LPI', mp=False)
+    
+            processor = OrientProcessor(src_dir, dst_dir, 'LPI', field='image', mp=False)
             processor.process()
             
             # Should not create dest file
@@ -84,8 +84,8 @@ class TestOrientProcessor:
             
             for i in range(5):
                 create_test_image(os.path.join(src_dir, f'test{i}.mha'))
-            
-            processor = OrientProcessor(src_dir, dst_dir, 'LPI', mp=True, workers=2)
+    
+            processor = OrientProcessor(src_dir, dst_dir, 'LPI', field='image', mp=True, workers=2)
             processor.process()
             
             for i in range(5):
