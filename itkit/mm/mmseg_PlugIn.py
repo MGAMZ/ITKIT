@@ -243,14 +243,12 @@ class MonaiSegMetrics(BaseMetric):
     
     def __init__(
         self,
-        ignore_index: int = 255,
         include_background: bool = True,
         num_classes: int | None = None,
         collect_device: str = 'cpu',
         prefix: str | None = None,
     ) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
-        self.ignore_index = ignore_index
         self.include_background = include_background
         self.num_classes = num_classes
     
@@ -268,17 +266,18 @@ class MonaiSegMetrics(BaseMetric):
         
         for data_sample in data_samples:
             # Extract prediction and ground truth
-            pred_label = data_sample['pred_sem_seg']['data'].squeeze()  # [Z, Y, X]
-            label = data_sample['gt_sem_seg']['data'].squeeze().to(pred_label)  # [Z, Y, X]
+            seg_logits = data_sample['seg_logits']['data']  # [C, Z, Y, X]
+            pred_label = data_sample['pred_sem_seg']['data']  # [Z, Y, X]
+            label = data_sample['gt_sem_seg']['data'].to(pred_label)  # [Z, Y, X]
             
             # Convert to one-hot format [1, C, Z, Y, X] as required by MONAI
-            pred_onehot = self._to_onehot(pred_label, num_classes, self.ignore_index)
-            label_onehot = self._to_onehot(label, num_classes, self.ignore_index)
+            pred_onehot = self._to_onehot(pred_label, num_classes)
+            label_onehot = self._to_onehot(label, num_classes)
             
             # Compute per-sample metrics using MONAI's official functions
-            # compute_dice returns [B, C], we have B=1 so squeeze to [C]
+            # compute_dice returns [B, C], we have `B=1` so squeeze to [C]
             dice_score = compute_dice(
-                y_pred=pred_onehot, 
+                y_pred=pred_onehot,
                 y=label_onehot,
                 include_background=self.include_background,
                 ignore_empty=True,
@@ -381,11 +380,7 @@ class MonaiSegMetrics(BaseMetric):
         return metrics
     
     def _to_onehot(
-        self, 
-        label_map: torch.Tensor, 
-        num_classes: int, 
-        ignore_index: int
-    ) -> torch.Tensor:
+        self, label_map: torch.Tensor, num_classes: int) -> torch.Tensor:
         """
         Convert 3D label map to one-hot format.
         
@@ -397,23 +392,12 @@ class MonaiSegMetrics(BaseMetric):
         Returns:
             torch.Tensor: One-hot tensor with shape [1, C, Z, Y, X].
         """
-        # Create mask for valid voxels
-        valid_mask = (label_map != ignore_index)
         
         # Clip labels to valid range
         label_map_clipped = torch.clamp(label_map, 0, num_classes - 1)
         
         # Convert to one-hot: [Z, Y, X] -> [Z, Y, X, C]
-        onehot = torch.nn.functional.one_hot(
-            label_map_clipped.long(), 
-            num_classes=num_classes
-        ).float()  # [Z, Y, X, C]
+        onehot = torch.nn.functional.one_hot(label_map_clipped.long(), num_classes)
         
-        # Permute to channel-first: [Z, Y, X, C] -> [C, Z, Y, X]
-        onehot = onehot.permute(3, 0, 1, 2)
-        
-        # Apply valid mask to ignore specified index
-        onehot = onehot * valid_mask.unsqueeze(0).float()
-        
-        # Add batch dimension: [C, Z, Y, X] -> [1, C, Z, Y, X]
-        return onehot.unsqueeze(0)
+        # Permute to channel-first: [Z, Y, X, C] -> [C, Z, Y, X] -> [1, C, Z, Y, X]
+        return onehot.permute(3, 0, 1, 2).unsqueeze(0).to(torch.uint8)

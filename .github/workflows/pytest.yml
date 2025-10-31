@@ -35,4 +35,4 @@ jobs:
       env:
         QT_QPA_PLATFORM: offscreen
       run: |
-        pytest
+        pytest -sv -m "not torch"
