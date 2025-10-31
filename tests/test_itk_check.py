@@ -3,6 +3,7 @@ import json
 import tempfile
 import pytest
 import SimpleITK as sitk
+import numpy as np
 from itkit.process.itk_check import CheckProcessor
 
 
@@ -252,7 +253,67 @@ class TestCheckProcessor:
             assert meta['test1.mha']['size'] == [64, 128, 128]
             assert meta['test1.mha']['spacing'] == [1.0, 0.5, 0.5]
 
-
+    def test_series_meta_completeness(self):
+        """Test complete metadata fields and validation"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create test image
+            img = sitk.Image([30, 20, 10], sitk.sitkInt16)
+            img.SetSpacing([1.5, 2.0, 2.5])
+            img.SetOrigin([0.1, 0.2, 0.3])
+            img_path = os.path.join(tmpdir, 'test_image.mha')
+            sitk.WriteImage(img, img_path)
+            
+            # Create test label
+            lbl_arr = np.zeros((10, 20, 30), dtype=np.uint8)
+            lbl_arr[2:5, 5:10, 10:15] = 1
+            lbl_arr[6:8, 12:15, 20:25] = 2
+            lbl = sitk.GetImageFromArray(lbl_arr)
+            lbl.SetSpacing([1.5, 2.0, 2.5])
+            lbl.SetOrigin([0.1, 0.2, 0.3])
+            lbl_path = os.path.join(tmpdir, 'test_label.mha')
+            sitk.WriteImage(lbl, lbl_path)
+            
+            # Generate metadata
+            from itkit.process.metadata_models import SeriesMetadata, MetadataManager
+            img_meta = SeriesMetadata.from_sitk_image(img, 'test_image.mha')
+            lbl_meta = SeriesMetadata.from_sitk_image(lbl, 'test_label.mha')
+            
+            # Verify image metadata
+            assert img_meta.name == 'test_image.mha'
+            assert img_meta.spacing == (2.5, 2.0, 1.5)  # ZYX order
+            assert img_meta.size == (10, 20, 30)  # ZYX order
+            assert img_meta.origin == (0.3, 0.2, 0.1)  # ZYX order
+            assert img_meta.include_classes is None
+            
+            # Verify label metadata
+            assert lbl_meta.name == 'test_label.mha'
+            assert lbl_meta.spacing == (2.5, 2.0, 1.5)
+            assert lbl_meta.size == (10, 20, 30)
+            assert lbl_meta.origin == (0.3, 0.2, 0.1)
+            assert set(lbl_meta.include_classes) == {0, 1, 2}
+            
+            # Test validation
+            assert img_meta.validate_itk_image(img)
+            assert lbl_meta.validate_itk_image(lbl)
+            
+            # Save and reload
+            manager = MetadataManager()
+            manager.update(img_meta)
+            manager.update(lbl_meta)
+            meta_path = os.path.join(tmpdir, 'meta.json')
+            manager.save(meta_path)
+            
+            loaded_manager = MetadataManager(meta_path)
+            loaded_img_meta = loaded_manager.meta['test_image.mha']
+            loaded_lbl_meta = loaded_manager.meta['test_label.mha']
+            
+            # Verify loaded metadata matches
+            assert loaded_img_meta == img_meta
+            assert loaded_lbl_meta == lbl_meta
+            
+            # Verify validation still works after reload
+            assert loaded_img_meta.validate_itk_image(img)
+            assert loaded_lbl_meta.validate_itk_image(lbl)
 
     def test_max_size_constraint(self):
         """Test maximum size constraint validation"""
