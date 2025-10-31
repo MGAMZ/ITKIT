@@ -31,8 +31,9 @@ jobs:
           libxkbcommon0
         python -m pip install --upgrade pip
         pip install -e '.[dev,gui,medical_vision]'
+        pip install torch torchvision monai
     - name: Test with pytest
       env:
         QT_QPA_PLATFORM: offscreen
       run: |
-        pytest
+        pytest -sv

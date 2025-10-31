@@ -16,6 +16,8 @@ The repo it tested on:
 
 Lower versions may work but are not guaranteed.
 
+If you want to run deep learning tasks, we recommend to install `monai` to avoid potential dependency issues.
+
 ## Introduction
 
 The repo includes the following modules:
