@@ -1,8 +1,8 @@
-import pytest
-import os
+import os, pytest, random
 import numpy as np
 import SimpleITK as sitk
-import random
+
+os.environ.setdefault('MULTIPROCESSING_START_METHOD', 'spawn')
 
 
 @pytest.fixture(scope="session")
