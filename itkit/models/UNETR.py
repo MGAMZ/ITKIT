@@ -106,8 +106,15 @@ class ViT(nn.Module):
         )
         self.blocks = nn.ModuleList(
             [
-                TransformerBlock(hidden_size, mlp_dim, num_heads, dropout_rate, qkv_bias, save_attn,
-                                 use_flash_attention=use_flash_attention)
+                TransformerBlock(
+                    hidden_size,
+                    mlp_dim,
+                    num_heads,
+                    dropout_rate,
+                    qkv_bias,
+                    save_attn,
+                    use_flash_attention=use_flash_attention,
+                )
                 for i in range(num_layers)
             ]
         )
@@ -115,7 +122,9 @@ class ViT(nn.Module):
         if self.classification:
             self.cls_token = nn.Parameter(torch.zeros(1, 1, hidden_size))
             if post_activation == "Tanh":
-                self.classification_head = nn.Sequential(nn.Linear(hidden_size, num_classes), nn.Tanh())
+                self.classification_head = nn.Sequential(
+                    nn.Linear(hidden_size, num_classes), nn.Tanh()
+                )
             else:
                 self.classification_head = nn.Linear(hidden_size, num_classes)  # type: ignore
 
@@ -144,12 +153,12 @@ class UNETR(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        img_size: Sequence[int], # [Z, Y, X]
+        img_size: Sequence[int],  # [Z, Y, X]
         feature_size: int = 16,
         hidden_size: int = 768,
         mlp_dim: int = 3072,
         num_heads: int = 12,
-        norm_name: tuple|str = "instance",
+        norm_name: tuple | str = "instance",
         conv_block: bool = False,
         res_block: bool = True,
         dropout_rate: float = 0.0,
@@ -304,16 +313,22 @@ class UNETR(nn.Module):
             for i in weights["state_dict"]:
                 print(i)
             self.vit.patch_embedding.position_embeddings.copy_(
-                weights["state_dict"]["module.transformer.patch_embedding.position_embeddings_3d"]
+                weights["state_dict"][
+                    "module.transformer.patch_embedding.position_embeddings_3d"
+                ]
             )
             self.vit.patch_embedding.cls_token.copy_(
                 weights["state_dict"]["module.transformer.patch_embedding.cls_token"]
             )
-            self.vit.patch_embedding.patch_embeddings[1].weight.copy_(# type: ignore
-                weights["state_dict"]["module.transformer.patch_embedding.patch_embeddings.1.weight"]
+            self.vit.patch_embedding.patch_embeddings[1].weight.copy_(  # type: ignore
+                weights["state_dict"][
+                    "module.transformer.patch_embedding.patch_embeddings.1.weight"
+                ]
             )
-            self.vit.patch_embedding.patch_embeddings[1].bias.copy_(# type: ignore
-                weights["state_dict"]["module.transformer.patch_embedding.patch_embeddings.1.bias"]
+            self.vit.patch_embedding.patch_embeddings[1].bias.copy_(  # type: ignore
+                weights["state_dict"][
+                    "module.transformer.patch_embedding.patch_embeddings.1.bias"
+                ]
             )
 
             # copy weights from  encoding blocks (default: num of blocks: 12)
@@ -321,8 +336,12 @@ class UNETR(nn.Module):
                 print(block)
                 block.loadFrom(weights, n_block=bname)
             # last norm layer of transformer
-            self.vit.norm.weight.copy_(weights["state_dict"]["module.transformer.norm.weight"])
-            self.vit.norm.bias.copy_(weights["state_dict"]["module.transformer.norm.bias"])
+            self.vit.norm.weight.copy_(
+                weights["state_dict"]["module.transformer.norm.weight"]
+            )
+            self.vit.norm.bias.copy_(
+                weights["state_dict"]["module.transformer.norm.bias"]
+            )
 
     def forward(self, x_in):
         x, hidden_states_out = self.vit(x_in)
@@ -339,12 +358,11 @@ class UNETR(nn.Module):
         dec1 = self.decoder3(dec2, enc2)
         out = self.decoder2(dec1, enc1)
         logits = self.out(out)
-        return logits # [N, C, Z, Y, X]
-
+        return logits  # [N, C, Z, Y, X]
 
 
 if __name__ == "__main__":
     toy_tensor = torch.rand(1, 1, 128, 128, 128)
     net = UNETR(in_channels=1, out_channels=4, img_size=(128, 128, 128))
     out = net(toy_tensor)
-    print(out.shape) # [1, 4, 128, 128, 128]
+    print(out.shape)  # [1, 4, 128, 128, 128]

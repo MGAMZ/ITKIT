@@ -25,10 +25,12 @@ class ProcessRunner(QtCore.QObject):
     stderr = QtCore.pyqtSignal(str)
     progress = QtCore.pyqtSignal(float)
 
-    def __init__(self, parent: QtCore.QObject|None = None):
+    def __init__(self, parent: QtCore.QObject | None = None):
         super().__init__(parent)
         self.proc = QtCore.QProcess(self)
-        self.proc.setProcessChannelMode(QtCore.QProcess.ProcessChannelMode.SeparateChannels)
+        self.proc.setProcessChannelMode(
+            QtCore.QProcess.ProcessChannelMode.SeparateChannels
+        )
         self.proc.readyReadStandardOutput.connect(self._on_stdout)
         self.proc.readyReadStandardError.connect(self._on_stderr)
         self.proc.started.connect(self.started)
@@ -36,7 +38,7 @@ class ProcessRunner(QtCore.QObject):
         # Basic progress hint from tqdm-like lines
         self._buffer = bytearray()
 
-    def run(self, chunks: list[CmdChunk], workdir: str|None = None):
+    def run(self, chunks: list[CmdChunk], workdir: str | None = None):
         # Join chunks with '&&' so later commands run only if previous succeed
         commands = [c.to_string() for c in chunks]
         joined = " && ".join(commands)
@@ -68,6 +70,7 @@ class ProcessRunner(QtCore.QObject):
     def _emit_progress_if_tqdm(self, text: str):
         # Heuristic: find `xx%` in line and emit max percent
         import re
+
         percents = [float(p[:-1]) for p in re.findall(r"(\d{1,3}%)", text)]
         if percents:
             self.progress.emit(min(100.0, max(percents)))

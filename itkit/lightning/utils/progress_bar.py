@@ -8,4 +8,5 @@ def mgam_bar(lightning_progress_bar: type[ProgressBar]):
             items = super().get_metrics(trainer, pl_module)
             items.pop("v_num", None)
             return items
+
     return CustomizedProgressBar

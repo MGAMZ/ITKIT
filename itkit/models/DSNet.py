@@ -68,14 +68,14 @@ class VGG16(BaseModule):
 
 
 class DSNet(BaseDecodeHead):
-    def __init__(self, logits_resize:int|None=None, *args, **kwargs):
+    def __init__(self, logits_resize: int | None = None, *args, **kwargs):
         super().__init__(in_channels=512, channels=512, num_classes=1, *args, **kwargs)
         self.ddcb1 = DDCB(512, 512)
         self.ddcb2 = DDCB(512, 512)
         self.ddcb3 = DDCB(512, 512)
         self.layer_last = nn.Sequential(
-            nn.Conv2d(512, 128, kernel_size=3, padding=1, dilation=1),
-            nn.ReLU())
+            nn.Conv2d(512, 128, kernel_size=3, padding=1, dilation=1), nn.ReLU()
+        )
         self.post1 = nn.Conv2d(128, 64, kernel_size=3, padding=1, stride=1)
         self.post2 = nn.Conv2d(64, 1, kernel_size=1, stride=1)
         self.logits_resize = logits_resize
@@ -90,13 +90,13 @@ class DSNet(BaseDecodeHead):
         x7 = self.post2(x6)
         if self.logits_resize is not None:
             x7 = nn.functional.interpolate(
-                x7, 
-                size=self.logits_resize,
-                mode='bilinear',
-                align_corners=False)
+                x7, size=self.logits_resize, mode="bilinear", align_corners=False
+            )
         return x7
 
-    def loss_by_feat(self, seg_logits: torch.Tensor, batch_data_samples: SampleList) -> dict:
+    def loss_by_feat(
+        self, seg_logits: torch.Tensor, batch_data_samples: SampleList
+    ) -> dict:
         """Compute segmentation loss.
 
         Args:
@@ -118,28 +118,31 @@ class DSNet(BaseDecodeHead):
             losses_decode = self.loss_decode
         for loss_decode in losses_decode:
             loss[loss_decode.loss_name] = loss_decode(
-                seg_logits,
-                seg_label,
-                ignore_index=self.ignore_index)
+                seg_logits, seg_label, ignore_index=self.ignore_index
+            )
 
-        loss['acc_seg'] = accuracy(seg_logits, seg_label, ignore_index=self.ignore_index)
-        
+        loss["acc_seg"] = accuracy(
+            seg_logits, seg_label, ignore_index=self.ignore_index
+        )
+
         return loss
 
-    def predict_by_feat(self, seg_logits: torch.Tensor, batch_img_metas: list[dict]) -> torch.Tensor:
+    def predict_by_feat(
+        self, seg_logits: torch.Tensor, batch_img_metas: list[dict]
+    ) -> torch.Tensor:
         return seg_logits
 
 
 class VGG16_DSNet(torch.nn.Module):
-    def __init__(self, logits_resize:int|None=None, *args, **kwargs):
+    def __init__(self, logits_resize: int | None = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.base_model = vgg16().features[:23]  # type:ignore
         self.ddcb1 = DDCB(512, 512)
         self.ddcb2 = DDCB(512, 512)
         self.ddcb3 = DDCB(512, 512)
         self.layer_last = nn.Sequential(
-            nn.Conv2d(512, 128, kernel_size=3, padding=1, dilation=1),
-            nn.ReLU())
+            nn.Conv2d(512, 128, kernel_size=3, padding=1, dilation=1), nn.ReLU()
+        )
         self.post1 = nn.Conv2d(128, 64, kernel_size=3, padding=1, stride=1)
         self.post2 = nn.Conv2d(64, 1, kernel_size=1, stride=1)
         self.logits_resize = logits_resize
@@ -154,8 +157,6 @@ class VGG16_DSNet(torch.nn.Module):
         x7 = self.post2(x6)
         if self.logits_resize is not None:
             x7 = nn.functional.interpolate(
-                x7, 
-                size=self.logits_resize,
-                mode='bilinear',
-                align_corners=False)
+                x7, size=self.logits_resize, mode="bilinear", align_corners=False
+            )
         return x7

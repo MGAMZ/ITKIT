@@ -8,14 +8,15 @@ from pytorch_lightning.utilities.rank_zero import rank_zero_only
 from pytorch_lightning.loggers import Logger
 
 
-
 class TabulateLogger(Logger):
-    def __init__(self,
-                 root_dir:str,
-                 name:str,
-                 version:str,
-                 row_names:list[str],
-                 column_names:list[str]):
+    def __init__(
+        self,
+        root_dir: str,
+        name: str,
+        version: str,
+        row_names: list[str],
+        column_names: list[str],
+    ):
         super().__init__()
         self._root_dir = root_dir
         self._name = name
@@ -40,14 +41,16 @@ class TabulateLogger(Logger):
 
     @override
     @rank_zero_only
-    def log_metrics(self, metrics: dict[str, Tensor|float], step: int|None = None) -> None:
+    def log_metrics(
+        self, metrics: dict[str, Tensor | float], step: int | None = None
+    ) -> None:
         """metric naming rule: <col_name>_<row_name>"""
-        
+
         if not metrics:
             return
-        
+
         for k in list(metrics.keys()):
-            metrics[k.split('/')[-1]] = metrics[k]
+            metrics[k.split("/")[-1]] = metrics[k]
             metrics.pop(k, None)
 
         # try format a multi-colume tabulate to improve readability
@@ -55,7 +58,7 @@ class TabulateLogger(Logger):
         exist_valid_value = False
         fmt = []
         for row_name in self.row_names:
-            one_row:list = [row_name]
+            one_row: list = [row_name]
             for col_name in self.column_names:
                 v = metrics.get(f"{col_name}_{row_name}", None)
                 one_row.append(v)
@@ -66,12 +69,15 @@ class TabulateLogger(Logger):
         if exist_valid_value:
             table = tabulate(
                 fmt,
-                headers=['Metric'] + self.column_names,
-                tablefmt='grid',
-                floatfmt='.3f',
+                headers=["Metric"] + self.column_names,
+                tablefmt="grid",
+                floatfmt=".3f",
             )
             tqdm.write(table)
-            with open(os.path.join(self.root_dir, self.name, self.version, 'tabulates.txt'), "a") as f:
+            with open(
+                os.path.join(self.root_dir, self.name, self.version, "tabulates.txt"),
+                "a",
+            ) as f:
                 f.write(table + "\n")
                 if step is not None:
                     f.write(f"Step: {step}\n")
@@ -79,5 +85,4 @@ class TabulateLogger(Logger):
 
     @override
     @rank_zero_only
-    def log_hyperparams(self, params=None) -> None:
-        ...
+    def log_hyperparams(self, params=None) -> None: ...

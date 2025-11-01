@@ -5,20 +5,24 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from .runner import ProcessRunner, CmdChunk
 
 
-def _style_lineedit_placeholder(line: QtWidgets.QLineEdit|QtWidgets.QPlainTextEdit, 
-                                placeholder_color: str = "#9d9d9d", 
-                                bg_color: str | None = None):
+def _style_lineedit_placeholder(
+    line: QtWidgets.QLineEdit | QtWidgets.QPlainTextEdit,
+    placeholder_color: str = "#9d9d9d",
+    bg_color: str | None = None,
+):
     if bg_color:
         # 可选：同时设置浅色背景以提高对比
         line.setStyleSheet(f"background-color: {bg_color};")
-    
+
     pal = line.palette()
-    pal.setColor(QtGui.QPalette.ColorRole.PlaceholderText, QtGui.QColor(placeholder_color))
+    pal.setColor(
+        QtGui.QPalette.ColorRole.PlaceholderText, QtGui.QColor(placeholder_color)
+    )
     line.setPalette(pal)
 
 
 class CommandFormBase(QtWidgets.QWidget):
-    def __init__(self, title: str, parent: QtWidgets.QWidget|None = None):
+    def __init__(self, title: str, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent)
         self.title = title
         self.runner = ProcessRunner(self)
@@ -127,7 +131,9 @@ class CommandFormBase(QtWidgets.QWidget):
         c.setChecked(checked)
         return c
 
-    def _spin_int3(self, minimum: int, maximum: int, step: int = 1, placeholder: str = "Z Y X"):
+    def _spin_int3(
+        self, minimum: int, maximum: int, step: int = 1, placeholder: str = "Z Y X"
+    ):
         w = QtWidgets.QLineEdit()
         w.setPlaceholderText(placeholder)
         w.setToolTip("Three integers seperated by space, -1 to ignore on its dimension")
@@ -203,7 +209,11 @@ class ItkCheckTab(CommandFormBase):
     def build_chunks(self) -> list[CmdChunk]:
         if not self.sample_folder.text().strip():
             raise ValueError("Please fill in sample_folder")
-        args: list[str] = ["itk_check", self.mode.currentText(), self.sample_folder.text()]
+        args: list[str] = [
+            "itk_check",
+            self.mode.currentText(),
+            self.sample_folder.text(),
+        ]
         if self.out_dir.text():
             args += ["-o", self.out_dir.text()]
         for key, val in (
@@ -426,7 +436,9 @@ class ItkExtractTab(CommandFormBase):
         srcw, self.src = self._file_picker("Browse", mode="dir")
         dstw, self.dst = self._file_picker("Browse", mode="dir")
         self.mappings = QtWidgets.QPlainTextEdit()
-        self.mappings.setPlaceholderText("One mapping per line: source:target e.g.\n1:0\n5:1")
+        self.mappings.setPlaceholderText(
+            "One mapping per line: source:target e.g.\n1:0\n5:1"
+        )
         _style_lineedit_placeholder(self.mappings)
         self.recursive = self._check("recursively process all samples")
         self.mp = self._check("Multi Processing")
@@ -441,7 +453,9 @@ class ItkExtractTab(CommandFormBase):
         self.form.addRow("workers", self.workers)
 
     def build_chunks(self) -> list[CmdChunk]:
-        mapping_lines = [ln.strip() for ln in self.mappings.toPlainText().splitlines() if ln.strip()]
+        mapping_lines = [
+            ln.strip() for ln in self.mappings.toPlainText().splitlines() if ln.strip()
+        ]
         if not self.src.text().strip():
             raise ValueError("Please fill in source_folder")
         if not self.dst.text().strip():

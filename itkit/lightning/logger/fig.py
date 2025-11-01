@@ -6,17 +6,19 @@ from pytorch_lightning.utilities.rank_zero import rank_zero_only
 from matplotlib.figure import Figure
 
 
-
 class FigureLogger(Logger):
-    def __init__(self,
-                 root_dir:str,
-                 name:str,
-                 version:str,
-                 subdir:str = 'figures',
-                 dpi:int = 200,
-                 bbox_inches = 'tight',
-                 pad_inches:int = 0,
-                 *args, **kwargs):
+    def __init__(
+        self,
+        root_dir: str,
+        name: str,
+        version: str,
+        subdir: str = "figures",
+        dpi: int = 200,
+        bbox_inches="tight",
+        pad_inches: int = 0,
+        *args,
+        **kwargs,
+    ):
         super().__init__()
         self._root_dir = root_dir
         self._name = name
@@ -41,18 +43,17 @@ class FigureLogger(Logger):
         return self._root_dir
 
     @rank_zero_only
-    def log_figure(self, name:str, fig:Figure, step:int):
+    def log_figure(self, name: str, fig: Figure, step: int):
         assert self.version is not None
         save_dir = os.path.join(self.root_dir, self.name, self.version, self.subdir)
         os.makedirs(save_dir, exist_ok=True)
-        fig.savefig(os.path.join(save_dir, f"{name.replace('/', '_')}_{step}.png"),
-                    dpi=200,
-                    bbox_inches=self.bbox_inches,
-                    pad_inches=self.pad_inches)
+        fig.savefig(
+            os.path.join(save_dir, f"{name.replace('/', '_')}_{step}.png"),
+            dpi=200,
+            bbox_inches=self.bbox_inches,
+            pad_inches=self.pad_inches,
+        )
 
-    def log_metrics(self, metrics, step = None) -> None:
-        ...
+    def log_metrics(self, metrics, step=None) -> None: ...
 
-    def log_hyperparams(self, params, *args, **kwargs) -> None:
-        ...
-
+    def log_hyperparams(self, params, *args, **kwargs) -> None: ...

@@ -9,14 +9,14 @@ import cupy
 from string import Template
 
 
-Stream = namedtuple('Stream', ['ptr'])
+Stream = namedtuple("Stream", ["ptr"])
 
 
 def Dtype(t):
     if isinstance(t, torch.cuda.FloatTensor):
-        return 'float'
+        return "float"
     elif isinstance(t, torch.cuda.DoubleTensor):
-        return 'double'
+        return "double"
 
 
 @cupy._util.memoize(for_each_device=True)
@@ -28,19 +28,21 @@ def load_kernel(kernel_name, code, **kwargs):
 
 CUDA_NUM_THREADS = 1024
 
-kernel_loop = '''
+kernel_loop = """
 #define CUDA_KERNEL_LOOP(i, n)                        \
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
       i < (n);                                       \
       i += blockDim.x * gridDim.x)
-'''
+"""
 
 
 def GET_BLOCKS(N):
     return (N + CUDA_NUM_THREADS - 1) // CUDA_NUM_THREADS
 
 
-_involution_kernel = kernel_loop + '''
+_involution_kernel = (
+    kernel_loop
+    + """
 extern "C"
 __global__ void involution_forward_kernel(
 const ${Dtype}* bottom_data, const ${Dtype}* weight_data, ${Dtype}* top_data) {
@@ -70,10 +72,13 @@ const ${Dtype}* bottom_data, const ${Dtype}* weight_data, ${Dtype}* top_data) {
     top_data[index] = value;
   }
 }
-'''
+"""
+)
 
 
-_involution_kernel_backward_grad_input = kernel_loop + '''
+_involution_kernel_backward_grad_input = (
+    kernel_loop
+    + """
 extern "C"
 __global__ void involution_backward_grad_input_kernel(
     const ${Dtype}* const top_diff, const ${Dtype}* const weight_data, ${Dtype}* const bottom_diff) {
@@ -107,10 +112,13 @@ __global__ void involution_backward_grad_input_kernel(
     bottom_diff[index] = value;
   }
 }
-'''
+"""
+)
 
 
-_involution_kernel_backward_grad_weight = kernel_loop + '''
+_involution_kernel_backward_grad_weight = (
+    kernel_loop
+    + """
 extern "C"
 __global__ void involution_backward_grad_weight_kernel(
     const ${Dtype}* const top_diff, const ${Dtype}* const bottom_data, ${Dtype}* const buffer_data) {
@@ -141,7 +149,8 @@ __global__ void involution_backward_grad_weight_kernel(
     }
   }
 }
-'''
+"""
+)
 
 
 class _involution(Function):
@@ -151,33 +160,54 @@ class _involution(Function):
         assert weight.dim() == 6 and weight.is_cuda
         batch_size, channels, height, width = input.size()
         kernel_h, kernel_w = weight.size()[2:4]
-        output_h = int((height + 2 * padding[0] - (dilation[0] * (kernel_h - 1) + 1)) / stride[0] + 1)
-        output_w = int((width + 2 * padding[1] - (dilation[1] * (kernel_w - 1) + 1)) / stride[1] + 1)
+        output_h = int(
+            (height + 2 * padding[0] - (dilation[0] * (kernel_h - 1) + 1)) / stride[0]
+            + 1
+        )
+        output_w = int(
+            (width + 2 * padding[1] - (dilation[1] * (kernel_w - 1) + 1)) / stride[1]
+            + 1
+        )
 
         output = input.new(batch_size, channels, output_h, output_w)
         n = output.numel()
 
         with torch.cuda.device_of(input):
-            f = load_kernel('involution_forward_kernel', _involution_kernel, Dtype=Dtype(input), nthreads=n,
-                            num=batch_size, channels=channels, groups=weight.size()[1],
-                            bottom_height=height, bottom_width=width,
-                            top_height=output_h, top_width=output_w,
-                            kernel_h=kernel_h, kernel_w=kernel_w,
-                            stride_h=stride[0], stride_w=stride[1],
-                            dilation_h=dilation[0], dilation_w=dilation[1],
-                            pad_h=padding[0], pad_w=padding[1])
-            f(block=(CUDA_NUM_THREADS,1,1),
-              grid=(GET_BLOCKS(n),1,1),
-              args=[input.data_ptr(), weight.data_ptr(), output.data_ptr()],
-              stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
+            f = load_kernel(
+                "involution_forward_kernel",
+                _involution_kernel,
+                Dtype=Dtype(input),
+                nthreads=n,
+                num=batch_size,
+                channels=channels,
+                groups=weight.size()[1],
+                bottom_height=height,
+                bottom_width=width,
+                top_height=output_h,
+                top_width=output_w,
+                kernel_h=kernel_h,
+                kernel_w=kernel_w,
+                stride_h=stride[0],
+                stride_w=stride[1],
+                dilation_h=dilation[0],
+                dilation_w=dilation[1],
+                pad_h=padding[0],
+                pad_w=padding[1],
+            )
+            f(
+                block=(CUDA_NUM_THREADS, 1, 1),
+                grid=(GET_BLOCKS(n), 1, 1),
+                args=[input.data_ptr(), weight.data_ptr(), output.data_ptr()],
+                stream=Stream(ptr=torch.cuda.current_stream().cuda_stream),
+            )
 
         ctx.save_for_backward(input, weight)
         ctx.stride, ctx.padding, ctx.dilation = stride, padding, dilation
         return output
-    
+
     @staticmethod
     def backward(ctx, grad_output):
-        grad_output=grad_output.contiguous()
+        grad_output = grad_output.contiguous()
         assert grad_output.is_cuda and grad_output.is_contiguous()
         input, weight = ctx.saved_tensors
         stride, padding, dilation = ctx.stride, ctx.padding, ctx.dilation
@@ -188,55 +218,84 @@ class _involution(Function):
 
         grad_input, grad_weight = None, None
 
-        opt = dict(Dtype=Dtype(grad_output),
-                   num=batch_size, channels=channels, groups=weight.size()[1],
-                   bottom_height=height, bottom_width=width,
-                   top_height=output_h, top_width=output_w,
-                   kernel_h=kernel_h, kernel_w=kernel_w,
-                   stride_h=stride[0], stride_w=stride[1],
-                   dilation_h=dilation[0], dilation_w=dilation[1],
-                   pad_h=padding[0], pad_w=padding[1])
+        opt = dict(
+            Dtype=Dtype(grad_output),
+            num=batch_size,
+            channels=channels,
+            groups=weight.size()[1],
+            bottom_height=height,
+            bottom_width=width,
+            top_height=output_h,
+            top_width=output_w,
+            kernel_h=kernel_h,
+            kernel_w=kernel_w,
+            stride_h=stride[0],
+            stride_w=stride[1],
+            dilation_h=dilation[0],
+            dilation_w=dilation[1],
+            pad_h=padding[0],
+            pad_w=padding[1],
+        )
 
         with torch.cuda.device_of(input):
             if ctx.needs_input_grad[0]:
                 grad_input = input.new(input.size())
 
                 n = grad_input.numel()
-                opt['nthreads'] = n
+                opt["nthreads"] = n
 
-                f = load_kernel('involution_backward_grad_input_kernel',
-                                _involution_kernel_backward_grad_input, **opt)
-                f(block=(CUDA_NUM_THREADS,1,1),
-                  grid=(GET_BLOCKS(n),1,1),
-                  args=[grad_output.data_ptr(), weight.data_ptr(), grad_input.data_ptr()],
-                  stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
+                f = load_kernel(
+                    "involution_backward_grad_input_kernel",
+                    _involution_kernel_backward_grad_input,
+                    **opt,
+                )
+                f(
+                    block=(CUDA_NUM_THREADS, 1, 1),
+                    grid=(GET_BLOCKS(n), 1, 1),
+                    args=[
+                        grad_output.data_ptr(),
+                        weight.data_ptr(),
+                        grad_input.data_ptr(),
+                    ],
+                    stream=Stream(ptr=torch.cuda.current_stream().cuda_stream),
+                )
 
             if ctx.needs_input_grad[1]:
                 grad_weight = weight.new(weight.size())
 
                 n = grad_weight.numel()
-                opt['nthreads'] = n
+                opt["nthreads"] = n
 
-                f = load_kernel('involution_backward_grad_weight_kernel',
-                                _involution_kernel_backward_grad_weight, **opt)
-                f(block=(CUDA_NUM_THREADS,1,1),
-                  grid=(GET_BLOCKS(n),1,1),
-                  args=[grad_output.data_ptr(), input.data_ptr(), grad_weight.data_ptr()],
-                  stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
+                f = load_kernel(
+                    "involution_backward_grad_weight_kernel",
+                    _involution_kernel_backward_grad_weight,
+                    **opt,
+                )
+                f(
+                    block=(CUDA_NUM_THREADS, 1, 1),
+                    grid=(GET_BLOCKS(n), 1, 1),
+                    args=[
+                        grad_output.data_ptr(),
+                        input.data_ptr(),
+                        grad_weight.data_ptr(),
+                    ],
+                    stream=Stream(ptr=torch.cuda.current_stream().cuda_stream),
+                )
 
         return grad_input, grad_weight, None, None, None
- 
+
 
 def _involution_cuda(input, weight, bias=None, stride=1, padding=0, dilation=1):
-    """ involution kernel
-    """
+    """involution kernel"""
     assert input.size(0) == weight.size(0)
-    assert input.size(-2)//stride == weight.size(-2)
-    assert input.size(-1)//stride == weight.size(-1)
+    assert input.size(-2) // stride == weight.size(-2)
+    assert input.size(-1) // stride == weight.size(-1)
     if input.is_cuda:
-        out = _involution.apply(input, weight, _pair(stride), _pair(padding), _pair(dilation))
+        out = _involution.apply(
+            input, weight, _pair(stride), _pair(padding), _pair(dilation)
+        )
         if bias is not None:
-            out += bias.view(1,-1,1,1)
+            out += bias.view(1, -1, 1, 1)
     else:
         raise NotImplementedError
     return out
@@ -244,10 +303,7 @@ def _involution_cuda(input, weight, bias=None, stride=1, padding=0, dilation=1):
 
 class involution(nn.Module):
 
-    def __init__(self,
-                 in_channels,
-                 kernel_size,
-                 stride):
+    def __init__(self, in_channels, kernel_size, stride):
         super(involution, self).__init__()
         self.kernel_size = kernel_size
         self.stride = stride
@@ -255,12 +311,13 @@ class involution(nn.Module):
         reduction_ratio = 4
         self.group_channels = 16
         self.groups = self.in_channels // self.group_channels
-        self.conv1 = nn.Sequential(nn.Conv2d(in_channels,in_channels// reduction_ratio,1),
-                                   nn.BatchNorm2d(in_channels// reduction_ratio),
-                                   nn.ReLU(inplace=True)
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels // reduction_ratio, 1),
+            nn.BatchNorm2d(in_channels // reduction_ratio),
+            nn.ReLU(inplace=True),
         )
-        self.conv2 = nn.Sequential(nn.Conv2d(in_channels// reduction_ratio,kernel_size**2 * self.groups,1)
-
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(in_channels // reduction_ratio, kernel_size**2 * self.groups, 1)
         )
         if stride > 1:
             self.avgpool = nn.AvgPool2d(stride, stride)
@@ -269,5 +326,7 @@ class involution(nn.Module):
         weight = self.conv2(self.conv1(x if self.stride == 1 else self.avgpool(x)))
         b, c, h, w = weight.shape
         weight = weight.view(b, self.groups, self.kernel_size, self.kernel_size, h, w)
-        out = _involution_cuda(x, weight, stride=self.stride, padding=(self.kernel_size-1)//2)
+        out = _involution_cuda(
+            x, weight, stride=self.stride, padding=(self.kernel_size - 1) // 2
+        )
         return out

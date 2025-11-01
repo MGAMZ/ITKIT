@@ -21,8 +21,25 @@ from . import configs as configs
 from .block import ResNetV2
 from .block import DANetHead
 
-from torch.nn import Module, Sequential, Conv2d, ReLU,AdaptiveMaxPool2d, AdaptiveAvgPool2d, \
-    NLLLoss, BCELoss, CrossEntropyLoss, AvgPool2d, MaxPool2d, Parameter, Linear, Sigmoid, Softmax, Dropout, Embedding
+from torch.nn import (
+    Module,
+    Sequential,
+    Conv2d,
+    ReLU,
+    AdaptiveMaxPool2d,
+    AdaptiveAvgPool2d,
+    NLLLoss,
+    BCELoss,
+    CrossEntropyLoss,
+    AvgPool2d,
+    MaxPool2d,
+    Parameter,
+    Linear,
+    Sigmoid,
+    Softmax,
+    Dropout,
+    Embedding,
+)
 from torch.nn import functional as F
 from torch.autograd import Variable
 
@@ -50,7 +67,11 @@ def swish(x):
     return x * torch.sigmoid(x)
 
 
-ACT2FN = {"gelu": torch.nn.functional.gelu, "relu": torch.nn.functional.relu, "swish": swish}
+ACT2FN = {
+    "gelu": torch.nn.functional.gelu,
+    "relu": torch.nn.functional.relu,
+    "swish": swish,
+}
 
 
 class Attention(nn.Module):
@@ -72,7 +93,10 @@ class Attention(nn.Module):
         self.softmax = Softmax(dim=-1)
 
     def transpose_for_scores(self, x):
-        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
+        new_x_shape = x.size()[:-1] + (
+            self.num_attention_heads,
+            self.attention_head_size,
+        )
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
@@ -126,27 +150,31 @@ class Mlp(nn.Module):
 
 
 class Embeddings(nn.Module):
-    """Construct the embeddings from patch, position embeddings.
-    """
+    """Construct the embeddings from patch, position embeddings."""
+
     def __init__(self, config, img_size, in_channels=3):
         super(Embeddings, self).__init__()
         self.hybrid = None
         self.config = config
         img_size = _pair(img_size)
-        
+
         self.DAblock1 = DANetHead(768, 768)
 
-
-        if config.patches.get("grid") is not None:   # ResNet
+        if config.patches.get("grid") is not None:  # ResNet
             grid_size = config.patches["grid"]
-            patch_size = (img_size[0] // 16 // grid_size[0], img_size[1] // 16 // grid_size[1])
+            patch_size = (
+                img_size[0] // 16 // grid_size[0],
+                img_size[1] // 16 // grid_size[1],
+            )
             patch_size_real = (patch_size[0] * 16, patch_size[1] * 16)
-            n_patches = (img_size[0] // patch_size_real[0]) * (img_size[1] // patch_size_real[1])  
-#             print(patch_size_real[0])
-#             print(patch_size_real[1])
-#             print(patch_size)
-#             print(img_size[0])
-#             print(img_size[1])
+            n_patches = (img_size[0] // patch_size_real[0]) * (
+                img_size[1] // patch_size_real[1]
+            )
+            #             print(patch_size_real[0])
+            #             print(patch_size_real[1])
+            #             print(patch_size)
+            #             print(img_size[0])
+            #             print(img_size[1])
             self.hybrid = True
         else:
             patch_size = _pair(config.patches["size"])
@@ -154,18 +182,22 @@ class Embeddings(nn.Module):
             self.hybrid = False
 
         if self.hybrid:
-            self.hybrid_model = ResNetV2(block_units=config.resnet.num_layers, width_factor=config.resnet.width_factor)
+            self.hybrid_model = ResNetV2(
+                block_units=config.resnet.num_layers,
+                width_factor=config.resnet.width_factor,
+            )
             in_channels = self.hybrid_model.width * 16
-        self.patch_embeddings = Conv2d(in_channels=in_channels,
-                                       out_channels=config.hidden_size,
-                                       kernel_size=patch_size,
-                                       stride=patch_size)
-        self.position_embeddings = nn.Parameter(torch.zeros(1, n_patches, config.hidden_size))
+        self.patch_embeddings = Conv2d(
+            in_channels=in_channels,
+            out_channels=config.hidden_size,
+            kernel_size=patch_size,
+            stride=patch_size,
+        )
+        self.position_embeddings = nn.Parameter(
+            torch.zeros(1, n_patches, config.hidden_size)
+        )
 
         self.dropout = Dropout(config.transformer["dropout_rate"])
-        
-        
-
 
     def forward(self, x):
         if self.hybrid:
@@ -206,10 +238,26 @@ class Block(nn.Module):
     def load_from(self, weights, n_block):
         ROOT = f"Transformer/encoderblock_{n_block}"
         with torch.no_grad():
-            query_weight = np2th(weights[pjoin(ROOT, ATTENTION_Q, "kernel")]).view(self.hidden_size, self.hidden_size).t()
-            key_weight = np2th(weights[pjoin(ROOT, ATTENTION_K, "kernel")]).view(self.hidden_size, self.hidden_size).t()
-            value_weight = np2th(weights[pjoin(ROOT, ATTENTION_V, "kernel")]).view(self.hidden_size, self.hidden_size).t()
-            out_weight = np2th(weights[pjoin(ROOT, ATTENTION_OUT, "kernel")]).view(self.hidden_size, self.hidden_size).t()
+            query_weight = (
+                np2th(weights[pjoin(ROOT, ATTENTION_Q, "kernel")])
+                .view(self.hidden_size, self.hidden_size)
+                .t()
+            )
+            key_weight = (
+                np2th(weights[pjoin(ROOT, ATTENTION_K, "kernel")])
+                .view(self.hidden_size, self.hidden_size)
+                .t()
+            )
+            value_weight = (
+                np2th(weights[pjoin(ROOT, ATTENTION_V, "kernel")])
+                .view(self.hidden_size, self.hidden_size)
+                .t()
+            )
+            out_weight = (
+                np2th(weights[pjoin(ROOT, ATTENTION_OUT, "kernel")])
+                .view(self.hidden_size, self.hidden_size)
+                .t()
+            )
 
             query_bias = np2th(weights[pjoin(ROOT, ATTENTION_Q, "bias")]).view(-1)
             key_bias = np2th(weights[pjoin(ROOT, ATTENTION_K, "bias")]).view(-1)
@@ -235,8 +283,12 @@ class Block(nn.Module):
             self.ffn.fc1.bias.copy_(mlp_bias_0)
             self.ffn.fc2.bias.copy_(mlp_bias_1)
 
-            self.attention_norm.weight.copy_(np2th(weights[pjoin(ROOT, ATTENTION_NORM, "scale")]))
-            self.attention_norm.bias.copy_(np2th(weights[pjoin(ROOT, ATTENTION_NORM, "bias")]))
+            self.attention_norm.weight.copy_(
+                np2th(weights[pjoin(ROOT, ATTENTION_NORM, "scale")])
+            )
+            self.attention_norm.bias.copy_(
+                np2th(weights[pjoin(ROOT, ATTENTION_NORM, "bias")])
+            )
             self.ffn_norm.weight.copy_(np2th(weights[pjoin(ROOT, MLP_NORM, "scale")]))
             self.ffn_norm.bias.copy_(np2th(weights[pjoin(ROOT, MLP_NORM, "bias")]))
 
@@ -275,13 +327,13 @@ class Transformer(nn.Module):
 
 class Conv2dReLU(nn.Sequential):
     def __init__(
-            self,
-            in_channels,
-            out_channels,
-            kernel_size,
-            padding=0,
-            stride=1,
-            use_batchnorm=True,
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        padding=0,
+        stride=1,
+        use_batchnorm=True,
     ):
         conv = nn.Conv2d(
             in_channels,
@@ -300,11 +352,11 @@ class Conv2dReLU(nn.Sequential):
 
 class DecoderBlock(nn.Module):
     def __init__(
-            self,
-            in_channels,
-            out_channels,
-            skip_channels=0,
-            use_batchnorm=True,
+        self,
+        in_channels,
+        out_channels,
+        skip_channels=0,
+        use_batchnorm=True,
     ):
         super().__init__()
         self.conv1 = Conv2dReLU(
@@ -325,20 +377,19 @@ class DecoderBlock(nn.Module):
         self.da = DANetHead(64, 64)
         self.da2 = DANetHead(256, 256)
         self.da3 = DANetHead(512, 512)
-            
-        
+
     def forward(self, x, skip=None):
         x = self.up(x)
         if skip is not None:
             if skip.size(1) and x.size(1) == 64:
-                skip = self.da(skip) 
-            
+                skip = self.da(skip)
+
             if skip.size(1) and x.size(1) == 256:
                 skip = self.da2(skip)
-                
+
             if skip.size(1) and x.size(1) == 512:
                 skip = self.da3(skip)
-                
+
             x = torch.cat([x, skip], dim=1)
         x = self.conv1(x)
         x = self.conv2(x)
@@ -348,8 +399,14 @@ class DecoderBlock(nn.Module):
 class SegmentationHead(nn.Sequential):
 
     def __init__(self, in_channels, out_channels, kernel_size=3, upsampling=1):
-        conv2d = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2)
-        upsampling = nn.UpsamplingBilinear2d(scale_factor=upsampling) if upsampling > 1 else nn.Identity()
+        conv2d = nn.Conv2d(
+            in_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2
+        )
+        upsampling = (
+            nn.UpsamplingBilinear2d(scale_factor=upsampling)
+            if upsampling > 1
+            else nn.Identity()
+        )
         super().__init__(conv2d, upsampling)
 
 
@@ -371,18 +428,24 @@ class DecoderCup(nn.Module):
 
         if "n_skip" in self.config.keys() and self.config.n_skip != 0:
             skip_channels = self.config.skip_channels
-            for i in range(4-self.config.n_skip):  # re-select the skip channels according to n_skip
-                skip_channels[3-i]=0
+            for i in range(
+                4 - self.config.n_skip
+            ):  # re-select the skip channels according to n_skip
+                skip_channels[3 - i] = 0
 
         else:
-            skip_channels=[0,0,0,0]
+            skip_channels = [0, 0, 0, 0]
 
-        blocks = [DecoderBlock(in_ch, out_ch, sk_ch) 
-                  for in_ch, out_ch, sk_ch in zip(in_channels, out_channels, skip_channels)]
+        blocks = [
+            DecoderBlock(in_ch, out_ch, sk_ch)
+            for in_ch, out_ch, sk_ch in zip(in_channels, out_channels, skip_channels)
+        ]
         self.blocks = nn.ModuleList(blocks)
 
     def forward(self, hidden_states, features=None):
-        B, n_patch, hidden = hidden_states.size()  # reshape from (B, n_patch, hidden) to (B, h, w, hidden)
+        B, n_patch, hidden = (
+            hidden_states.size()
+        )  # reshape from (B, n_patch, hidden) to (B, h, w, hidden)
         h, w = int(np.sqrt(n_patch)), int(np.sqrt(n_patch))
         x = hidden_states.permute(0, 2, 1)
         x = x.contiguous().view(B, hidden, h, w)
@@ -397,7 +460,9 @@ class DecoderCup(nn.Module):
 
 
 class DA_Transformer(nn.Module):
-    def __init__(self, config, img_size=224, num_classes=21843, zero_head=False, vis=False):
+    def __init__(
+        self, config, img_size=224, num_classes=21843, zero_head=False, vis=False
+    ):
         super(DA_Transformer, self).__init__()
         self.num_classes = num_classes
         self.zero_head = zero_head
@@ -405,15 +470,15 @@ class DA_Transformer(nn.Module):
         self.transformer = Transformer(config, img_size, vis)
         self.decoder = DecoderCup(config)
         self.segmentation_head = SegmentationHead(
-            in_channels=config['decoder_channels'][-1],
-            out_channels=config['n_classes'],
+            in_channels=config["decoder_channels"][-1],
+            out_channels=config["n_classes"],
             kernel_size=3,
         )
         self.config = config
 
     def forward(self, x):
         if x.size()[1] == 1:
-            x = x.repeat(1,3,1,1)
+            x = x.repeat(1, 3, 1, 1)
         x, attn_weights, features = self.transformer(x)  # (B, n_patch, hidden)
         x = self.decoder(x, features)
         logits = self.segmentation_head(x)
@@ -423,28 +488,39 @@ class DA_Transformer(nn.Module):
         with torch.no_grad():
 
             res_weight = weights
-            self.transformer.embeddings.patch_embeddings.weight.copy_(np2th(weights["embedding/kernel"], conv=True))
-            self.transformer.embeddings.patch_embeddings.bias.copy_(np2th(weights["embedding/bias"]))
+            self.transformer.embeddings.patch_embeddings.weight.copy_(
+                np2th(weights["embedding/kernel"], conv=True)
+            )
+            self.transformer.embeddings.patch_embeddings.bias.copy_(
+                np2th(weights["embedding/bias"])
+            )
 
-            self.transformer.encoder.encoder_norm.weight.copy_(np2th(weights["Transformer/encoder_norm/scale"]))
-            self.transformer.encoder.encoder_norm.bias.copy_(np2th(weights["Transformer/encoder_norm/bias"]))
+            self.transformer.encoder.encoder_norm.weight.copy_(
+                np2th(weights["Transformer/encoder_norm/scale"])
+            )
+            self.transformer.encoder.encoder_norm.bias.copy_(
+                np2th(weights["Transformer/encoder_norm/bias"])
+            )
 
             posemb = np2th(weights["Transformer/posembed_input/pos_embedding"])
 
             posemb_new = self.transformer.embeddings.position_embeddings
             if posemb.size() == posemb_new.size():
                 self.transformer.embeddings.position_embeddings.copy_(posemb)
-            elif posemb.size()[1]-1 == posemb_new.size()[1]:
+            elif posemb.size()[1] - 1 == posemb_new.size()[1]:
                 posemb = posemb[:, 1:]
                 self.transformer.embeddings.position_embeddings.copy_(posemb)
             else:
-                logger.info("load_pretrained: resized variant: %s to %s" % (posemb.size(), posemb_new.size()))
+                logger.info(
+                    "load_pretrained: resized variant: %s to %s"
+                    % (posemb.size(), posemb_new.size())
+                )
                 ntok_new = posemb_new.size(1)
                 if self.classifier == "seg":
                     _, posemb_grid = posemb[:, :1], posemb[0, 1:]
                 gs_old = int(np.sqrt(len(posemb_grid)))
                 gs_new = int(np.sqrt(ntok_new))
-                print('load_pretrained: grid-size from %s to %s' % (gs_old, gs_new))
+                print("load_pretrained: grid-size from %s to %s" % (gs_old, gs_new))
                 posemb_grid = posemb_grid.reshape(gs_old, gs_old, -1)
                 zoom = (gs_new / gs_old, gs_new / gs_old, 1)
                 posemb_grid = ndimage.zoom(posemb_grid, zoom, order=1)  # th2np
@@ -458,54 +534,70 @@ class DA_Transformer(nn.Module):
                     unit.load_from(weights, n_block=uname)
 
             if self.transformer.embeddings.hybrid:
-                self.transformer.embeddings.hybrid_model.root.conv.weight.copy_(np2th(res_weight["conv_root/kernel"], conv=True))
+                self.transformer.embeddings.hybrid_model.root.conv.weight.copy_(
+                    np2th(res_weight["conv_root/kernel"], conv=True)
+                )
                 gn_weight = np2th(res_weight["gn_root/scale"]).view(-1)
                 gn_bias = np2th(res_weight["gn_root/bias"]).view(-1)
                 self.transformer.embeddings.hybrid_model.root.gn.weight.copy_(gn_weight)
                 self.transformer.embeddings.hybrid_model.root.gn.bias.copy_(gn_bias)
 
-                for bname, block in self.transformer.embeddings.hybrid_model.body.named_children():
+                for (
+                    bname,
+                    block,
+                ) in self.transformer.embeddings.hybrid_model.body.named_children():
                     for uname, unit in block.named_children():
                         unit.load_from(res_weight, n_block=bname, n_unit=uname)
 
 
 CONFIGS = {
-    'ViT-B_16': configs.get_b16_config(),
-    'ViT-B_32': configs.get_b32_config(),
-    'ViT-L_16': configs.get_l16_config(),
-    'ViT-L_32': configs.get_l32_config(),
-    'ViT-H_14': configs.get_h14_config(),
-    'R50-ViT-B_16': configs.get_r50_b16_config(),
-    'R50-ViT-L_16': configs.get_r50_l16_config(),
-    'testing': configs.get_testing(),
+    "ViT-B_16": configs.get_b16_config(),
+    "ViT-B_32": configs.get_b32_config(),
+    "ViT-L_16": configs.get_l16_config(),
+    "ViT-L_32": configs.get_l32_config(),
+    "ViT-H_14": configs.get_h14_config(),
+    "R50-ViT-B_16": configs.get_r50_b16_config(),
+    "R50-ViT-L_16": configs.get_r50_l16_config(),
+    "testing": configs.get_testing(),
 }
 
 
 import pdb
 from typing_extensions import Sequence
 from mmengine.model import BaseModule
+
+
 class DATrans_Backbone(BaseModule):
-    def __init__(self, arch:str, img_size:int|Sequence[int]=256, num_classes=21843, zero_head=False, vis=False):
+    def __init__(
+        self,
+        arch: str,
+        img_size: int | Sequence[int] = 256,
+        num_classes=21843,
+        zero_head=False,
+        vis=False,
+    ):
         super(DATrans_Backbone, self).__init__()
         if isinstance(img_size, Sequence):
             assert img_size[0] == img_size[1]
             img_size = img_size[0]
         config = CONFIGS[arch]
         config.n_classes = num_classes
-        
+
         self.num_classes = num_classes
         self.zero_head = zero_head
         self.transformer = Transformer(config, img_size, vis)
         self.config = config
-    
+
     def forward(self, x):
         if x.size()[1] == 1:
-            x = x.repeat(1,3,1,1)
+            x = x.repeat(1, 3, 1, 1)
         x, attn_weights, features = self.transformer(x)  # (B, n_patch, hidden)
         return (x, features)
 
 
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
+
+
 class DATrans_Head(BaseDecodeHead):
     def __init__(self, arch, num_classes, **kwargs):
         super(DATrans_Head, self).__init__(
@@ -513,26 +605,23 @@ class DATrans_Head(BaseDecodeHead):
             channels=56,
             num_classes=num_classes,
             init_cfg=None,
-            **kwargs)
-        
+            **kwargs,
+        )
+
         config = CONFIGS[arch]
         config.n_classes = num_classes
         self.decoder = DecoderCup(config)
         self.segmentation_head = SegmentationHead(
-            in_channels=config['decoder_channels'][-1], # type: ignore
-            out_channels=config['n_classes'],
+            in_channels=config["decoder_channels"][-1],  # type: ignore
+            out_channels=config["n_classes"],
             kernel_size=3,
         )
         self.config = config
-        
-        del self.conv_seg # not using mmseg built-in cls seg conv
-    
+
+        del self.conv_seg  # not using mmseg built-in cls seg conv
+
     def forward(self, inputs):
         (x, features) = inputs
         x = self.decoder(x, features)
         logits = self.segmentation_head(x)
         return logits
-
-
-
-

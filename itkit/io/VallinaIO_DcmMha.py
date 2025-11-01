@@ -6,6 +6,7 @@ import pydicom
 import numpy as np
 import SimpleITK
 
+
 def min_max_scale(img):
     max_val = np.max(img)
     min_val = np.min(img)
@@ -13,21 +14,21 @@ def min_max_scale(img):
     return res_img * 255
 
 
-def get_dcm_file(dcm,do_raw):
+def get_dcm_file(dcm, do_raw):
     pixel_array = dcm.pixel_array
     pixel_array = pixel_array.astype(np.float32)
-    if hasattr(dcm,'RescaleIntercept') and hasattr(dcm,'RescaleSlope'):
+    if hasattr(dcm, "RescaleIntercept") and hasattr(dcm, "RescaleSlope"):
         ri = dcm.RescaleIntercept
         rs = dcm.RescaleSlope
         pixel_array = pixel_array * np.float32(rs) + np.float32(ri)
-    
+
     if do_raw:
         return pixel_array
     wc = dcm.WindowCenter
     ww = dcm.WindowWidth
-    res = np.clip(pixel_array, wc-ww//2, wc+ww//2)
+    res = np.clip(pixel_array, wc - ww // 2, wc + ww // 2)
     res = min_max_scale(res)
-    res = res.astype('uint8')
+    res = res.astype("uint8")
     return res
 
 
@@ -49,23 +50,33 @@ def load_ct_info(file_path, sort_by_distance=True, do_raw=False):
     if sitk_image is None:
         res = {}
     else:
-        res = {"sitk_image": sitk_image,
-               "npy_image": sitk.GetArrayFromImage(sitk_image),
-               "origin": sitk_image.GetOrigin(),
-               "spacing": sitk_image.GetSpacing(),
-               "direction": sitk_image.GetDirection()}
+        res = {
+            "sitk_image": sitk_image,
+            "npy_image": sitk.GetArrayFromImage(sitk_image),
+            "origin": sitk_image.GetOrigin(),
+            "spacing": sitk_image.GetSpacing(),
+            "direction": sitk_image.GetDirection(),
+        }
     return res
 
 
 def dcm_2_mha(dcm_path, mha_path, use_compress):
     res = load_ct_info(dcm_path)
-    sitk.WriteImage(res['sitk_image'], mha_path, use_compress)
+    sitk.WriteImage(res["sitk_image"], mha_path, use_compress)
 
 
-def load_ct_from_dicom(dcm_path,do_raw, sort_by_distance=True):
+def load_ct_from_dicom(dcm_path, do_raw, sort_by_distance=True):
     class DcmInfo(object):
-        def __init__(self, dcm_path, series_instance_uid, acquisition_number, sop_instance_uid, instance_number,
-                     image_orientation_patient, image_position_patient):
+        def __init__(
+            self,
+            dcm_path,
+            series_instance_uid,
+            acquisition_number,
+            sop_instance_uid,
+            instance_number,
+            image_orientation_patient,
+            image_position_patient,
+        ):
             super(DcmInfo, self).__init__()
 
             self.dcm_path = dcm_path
@@ -77,14 +88,16 @@ def load_ct_from_dicom(dcm_path,do_raw, sort_by_distance=True):
             self.image_position_patient = image_position_patient
 
             self.slice_distance = self._cal_distance()
-        
+
         def _cal_distance(self):
-            normal = [self.image_orientation_patient[1] * self.image_orientation_patient[5] -
-                      self.image_orientation_patient[2] * self.image_orientation_patient[4],
-                      self.image_orientation_patient[2] * self.image_orientation_patient[3] -
-                      self.image_orientation_patient[0] * self.image_orientation_patient[5],
-                      self.image_orientation_patient[0] * self.image_orientation_patient[4] -
-                      self.image_orientation_patient[1] * self.image_orientation_patient[3]]
+            normal = [
+                self.image_orientation_patient[1] * self.image_orientation_patient[5]
+                - self.image_orientation_patient[2] * self.image_orientation_patient[4],
+                self.image_orientation_patient[2] * self.image_orientation_patient[3]
+                - self.image_orientation_patient[0] * self.image_orientation_patient[5],
+                self.image_orientation_patient[0] * self.image_orientation_patient[4]
+                - self.image_orientation_patient[1] * self.image_orientation_patient[3],
+            ]
 
             distance = 0
             for i in range(3):
@@ -117,8 +130,15 @@ def load_ct_from_dicom(dcm_path,do_raw, sort_by_distance=True):
             _image_orientation_patient = dcm.ImageOrientationPatient
             _image_position_patient = dcm.ImagePositionPatient
 
-            dcm_info = DcmInfo(file_path, _series_instance_uid, _acquisition_number, _sop_instance_uid,
-                               _instance_number, _image_orientation_patient, _image_position_patient)
+            dcm_info = DcmInfo(
+                file_path,
+                _series_instance_uid,
+                _acquisition_number,
+                _sop_instance_uid,
+                _instance_number,
+                _image_orientation_patient,
+                _image_position_patient,
+            )
 
             if is_sop_instance_uid_exist(dcm_info, dcm_infos):
                 continue
@@ -136,21 +156,29 @@ def load_ct_from_dicom(dcm_path,do_raw, sort_by_distance=True):
     dicom_data_list = []
     pydicom_data_list = []
     for idx, dicom_name in enumerate(dcm_series):
-        #print(dicom_name)
-        dicom_data =  pydicom.dcmread(dicom_name)
-        dicom_img = get_dcm_file(dicom_data, do_raw)         
+        # print(dicom_name)
+        dicom_data = pydicom.dcmread(dicom_name)
+        dicom_img = get_dcm_file(dicom_data, do_raw)
         dicom_data_list.append(dicom_img)
         if idx < 2:
             pydicom_data_list.append(dicom_data)
-    
+
     if do_raw:
         dicom_array = np.array(dicom_data_list)
     else:
         dicom_array = np.array(dicom_data_list, dtype=np.uint8)
     sitk_img = SimpleITK.GetImageFromArray(dicom_array, isVector=False)
     sitk_img.SetOrigin(pydicom_data_list[0].ImagePositionPatient)
-    sitk_img.SetSpacing([pydicom_data_list[0].PixelSpacing[0], pydicom_data_list[0].PixelSpacing[1], 
-                            np.abs(pydicom_data_list[1].ImagePositionPatient[2] - pydicom_data_list[0].ImagePositionPatient[2])])
+    sitk_img.SetSpacing(
+        [
+            pydicom_data_list[0].PixelSpacing[0],
+            pydicom_data_list[0].PixelSpacing[1],
+            np.abs(
+                pydicom_data_list[1].ImagePositionPatient[2]
+                - pydicom_data_list[0].ImagePositionPatient[2]
+            ),
+        ]
+    )
     return sitk_img
     ##
 
@@ -164,8 +192,15 @@ def save_ct_from_sitk(sitk_image, save_path, sitk_type=None, use_compression=Fal
     sitk.WriteImage(sitk_image, save_path, use_compression)
 
 
-def save_ct_from_npy(npy_image, save_path,
-                     origin=None, spacing=None, direction=None, sitk_type=None, use_compression=False):
+def save_ct_from_npy(
+    npy_image,
+    save_path,
+    origin=None,
+    spacing=None,
+    direction=None,
+    sitk_type=None,
+    use_compression=False,
+):
     sitk_image = sitk.GetImageFromArray(npy_image)
     if origin is not None:
         sitk_image.SetOrigin(origin)
@@ -176,7 +211,9 @@ def save_ct_from_npy(npy_image, save_path,
     save_ct_from_sitk(sitk_image, save_path, sitk_type, use_compression)
 
 
-def convert_npy_image_2_sitk(npy_image, origin=None, spacing=None, direction=None, sitk_type=sitk.sitkFloat32):
+def convert_npy_image_2_sitk(
+    npy_image, origin=None, spacing=None, direction=None, sitk_type=sitk.sitkFloat32
+):
     sitk_image = sitk.GetImageFromArray(npy_image)
     sitk_image = sitk.Cast(sitk_image, sitk_type)
     if origin is not None:
@@ -188,7 +225,14 @@ def convert_npy_image_2_sitk(npy_image, origin=None, spacing=None, direction=Non
     return sitk_image
 
 
-def convert_npy_mask_2_sitk(npy_mask, label=None, origin=None, spacing=None, direction=None, sitk_type=sitk.sitkUInt8):
+def convert_npy_mask_2_sitk(
+    npy_mask,
+    label=None,
+    origin=None,
+    spacing=None,
+    direction=None,
+    sitk_type=sitk.sitkUInt8,
+):
     if label is not None:
         npy_mask[npy_mask != 0] = label
     sitk_mask = sitk.GetImageFromArray(npy_mask)

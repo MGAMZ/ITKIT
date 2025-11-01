@@ -8,12 +8,12 @@ from functools import partial
 import SimpleITK as sitk
 
 from itkit.io.sitk_toolkit import (
-    sitk_resample_to_spacing, 
-    sitk_resample_to_size, 
-    sitk_resample_to_image)
+    sitk_resample_to_spacing,
+    sitk_resample_to_size,
+    sitk_resample_to_image,
+)
 
 BraTs2024_MODALITIES = ["t1c", "t1n", "t2f", "t2w"]
-
 
 
 def convert_case(case_dir, dest_root, spacing=None, size=None):
@@ -32,9 +32,9 @@ def convert_case(case_dir, dest_root, spacing=None, size=None):
     # 读取图像和标签
     images = {}
     label_path = None
-    for file in glob.glob(os.path.join(case_dir, '*.nii.gz')):
+    for file in glob.glob(os.path.join(case_dir, "*.nii.gz")):
         file_name = os.path.basename(file)
-        if 'seg' in file_name:
+        if "seg" in file_name:
             label_path = file
         else:
             for mod in BraTs2024_MODALITIES:
@@ -61,7 +61,9 @@ def convert_case(case_dir, dest_root, spacing=None, size=None):
         if spacing is not None:
             first_image = sitk_resample_to_spacing(first_image, spacing, "image")
             if not isinstance(first_image, sitk.Image):
-                print(f"Resample to spacing failed for {first_image_path}: {first_image}")
+                print(
+                    f"Resample to spacing failed for {first_image_path}: {first_image}"
+                )
                 return
         elif size is not None:
             first_image = sitk_resample_to_size(first_image, size, "image")
@@ -78,7 +80,7 @@ def convert_case(case_dir, dest_root, spacing=None, size=None):
         if not isinstance(label, sitk.Image):
             print(f"Resample label to image failed for {label_path}: {label}")
             label = None
-        output_label_path = os.path.join(dest_root, phase, case_name, 'label.mha')
+        output_label_path = os.path.join(dest_root, phase, case_name, "label.mha")
         os.makedirs(os.path.dirname(output_label_path), exist_ok=True)
         sitk.WriteImage(label, output_label_path, useCompression=True)
 
@@ -86,7 +88,9 @@ def convert_case(case_dir, dest_root, spacing=None, size=None):
     for modality, image_path in images.items():
         # 跳过第一个图像，因为它已经被处理
         if modality == first_modality:
-            output_image_path = os.path.join(dest_root, phase, case_name, modality + '.mha')
+            output_image_path = os.path.join(
+                dest_root, phase, case_name, modality + ".mha"
+            )
             os.makedirs(os.path.dirname(output_image_path), exist_ok=True)
             sitk.WriteImage(first_image, output_image_path, useCompression=True)
             continue
@@ -99,7 +103,9 @@ def convert_case(case_dir, dest_root, spacing=None, size=None):
             if not isinstance(image, sitk.Image):
                 continue
 
-            output_image_path = os.path.join(dest_root, phase, case_name, modality + '.mha')
+            output_image_path = os.path.join(
+                dest_root, phase, case_name, modality + ".mha"
+            )
             os.makedirs(os.path.dirname(output_image_path), exist_ok=True)
             sitk.WriteImage(image, output_image_path, useCompression=True)
 
@@ -123,20 +129,22 @@ def convert_brats_to_mha(input_dir, dest_root, spacing=None, size=None, use_mp=F
 
     # 收集所有 case 目录
     case_dirs = []
-    for phase in ['train', 'val']:
+    for phase in ["train", "val"]:
         phase_dir = os.path.join(input_dir, phase)
-        case_dirs.extend(glob.glob(os.path.join(phase_dir, '*')))  # 匹配所有文件夹
+        case_dirs.extend(glob.glob(os.path.join(phase_dir, "*")))  # 匹配所有文件夹
 
     # 多进程处理
-    partial_convert_func = partial(convert_case, dest_root=dest_root, spacing=spacing, size=size)
-    
+    partial_convert_func = partial(
+        convert_case, dest_root=dest_root, spacing=spacing, size=size
+    )
+
     if use_mp:
         with mp.Pool(mp.cpu_count()) as pool:
             with tqdm(
-                total=len(case_dirs), 
-                desc="Converting BraTs2024", 
-                dynamic_ncols=True, 
-                leave=False
+                total=len(case_dirs),
+                desc="Converting BraTs2024",
+                dynamic_ncols=True,
+                leave=False,
             ) as pbar:
                 for _ in pool.imap_unordered(partial_convert_func, case_dirs):
                     pbar.update()
@@ -148,15 +156,22 @@ def convert_brats_to_mha(input_dir, dest_root, spacing=None, size=None, use_mp=F
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Convert all NIfTI files in a directory to MHA format.")
+    parser = argparse.ArgumentParser(
+        description="Convert all NIfTI files in a directory to MHA format."
+    )
     parser.add_argument("input_dir", type=str, help="Containing NIfTI files.")
     parser.add_argument("output_dir", type=str, help="Save MHA files.")
     parser.add_argument("--mp", action="store_true", help="Use multiprocessing.")
-    parser.add_argument("--spacing", type=float, nargs=3, default=None, help="Resample to this spacing.")
-    parser.add_argument("--size", type=int, nargs=3, default=None, help="Crop to this size.")
+    parser.add_argument(
+        "--spacing", type=float, nargs=3, default=None, help="Resample to this spacing."
+    )
+    parser.add_argument(
+        "--size", type=int, nargs=3, default=None, help="Crop to this size."
+    )
     return parser.parse_args()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     args = parse_args()
     input_dir = args.input_dir
     dest_root = args.output_dir

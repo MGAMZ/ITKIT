@@ -37,31 +37,36 @@ from mmengine._strategy.fsdp import FSDPStrategy
 from ..utils.DevelopUtils import measure_time, InjectVisualize
 
 
-
 def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
     if cfg.get("dist", False) is True and cfg.get("MP_mode", None) != "ddp":
         RunnerChoice = FlexibleRunner
     else:
         RunnerChoice = Runner
 
-    class mgam_Runner(RunnerChoice): # type: ignore
+    class mgam_Runner(RunnerChoice):  # type: ignore
         """MGAM Customized MMEngine Runner"""
+
         def __init__(self, **kwargs):
             self.resume_optimizer = kwargs.get("cfg", {}).pop("resume_optimizer", True)
-            self.resume_param_scheduler = kwargs.get("cfg", {}).pop("resume_param_scheduler", True)
+            self.resume_param_scheduler = kwargs.get("cfg", {}).pop(
+                "resume_param_scheduler", True
+            )
             self.custom_env(kwargs.get("env_cfg", {}))
 
             if cfg.get("MP_mode", None) == "fsdp":
                 strategy = kwargs.get("cfg", {}).pop("strategy", None)
-                auto_strategy = partial(size_based_auto_wrap_policy, 
-                                        min_num_params=int(1e5))
-                strategy.update(dict(model_wrapper=dict(auto_wrap_policy=auto_strategy)))
+                auto_strategy = partial(
+                    size_based_auto_wrap_policy, min_num_params=int(1e5)
+                )
+                strategy.update(
+                    dict(model_wrapper=dict(auto_wrap_policy=auto_strategy))
+                )
                 kwargs["strategy"] = strategy
                 kwargs["cfg"]["strategy"] = strategy
 
             exp_name_in_runner = kwargs.pop("experiment_name", None)
             if exp_name_in_runner is None:
-                work_dir:str|None = kwargs.get("work_dir", None)
+                work_dir: str | None = kwargs.get("work_dir", None)
                 if work_dir is not None:
                     exp_name_in_runner = str(work_dir.split("/")[-2:])
             super().__init__(experiment_name=exp_name_in_runner, **kwargs)
@@ -79,14 +84,22 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
             torch.cuda.set_device(cfg.pop("torch_cuda_id", -1))
             # Torch Compile
             cfg.get("torch_logging_level", logging.WARN)
-            torch._logging.set_logs(all=self.str_to_log_level(cfg.pop("torch_logging_level", "WARN")),
-                                    dynamo=self.str_to_log_level(cfg.pop("dynamo_logging_level", "WARN")))
+            torch._logging.set_logs(
+                all=self.str_to_log_level(cfg.pop("torch_logging_level", "WARN")),
+                dynamo=self.str_to_log_level(cfg.pop("dynamo_logging_level", "WARN")),
+            )
             torch._dynamo.config.cache_size_limit = cfg.pop("dynamo_cache_size", 1)
-            torch._dynamo.config.suppress_errors = cfg.pop("dynamo_supress_errors", False)
+            torch._dynamo.config.suppress_errors = cfg.pop(
+                "dynamo_supress_errors", False
+            )
             # cuBLAS matmul
             torch.backends.cuda.matmul.allow_tf32 = cfg.get("allow_tf32", False)
-            torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = cfg.pop("allow_fp16_reduced_precision_reduction", False)
-            torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = cfg.pop("allow_bf16_reduced_precision_reduction", True)
+            torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = cfg.pop(
+                "allow_fp16_reduced_precision_reduction", False
+            )
+            torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = cfg.pop(
+                "allow_bf16_reduced_precision_reduction", True
+            )
             # CUDNN
             torch.backends.cudnn.allow_tf32 = cfg.pop("allow_tf32", False)
             torch.backends.cudnn.benchmark = cfg.pop("benchmark", False)
@@ -98,11 +111,13 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
                 if key == "num_classes" or key == "out_channels":
                     print_log(
                         f"NumClasses Auto Override {cfg.get('type', 'Unknown')}: {cfg['num_classes']} -> {num_classes}",
-                        "current")
+                        "current",
+                    )
                     cfg[key] = num_classes
                 elif isinstance(value, ConfigType):
                     cfg[key] = mgam_Runner.auto_configure_num_classes_from_Databackend(
-                        value, num_classes)
+                        value, num_classes
+                    )
             return cfg
 
         def load_or_resume(self) -> None:
@@ -113,19 +128,25 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
             if self._resume:
                 resume_from = find_latest_checkpoint(self.work_dir)
                 if resume_from is not None:
-                    self.logger.info(f"Resuming from the latest checkpoint {resume_from}.")
-                    self.resume(filename=resume_from,
-                                resume_optimizer=self.resume_optimizer,
-                                resume_param_scheduler=self.resume_param_scheduler)
-                    self.logger.info(f"Resumed from the latest checkpoint {resume_from}.")
+                    self.logger.info(
+                        f"Resuming from the latest checkpoint {resume_from}."
+                    )
+                    self.resume(
+                        filename=resume_from,
+                        resume_optimizer=self.resume_optimizer,
+                        resume_param_scheduler=self.resume_param_scheduler,
+                    )
+                    self.logger.info(
+                        f"Resumed from the latest checkpoint {resume_from}."
+                    )
                     self._has_loaded = True
                     return
-            
+
             # When resume checkpoint can not be found, `load_from` as needed.
             if self._load_from is not None:
                 self.load_checkpoint(self._load_from)
                 self._has_loaded = True
-    
+
     return mgam_Runner.from_cfg(cfg)
 
 
@@ -140,7 +161,9 @@ class IterBasedTrainLoop_SupportProfiler(IterBasedTrainLoop):
             from torch.profiler import (
                 profile,
                 ProfilerActivity,
-                tensorboard_trace_handler)
+                tensorboard_trace_handler,
+            )
+
             self.prof = profile(
                 activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                 schedule=torch.profiler.schedule(wait=50, warmup=1, active=2),
@@ -149,7 +172,8 @@ class IterBasedTrainLoop_SupportProfiler(IterBasedTrainLoop):
                 with_stack=False,
                 with_flops=True,
                 with_modules=True,
-                on_trace_ready=tensorboard_trace_handler("./work_dirs/profiler/"))
+                on_trace_ready=tensorboard_trace_handler("./work_dirs/profiler/"),
+            )
             self.prof.start()
 
     def run_iter(self, data_batch) -> None:
@@ -172,7 +196,9 @@ class mgam_PerClassMetricLogger_OnTest(LoggerHook):
         data_df.loc["mean"] = data_df.iloc[:, 1:].mean(axis=0)
         data_df = data_df.round(decimals=2)
         csv_path_suffix = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        csv_save_path = osp.join(runner.log_dir, f"PerClassResult_{csv_path_suffix}.csv")
+        csv_save_path = osp.join(
+            runner.log_dir, f"PerClassResult_{csv_path_suffix}.csv"
+        )
         data_df.to_csv(csv_save_path, index=False)
 
         super().after_test_epoch(runner, metrics)
@@ -181,7 +207,7 @@ class mgam_PerClassMetricLogger_OnTest(LoggerHook):
 class LoggerJSON(LoggerHook):
     @staticmethod
     def _itemize_metric(metrics):
-        if hasattr(metrics, 'item'):
+        if hasattr(metrics, "item"):
             return metrics.item()
         elif isinstance(metrics, Number):
             return metrics
@@ -210,6 +236,7 @@ class LoggerJSON(LoggerHook):
             json.dump(self._itemize_metric(metrics), f, indent=4)
 
         super().after_test_epoch(runner, metrics)
+
 
 # better AMP support
 class AmpPatchAccumulateOptimWarpper(AmpOptimWrapper):
@@ -244,6 +271,7 @@ class AmpPatchAccumulateOptimWarpper(AmpOptimWrapper):
             self.step(**step_kwargs)
             self.zero_grad(**zero_kwargs)
 
+
 # customized DDP training for our task.
 class RemasteredDDP(MMDistributedDataParallel):
     """
@@ -251,6 +279,7 @@ class RemasteredDDP(MMDistributedDataParallel):
     So I override the following three methods, avoiding the warpper to influence
     the model's data flow design.
     """
+
     def train_step(self, *args, **kwargs):
         return self.module.train_step(*args, **kwargs)
 
@@ -265,6 +294,7 @@ class RemasteredDDP(MMDistributedDataParallel):
             return super().__getattr__(name)
         except:
             return getattr(self.module, name)
+
 
 # customized FSDP training for our task.
 class RemasteredFSDP(MMFullyShardedDataParallel):
@@ -273,6 +303,7 @@ class RemasteredFSDP(MMFullyShardedDataParallel):
     So I override the following three methods, avoiding the warpper to influence
     the model's data flow design.
     """
+
     def train_step(self, *args, **kwargs):
         return self.module.train_step(*args, **kwargs)
 
@@ -288,23 +319,29 @@ class RemasteredFSDP(MMFullyShardedDataParallel):
         except:
             return getattr(self.module, name)
 
+
 from mmengine.registry import FUNCTIONS, MODEL_WRAPPERS
 from mmengine.model import BaseDataPreprocessor, is_model_wrapper
 from mmengine.device import get_device
 from mmengine.optim import BaseOptimWrapper, _ParamScheduler
-from torch.distributed.checkpoint.state_dict import get_state_dict, set_state_dict, StateDictOptions
+from torch.distributed.checkpoint.state_dict import (
+    get_state_dict,
+    set_state_dict,
+    StateDictOptions,
+)
+
+
 class RemasteredFSDP_Strategy(FSDPStrategy):
-    def __init__(self, 
-                 model_wrapper_cfg:dict|None=None, 
-                 *args, **kwargs):
+    def __init__(self, model_wrapper_cfg: dict | None = None, *args, **kwargs):
         self.model_wrapper_cfg = model_wrapper_cfg
         super().__init__(*args, **kwargs)
-    
+
     def _wrap_model(self, model: nn.Module) -> None:
         """warp model but not load state."""
         try:
-            from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import \
-                apply_activation_checkpointing
+            from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+                apply_activation_checkpointing,
+            )
         except ImportError:
             apply_activation_checkpointing = None
 
@@ -316,56 +353,60 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
             return
 
         if self.model_wrapper is None:
-            self.model_wrapper = dict(type='MMFullyShardedDataParallel')
+            self.model_wrapper = dict(type="MMFullyShardedDataParallel")
 
         if self.model_wrapper_cfg is None:
             self.model_wrapper_cfg = dict(
                 module=model,
-                device_id=int(os.environ['LOCAL_RANK']),
-                type='MMFullyShardedDataParallel')
+                device_id=int(os.environ["LOCAL_RANK"]),
+                type="MMFullyShardedDataParallel",
+            )
         else:
             assert isinstance(self.model_wrapper_cfg, dict)
             assert "type" in self.model_wrapper_cfg.keys()
-            assert len(self.model_wrapper_cfg) == 1, "The cfg should only contain a type param."
+            assert (
+                len(self.model_wrapper_cfg) == 1
+            ), "The cfg should only contain a type param."
             self.model_wrapper_cfg.update(
-                module=model, 
-                device_id=int(os.environ['LOCAL_RANK'] ))
-        
+                module=model, device_id=int(os.environ["LOCAL_RANK"])
+            )
+
         model = MODEL_WRAPPERS.build(
-            self.model_wrapper, 
-            default_args=self.model_wrapper_cfg)
+            self.model_wrapper, default_args=self.model_wrapper_cfg
+        )
 
         if self.activation_checkpointing is not None:
             if apply_activation_checkpointing is None:
                 raise RuntimeError(
-                    'activation_checkpointing maybe deprecated by current '
-                    'PyTorch version, maybe you could switch to PyTorch 2.0 '
-                    'or 2.1 to use `activation_checkpointing`.')
+                    "activation_checkpointing maybe deprecated by current "
+                    "PyTorch version, maybe you could switch to PyTorch 2.0 "
+                    "or 2.1 to use `activation_checkpointing`."
+                )
             cfg = copy.deepcopy(self.activation_checkpointing)
             with FUNCTIONS.switch_scope_and_registry(None):
-                check_fn = cfg.pop('check_fn')
+                check_fn = cfg.pop("check_fn")
                 if isinstance(check_fn, str):
                     check_fn = FUNCTIONS.get(check_fn)
                 elif isinstance(check_fn, dict):
-                    fn_type = check_fn.pop('type')
+                    fn_type = check_fn.pop("type")
                     if isinstance(fn_type, str):
                         fn_type = FUNCTIONS.get(fn_type)
                     check_fn = partial(fn_type, **cfg)
 
                 if not callable(check_fn):
-                    raise TypeError('`check_fn` must be a callable function')
+                    raise TypeError("`check_fn` must be a callable function")
                 apply_activation_checkpointing(model, check_fn=check_fn, **cfg)
-        
+
         return model
 
     def prepare(
         self,
-        model: nn.Module|dict,
+        model: nn.Module | dict,
         *,
         optim_wrapper: BaseOptimWrapper,
-        param_scheduler: _ParamScheduler|None = None,
-        compile: dict|bool = False,
-        dispatch_kwargs: dict|None = None,
+        param_scheduler: _ParamScheduler | None = None,
+        compile: dict | bool = False,
+        dispatch_kwargs: dict | None = None,
     ):
         if self._prepared:
             return self._prepared_components()
@@ -376,51 +417,58 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
         self.model = self._init_model_weights(self.model)
         self.optim_wrapper = self.build_optim_wrapper(optim_wrapper, self.model)
         self.model = self._wrap_model(self.model)
-        
-        if hasattr(self, 'model_state_dict') and hasattr(self, 'optim_state_dict'):
+
+        if hasattr(self, "model_state_dict") and hasattr(self, "optim_state_dict"):
             set_state_dict(
                 self.model,
                 (self.optim_wrapper.optimizer,),
                 model_state_dict=self.model_state_dict(),
                 optim_state_dict=self.optim_state_dict(),
-                options=StateDictOptions(full_state_dict=True,
-                                         cpu_offload=True))
-            
+                options=StateDictOptions(full_state_dict=True, cpu_offload=True),
+            )
+
         self.model = self.compile_model(self.model, compile=compile)
 
         if param_scheduler is not None:
             self.param_schedulers = self.build_param_scheduler(
-                param_scheduler, self.optim_wrapper)
+                param_scheduler, self.optim_wrapper
+            )
 
         self._prepared = True
         return self._prepared_components()
-    
+
     def build_optim_wrapper(self, *args, **kwargs):
         optim_wrapper = super().build_optim_wrapper(*args, **kwargs)
         self._scale_lr()
 
-        accumulative_counts = getattr(optim_wrapper, '_accumulative_counts', 1)
+        accumulative_counts = getattr(optim_wrapper, "_accumulative_counts", 1)
         if accumulative_counts > 1:
-            if 'max_iters' not in self.dispatch_kwargs:
-                raise ValueError('"max_iters" must be specified because '
-                                 '"accumulative_counts" was set as '
-                                 f'{accumulative_counts} which is greater than 1.')
+            if "max_iters" not in self.dispatch_kwargs:
+                raise ValueError(
+                    '"max_iters" must be specified because '
+                    '"accumulative_counts" was set as '
+                    f"{accumulative_counts} which is greater than 1."
+                )
 
             optim_wrapper.initialize_count_status(  # type: ignore
-                self.model, 0, self.dispatch_kwargs['max_iters'])
+                self.model, 0, self.dispatch_kwargs["max_iters"]
+            )
 
         return optim_wrapper
 
 
 class RatioSampler(DefaultSampler):
     """Use a ratio of the dataset."""
+
     def __init__(self, use_sample_ratio: float, **kwargs):
         super().__init__(**kwargs)
         self.use_sample_ratio = use_sample_ratio
         self.num_samples_original = super(RatioSampler, self).__len__()
-        print_log(f"RatioSampler used, original num of batches "
-                  f"{self.num_samples_original} -> used {len(self)}",
-                  MMLogger.get_current_instance())
+        print_log(
+            f"RatioSampler used, original num of batches "
+            f"{self.num_samples_original} -> used {len(self)}",
+            MMLogger.get_current_instance(),
+        )
 
     def __iter__(self):
         indices = np.array(list(super().__iter__()))
@@ -432,7 +480,7 @@ class RatioSampler(DefaultSampler):
         num_samples = super().__len__()
         if num_samples < 1:
             raise FileNotFoundError(f"No enough samples: {num_samples}.")
-        return max(int(num_samples*self.use_sample_ratio), 1)
+        return max(int(num_samples * self.use_sample_ratio), 1)
 
 
 class RuntimeInfoHook(_RuntimeInfoHook):
@@ -449,7 +497,7 @@ def multi_sample_collate(data_batch: Sequence[dict]):
     Compatible with `SampleAugment` Transform Class.
     This collate is to facilitate multi-sub-sample generation
     from the same sample.
-    
+
     NOTE
     The reason to do SampleWiseInTimeAugment is the time comsumption
     for IO of an entire sample is too expensive, so it's better
@@ -468,10 +516,10 @@ def multi_sample_collate(data_batch: Sequence[dict]):
 
 class mgam_OptimWrapperConstructor(DefaultOptimWrapperConstructor):
     def __call__(self, model: nn.Module):
-        if hasattr(model, 'module'):
+        if hasattr(model, "module"):
             model = model.module
-        
+
         filtered_params = filter(lambda p: p.requires_grad, model.parameters())
         model.parameters = lambda: filtered_params
-        
+
         return super().__call__(model)

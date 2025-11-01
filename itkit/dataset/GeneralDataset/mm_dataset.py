@@ -1,21 +1,19 @@
 import os
 import pdb
-import re 
+import re
 
 import numpy as np
 from ..base import mgam_BaseSegDataset
 
 
-
 class mgam_Standard_2D(mgam_BaseSegDataset):
-    def __init__(self, suffix:str="png", *args, **kwargs) -> None:
+    def __init__(self, suffix: str = "png", *args, **kwargs) -> None:
         # HACK: Most implementations use the more elastic dataset,
         # which is `mgam_SemiSup_2D_png`, and it contains a `mode` parameter.
         kwargs.pop("mode", None)
         self.suffix = "." + suffix
         super().__init__(*args, **kwargs)
         self.data_root: str
-        
 
     def _split(self):
         all_series = [

@@ -16,17 +16,18 @@ class mgam_BaseSegDataset(BaseSegDataset):
 
     def __init__(
         self,
-        split: str|None,
+        split: str | None,
         debug: bool = False,
         dataset_name: str | None = None,
-        *args, **kwargs,
+        *args,
+        **kwargs,
     ) -> None:
         self.split = split
         self.debug = debug
         assert debug in [True, False]
-        self.dataset_name = (dataset_name 
-                             if dataset_name is not None 
-                             else self.__class__.__name__)
+        self.dataset_name = (
+            dataset_name if dataset_name is not None else self.__class__.__name__
+        )
         super().__init__(*args, **kwargs)
         self.data_root: str
         # HACK emergency override for sarcopenia training.
@@ -43,8 +44,9 @@ class mgam_BaseSegDataset(BaseSegDataset):
             return new_palette
 
     @abstractmethod
-    def sample_iterator(self) -> Generator[tuple[str, str], None, None] | Iterable[tuple[str, str]]: 
-        ...
+    def sample_iterator(
+        self,
+    ) -> Generator[tuple[str, str], None, None] | Iterable[tuple[str, str]]: ...
 
     def load_data_list(self):
         """
@@ -73,7 +75,7 @@ class mgam_BaseSegDataset(BaseSegDataset):
                 f"{self.dataset_name} dataset {self.split} split loaded {len(data_list)} samples, "
                 f"DEBUG MODE ENABLED, ONLY 16 SAMPLES ARE USED",
                 MMLogger.get_current_instance(),
-                logging.WARNING
+                logging.WARNING,
             )
             return data_list[:16]
         else:
@@ -85,12 +87,15 @@ class mgam_BaseSegDataset(BaseSegDataset):
 
 
 class mgam_SeriesVolume(mgam_BaseSegDataset):
-    def __init__(self,
-                 data_root_mha:str|None=None,
-                 mode:Literal["semi", "sup"]="sup",
-                 min_spacing=(-1, -1, -1),
-                 min_size=(-1, -1, -1),
-                 *args, **kwargs):
+    def __init__(
+        self,
+        data_root_mha: str | None = None,
+        mode: Literal["semi", "sup"] = "sup",
+        min_spacing=(-1, -1, -1),
+        min_size=(-1, -1, -1),
+        *args,
+        **kwargs,
+    ):
         # `Semi` mode will still include those samples without labels
         # `Sup` mode will exclude those samples without labels
         self.mode = mode
@@ -98,9 +103,11 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
         self.min_spacing = min_spacing
         self.min_size = min_size
         if len(self.min_spacing) != 3 or len(self.min_size) != 3:
-            raise ValueError('min_spacing 与 min_size 必须长度为 3, 对应 Z Y X. 可用 -1 忽略某维度。')
+            raise ValueError(
+                "min_spacing 与 min_size 必须长度为 3, 对应 Z Y X. 可用 -1 忽略某维度。"
+            )
         self._series_meta_cache = None  # lazy load
-        
+
         super().__init__(*args, **kwargs)
         self.data_root: str
         if self.data_root_mha is None:
@@ -108,9 +115,9 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
             print_log(
                 f"data_root_mha is not specified, using `data_root`: {self.data_root_mha}",
                 MMLogger.get_current_instance(),
-                logging.WARNING
+                logging.WARNING,
             )
-    
+
     def _split(self):
         split_at = "label" if self.mode == "sup" else "image"
         all_series = [
@@ -118,10 +125,15 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
             for file in os.listdir(os.path.join(self.data_root_mha, split_at))
             if file.endswith(".mha")
         ]
-        all_series = sorted(all_series, key=lambda x: abs(int(re.search(r"\d+", x).group())))
+        all_series = sorted(
+            all_series, key=lambda x: abs(int(re.search(r"\d+", x).group()))
+        )
         train_end = int(len(all_series) * self.SPLIT_RATIO[0])
         val_end = train_end + int(len(all_series) * self.SPLIT_RATIO[1]) + 1
-        print_log(f"Length {len(all_series)} Train End at {train_end}, Val End at {val_end}", MMLogger.get_current_instance())
+        print_log(
+            f"Length {len(all_series)} Train End at {train_end}, Val End at {val_end}",
+            MMLogger.get_current_instance(),
+        )
 
         if self.split == "train":
             return all_series[:train_end]
@@ -137,81 +149,105 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
     def _load_series_meta(self):
         if self._series_meta_cache is not None:
             return self._series_meta_cache
-        meta_path = os.path.join(self.data_root_mha, 'series_meta.json')
-        
+        meta_path = os.path.join(self.data_root_mha, "series_meta.json")
+
         if not os.path.isfile(meta_path):
-            print_log(f'series_meta.json 未找到: {meta_path}. 将跳过 size/spacing 过滤。', MMLogger.get_current_instance(), logging.WARNING)
+            print_log(
+                f"series_meta.json 未找到: {meta_path}. 将跳过 size/spacing 过滤。",
+                MMLogger.get_current_instance(),
+                logging.WARNING,
+            )
             self._series_meta_cache = {}
             return self._series_meta_cache
-        
+
         try:
-            with open(meta_path, 'r') as f:
+            with open(meta_path, "r") as f:
                 self._series_meta_cache = json.load(f)
         except Exception as e:
-            print_log(f'读取 series_meta.json 失败 ({e}), 跳过过滤。', MMLogger.get_current_instance(), logging.ERROR)
+            print_log(
+                f"读取 series_meta.json 失败 ({e}), 跳过过滤。",
+                MMLogger.get_current_instance(),
+                logging.ERROR,
+            )
             self._series_meta_cache = {}
-        
+
         return self._series_meta_cache
 
     def _need_filtering(self):
-        return any(v != -1 for v in self.min_spacing) or any(v != -1 for v in self.min_size)
+        return any(v != -1 for v in self.min_spacing) or any(
+            v != -1 for v in self.min_size
+        )
 
-    def _filter_by_meta(self, series_uids:list[str]):
+    def _filter_by_meta(self, series_uids: list[str]):
         if not self._need_filtering():
             return series_uids
-        
+
         meta = self._load_series_meta()
         if not meta:
             return series_uids
         kept = []
         dropped = []
         for uid in series_uids:
-            key = uid + '.mha'  # meta 中包含扩展名
+            key = uid + ".mha"  # meta 中包含扩展名
             entry = meta.get(key)
-            
+
             if entry is None:
-                dropped.append((uid, 'no_meta'))
+                dropped.append((uid, "no_meta"))
                 continue
-            
-            size = entry.get('size', [])
-            spacing = entry.get('spacing', [])
+
+            size = entry.get("size", [])
+            spacing = entry.get("spacing", [])
             if not (len(size) == 3 and len(spacing) == 3):
-                dropped.append((uid, 'invalid_meta_shape'))
+                dropped.append((uid, "invalid_meta_shape"))
                 continue
-            
+
             reject_reason = []
             for i, mn in enumerate(self.min_size):
                 if mn != -1 and size[i] < mn:
-                    reject_reason.append(f'size[{i}]={size[i]} < {mn}')
+                    reject_reason.append(f"size[{i}]={size[i]} < {mn}")
             for i, mn in enumerate(self.min_spacing):
                 if mn != -1 and spacing[i] < mn:
-                    reject_reason.append(f'spacing[{i}]={spacing[i]} < {mn}')
+                    reject_reason.append(f"spacing[{i}]={spacing[i]} < {mn}")
             if reject_reason:
-                dropped.append((uid, ';'.join(reject_reason)))
+                dropped.append((uid, ";".join(reject_reason)))
             else:
                 kept.append(uid)
-        
+
         if dropped:
-            print_log(f'Series Filter: Abandon {len(dropped)}/{len(series_uids)}。', MMLogger.get_current_instance(), logging.INFO)
-            preview = '\n'.join([f'  {u}: {r}' for u, r in dropped[:10]])
-            print_log(f'示例(前10条):\n{preview}', MMLogger.get_current_instance(), logging.INFO)
-        
+            print_log(
+                f"Series Filter: Abandon {len(dropped)}/{len(series_uids)}。",
+                MMLogger.get_current_instance(),
+                logging.INFO,
+            )
+            preview = "\n".join([f"  {u}: {r}" for u, r in dropped[:10]])
+            print_log(
+                f"示例(前10条):\n{preview}",
+                MMLogger.get_current_instance(),
+                logging.INFO,
+            )
+
         return kept
 
 
 class mgam_2D_MhaVolumeSlices(mgam_SeriesVolume):
     def sample_iterator(self) -> Generator[tuple[str, str], None, None]:
         for series in self._split():
-            series_folder = os.path.join(self.data_root, 'label' if self.mode=='sup' else 'image', series)
+            series_folder = os.path.join(
+                self.data_root, "label" if self.mode == "sup" else "image", series
+            )
             if not os.path.exists(series_folder):
-                print_log(f"{series} not found.\nFullPath: {series_folder}",
-                          MMLogger.get_current_instance(),
-                          logging.WARN)
+                print_log(
+                    f"{series} not found.\nFullPath: {series_folder}",
+                    MMLogger.get_current_instance(),
+                    logging.WARN,
+                )
                 continue
             for sample in os.listdir(series_folder):
                 if sample.endswith(self.img_suffix):
-                    yield (os.path.join(self.data_root, 'image', series, sample),
-                           os.path.join(self.data_root, 'label', series, sample))
+                    yield (
+                        os.path.join(self.data_root, "image", series, sample),
+                        os.path.join(self.data_root, "label", series, sample),
+                    )
 
 
 class mgam_SemiSup_3D_Mha(mgam_SeriesVolume):
@@ -220,9 +256,11 @@ class mgam_SemiSup_3D_Mha(mgam_SeriesVolume):
             image_mha_path = os.path.join(self.data_root, "image", series + ".mha")
             label_mha_path = os.path.join(self.data_root, "label", series + ".mha")
             if not os.path.exists(image_mha_path):
-                print_log(f"{series} image mha file not found.\nFullPath: {image_mha_path}",
-                          MMLogger.get_current_instance(),
-                          logging.WARN)
+                print_log(
+                    f"{series} image mha file not found.\nFullPath: {image_mha_path}",
+                    MMLogger.get_current_instance(),
+                    logging.WARN,
+                )
                 continue
             yield (image_mha_path, label_mha_path)
 
@@ -236,14 +274,18 @@ class mgam_SeriesPatched_Structure(mgam_SeriesVolume):
     def sample_iterator(self) -> Generator[tuple[str, str], None, None]:
         series_exist = os.listdir(self.data_root)
         series_avail = self._split()
-        
-        @deprecated(reason="The old patch method is deprecated, because it complicates the dataset structure.",
-                    version="3.3.0")
+
+        @deprecated(
+            reason="The old patch method is deprecated, because it complicates the dataset structure.",
+            version="3.3.0",
+        )
         def _sample_iterator_backward_compatibility():
-            for series in tqdm(series_exist,
-                            desc=f"Indexing {self.split} for {self.__class__.__name__}",
-                            leave=False,
-                            dynamic_ncols=True):
+            for series in tqdm(
+                series_exist,
+                desc=f"Indexing {self.split} for {self.__class__.__name__}",
+                leave=False,
+                dynamic_ncols=True,
+            ):
                 # series_id = series.split('_')
                 # if len(series_id) >= 3:
                 #     raise ValueError(
@@ -253,9 +295,12 @@ class mgam_SeriesPatched_Structure(mgam_SeriesVolume):
                 #     )
                 if series not in series_avail:
                     continue
-                if self.mode == "sup" and series not in self.precrop_meta["anno_available"]:
+                if (
+                    self.mode == "sup"
+                    and series not in self.precrop_meta["anno_available"]
+                ):
                     continue
-                
+
                 series_folder = os.path.join(self.data_root, series)
                 try:
                     with open(os.path.join(series_folder, "SeriesMeta.json"), "r") as f:
@@ -263,51 +308,72 @@ class mgam_SeriesPatched_Structure(mgam_SeriesVolume):
                 except FileNotFoundError:
                     print_log(f"{series} not found.", MMLogger.get_current_instance())
                     continue
-                
+
                 patch_npz_files = series_meta["class_within_patch"].keys()
-                for sample in [os.path.join(series_folder, file) 
-                            for file in patch_npz_files]:
-                    yield (os.path.join(series_folder, sample.replace('_label', '_image')),
-                        os.path.join(series_folder, sample))
-        
-        if 'image' in series_exist and 'label' in series_exist:
-            for series in tqdm(series_avail,
-                               desc=f"Indexing {self.split} for {self.__class__.__name__}",
-                               leave=False,
-                               dynamic_ncols=True):
-                if self.mode == "sup" and series not in self.precrop_meta["anno_available"]:
+                for sample in [
+                    os.path.join(series_folder, file) for file in patch_npz_files
+                ]:
+                    yield (
+                        os.path.join(series_folder, sample.replace("_label", "_image")),
+                        os.path.join(series_folder, sample),
+                    )
+
+        if "image" in series_exist and "label" in series_exist:
+            for series in tqdm(
+                series_avail,
+                desc=f"Indexing {self.split} for {self.__class__.__name__}",
+                leave=False,
+                dynamic_ncols=True,
+            ):
+                if (
+                    self.mode == "sup"
+                    and series not in self.precrop_meta["anno_available"]
+                ):
                     continue
-                
-                image_folder = os.path.join(self.data_root, 'image')
-                label_folder = os.path.join(self.data_root, 'label')
-                
+
+                image_folder = os.path.join(self.data_root, "image")
+                label_folder = os.path.join(self.data_root, "label")
+
                 # List all image files that match the current series UID
                 # Files are in format: <seriesUID>_<patchID>.mha (e.g., 1.3.6.1.4.1.9328.50.4.0095_p0.mha)
                 if not os.path.exists(image_folder):
-                    print_log(f"Image folder not found: {image_folder}", MMLogger.get_current_instance(), logging.WARN)
+                    print_log(
+                        f"Image folder not found: {image_folder}",
+                        MMLogger.get_current_instance(),
+                        logging.WARN,
+                    )
                     continue
-                
-                all_image_files = [f for f in os.listdir(image_folder) if f.endswith('.mha')]
-                
+
+                all_image_files = [
+                    f for f in os.listdir(image_folder) if f.endswith(".mha")
+                ]
+
                 # Filter files that belong to current series
-                series_image_files = [f for f in all_image_files if f.startswith(series + '_')]
-                
+                series_image_files = [
+                    f for f in all_image_files if f.startswith(series + "_")
+                ]
+
                 for image_filename in series_image_files:
                     image_path = os.path.join(image_folder, image_filename)
                     label_path = os.path.join(label_folder, image_filename)
-                    
+
                     # Check if corresponding label file exists (for sup mode)
                     if self.mode == "sup" and not os.path.exists(label_path):
-                        print_log(f"Label file not found for {image_filename}: {label_path}", 
-                                  MMLogger.get_current_instance(), logging.DEBUG)
+                        print_log(
+                            f"Label file not found for {image_filename}: {label_path}",
+                            MMLogger.get_current_instance(),
+                            logging.DEBUG,
+                        )
                         continue
-                    
+
                     yield (image_path, label_path)
-        
+
         else:
-            print_log("Dataset structure does not match the new expected format. Falling back to backward compatibility mode.",
-                      MMLogger.get_current_instance(),
-                      logging.WARNING)
+            print_log(
+                "Dataset structure does not match the new expected format. Falling back to backward compatibility mode.",
+                MMLogger.get_current_instance(),
+                logging.WARNING,
+            )
             _sample_iterator_backward_compatibility()
 
 
@@ -351,8 +417,11 @@ class mgam_concat_dataset(ConcatDataset):
         self._fully_initialized = False
         if not lazy_init:
             self.full_init()
-        
-        print_log(f"ConcatDataset loaded {len(self)} samples.", MMLogger.get_current_instance())
+
+        print_log(
+            f"ConcatDataset loaded {len(self)} samples.",
+            MMLogger.get_current_instance(),
+        )
 
 
 # --- Unsupervised Dataset ---

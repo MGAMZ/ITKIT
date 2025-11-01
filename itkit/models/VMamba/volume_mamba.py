@@ -17,7 +17,7 @@ import torch.nn as nn
 
 from selective_scan import selective_scan_fn
 import torch.utils.checkpoint
-from vmamba import mamba_init # pyright: ignore[reportMissingImports]
+from vmamba import mamba_init  # pyright: ignore[reportMissingImports]
 
 
 class MambaAggregator1D(nn.Module, mamba_init):
@@ -28,6 +28,7 @@ class MambaAggregator1D(nn.Module, mamba_init):
 
     Simplified from SS2Dv0 (single direction, no cross scanning).
     """
+
     def __init__(
         self,
         d_model: int,
@@ -66,11 +67,15 @@ class MambaAggregator1D(nn.Module, mamba_init):
         # optional depthwise conv over sequence length (implemented as 1D conv)
         self.use_conv = use_conv
         if use_conv:
-            self.dwconv = nn.Conv1d(d_inner, d_inner, kernel_size=3, padding=1, groups=d_inner, bias=True)
+            self.dwconv = nn.Conv1d(
+                d_inner, d_inner, kernel_size=3, padding=1, groups=d_inner, bias=True
+            )
 
         # parameter projections for SSM
         self.x_proj = nn.Linear(d_inner, self.dt_rank + 2 * d_state, bias=False)
-        self.dt_proj = self.dt_init(self.dt_rank, d_inner, dt_scale, dt_init, dt_min, dt_max, dt_init_floor)
+        self.dt_proj = self.dt_init(
+            self.dt_rank, d_inner, dt_scale, dt_init, dt_min, dt_max, dt_init_floor
+        )
         self.A_logs = self.A_log_init(d_state, d_inner, copies=1, merge=True)
         self.Ds = self.D_init(d_inner, copies=1, merge=True)
 
@@ -91,7 +96,9 @@ class MambaAggregator1D(nn.Module, mamba_init):
         x = self.act(x)
         x_seq = x.transpose(1, 2)  # (B,D,d_inner)
         x_dbl = self.x_proj(x_seq)  # (B,D,dt_rank+2*d_state)
-        dts, Bs, Cs = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=-1)
+        dts, Bs, Cs = torch.split(
+            x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=-1
+        )
         dts = self.dt_proj(dts)  # (B,D,d_inner)
 
         u = x  # (B,d_inner,D)
@@ -104,13 +111,13 @@ class MambaAggregator1D(nn.Module, mamba_init):
         dt_bias = self.dt_proj.bias.float()
 
         y = selective_scan_fn(
-            u,          # (B, d_inner, D)
-            delta,      # (B, d_inner, D)
-            As,         # (d_inner, d_state)
-            Bs,         # (B, 1, d_state, D)
-            Cs,         # (B, 1, d_state, D)
-            Ds,         # (d_inner,)
-            delta_bias = dt_bias,
+            u,  # (B, d_inner, D)
+            delta,  # (B, d_inner, D)
+            As,  # (d_inner, d_state)
+            Bs,  # (B, 1, d_state, D)
+            Cs,  # (B, 1, d_state, D)
+            Ds,  # (d_inner,)
+            delta_bias=dt_bias,
             delta_softplus=True,
         )  # (B, d_inner, D)
         y = y.transpose(1, 2)  # (B, D, d_inner)
@@ -129,7 +136,9 @@ class MambaAggregator1D(nn.Module, mamba_init):
 
 
 class SliceFeatureExtractor(nn.Module):
-    def __init__(self, backbone: torch.nn.Module, pool: str = "gap", use_torch_ckpt:bool=False):
+    def __init__(
+        self, backbone: torch.nn.Module, pool: str = "gap", use_torch_ckpt: bool = False
+    ):
         super().__init__()
         self.backbone = backbone
         self.pool = pool
@@ -137,26 +146,32 @@ class SliceFeatureExtractor(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, C, Z, Y, X = x.shape
-        slices = x.permute(0, 2, 1, 3, 4).reshape(B * Z, C, Y, X) # [N, C, Z, Y, X] -> [N*Z, C, Y, X]
-        
+        slices = x.permute(0, 2, 1, 3, 4).reshape(
+            B * Z, C, Y, X
+        )  # [N, C, Z, Y, X] -> [N*Z, C, Y, X]
+
         if self.use_torch_ckpt:
-            feats = torch.utils.checkpoint.checkpoint(self.backbone, slices, use_reentrant=False)  # list of [N*Z, latent, Y, X]
+            feats = torch.utils.checkpoint.checkpoint(
+                self.backbone, slices, use_reentrant=False
+            )  # list of [N*Z, latent, Y, X]
         else:
             feats = self.backbone(slices)  # list of [N*Z, latent, Y, X]
         if isinstance(feats, (list, tuple)):
             f = feats[-1]
         else:
             f = feats
-        
+
         _, C, Y, X = f.shape
-        
-        f = f.reshape(B, Z, C, Y, X).permute(0, 2, 1, 3, 4)  # [N*Z, C, Y, X] -> [N, C, Z, Y, X]
-        if self.pool == 'gap':
+
+        f = f.reshape(B, Z, C, Y, X).permute(
+            0, 2, 1, 3, 4
+        )  # [N*Z, C, Y, X] -> [N, C, Z, Y, X]
+        if self.pool == "gap":
             f = f.mean(dim=[-1, -2])
         else:
             raise ValueError(f"Unsupported pool {self.pool}")
-        
-        return f # [N, C, Z]
+
+        return f  # [N, C, Z]
 
 
 class VolumeVSSM(nn.Module):
@@ -170,22 +185,25 @@ class VolumeVSSM(nn.Module):
 
     Input shape: (B,C,D,H,W); assuming B=1 currently.
     """
+
     def __init__(
         self,
         slice_extractor_backbone: torch.nn.Module,
         aggregator: MambaAggregator1D,
-        use_torch_ckpt: bool = False
+        use_torch_ckpt: bool = False,
     ):
         super().__init__()
-        self.slice_extractor = SliceFeatureExtractor(slice_extractor_backbone, use_torch_ckpt=use_torch_ckpt)
+        self.slice_extractor = SliceFeatureExtractor(
+            slice_extractor_backbone, use_torch_ckpt=use_torch_ckpt
+        )
         self.embed_dims = self.slice_extractor.backbone.dims
         self.aggregator = aggregator
 
     def forward(self, vol: torch.Tensor):
-        assert vol.dim() == 5, 'Volume must be (B,C,D,H,W)'
+        assert vol.dim() == 5, "Volume must be (B,C,D,H,W)"
         B, C, D, H, W = vol.shape
-        
+
         slice_emb = self.slice_extractor(vol)  # return: [B, C, Z]
-        vol_emb = self.aggregator(slice_emb.permute(0,2,1))  # (B, C_out)
-        
-        return (vol_emb, )
+        vol_emb = self.aggregator(slice_emb.permute(0, 2, 1))  # (B, C_out)
+
+        return (vol_emb,)

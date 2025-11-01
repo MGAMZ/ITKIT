@@ -20,7 +20,6 @@ from ..io.sitk_toolkit import (
 from ..io.dcm_toolkit import read_dcm_as_sitk
 
 
-
 class StandardFileFormatter:
     def __init__(self) -> None:
         self.args = self.argparse().parse_args()
@@ -36,8 +35,16 @@ class StandardFileFormatter:
     def convert_one_sample(self, args):
         image_path, label_path, dest_folder, series_id, spacing, size = args
         convertion_log = {
-            "img": os.path.relpath(image_path, self.args.data_root) if image_path is not None else None,
-            "ann": os.path.relpath(label_path, self.args.data_root) if label_path is not None else None,
+            "img": (
+                os.path.relpath(image_path, self.args.data_root)
+                if image_path is not None
+                else None
+            ),
+            "ann": (
+                os.path.relpath(label_path, self.args.data_root)
+                if label_path is not None
+                else None
+            ),
             "id": series_id,
         }
 
@@ -49,17 +56,23 @@ class StandardFileFormatter:
         os.makedirs(output_image_folder, exist_ok=True)
         os.makedirs(output_label_folder, exist_ok=True)
         if os.path.exists(output_image_mha_path):
-            if label_path is None \
-            or os.path.exists(output_label_mha_path) \
-            or not os.path.exists(label_path):
+            if (
+                label_path is None
+                or os.path.exists(output_label_mha_path)
+                or not os.path.exists(label_path)
+            ):
                 return convertion_log
 
         try:
             input_image_mha, input_label_mha = None, None
             if isinstance(image_path, str) and ".dcm" in image_path:
-                input_image_mha, input_label_mha = self.convert_one_sample_dcm(image_path, label_path)
+                input_image_mha, input_label_mha = self.convert_one_sample_dcm(
+                    image_path, label_path
+                )
             elif ".nii" in image_path:
-                input_image_mha, input_label_mha = self.convert_one_sample_nii(image_path, label_path)
+                input_image_mha, input_label_mha = self.convert_one_sample_nii(
+                    image_path, label_path
+                )
             if input_image_mha is None:
                 convertion_log["id"] = "error"
                 convertion_log["error"] = "No image found."
@@ -68,7 +81,9 @@ class StandardFileFormatter:
             # resample
             if spacing is not None:
                 assert size is None, "Cannot set both spacing and size."
-                input_image_mha = sitk_resample_to_spacing(input_image_mha, spacing, "image")
+                input_image_mha = sitk_resample_to_spacing(
+                    input_image_mha, spacing, "image"
+                )
                 if not isinstance(input_image_mha, sitk.Image):
                     convertion_log["id"] = "error"
                     convertion_log["error"] = "Resample to spacing failed."
@@ -80,30 +95,35 @@ class StandardFileFormatter:
 
             # Align label to image, if label exists.
             if input_label_mha is not None and os.path.exists(label_path):
-                input_label_mha = sitk_resample_to_image(input_label_mha, input_image_mha, "label")
+                input_label_mha = sitk_resample_to_image(
+                    input_label_mha, input_image_mha, "label"
+                )
 
-            input_image_mha = sitk.DICOMOrient(input_image_mha, 'LPI')
+            input_image_mha = sitk.DICOMOrient(input_image_mha, "LPI")
             sitk.WriteImage(input_image_mha, output_image_mha_path, useCompression=True)
             if input_label_mha is not None and os.path.exists(label_path):
-                assert (input_image_mha.GetSize() == input_label_mha.GetSize()), \
-                    f"Image {input_image_mha.GetSize()} and label {input_label_mha.GetSize()} size mismatch."
-                input_label_mha = sitk.DICOMOrient(input_label_mha, 'LPI')
-                sitk.WriteImage(input_label_mha, output_label_mha_path, useCompression=True)
-        
+                assert (
+                    input_image_mha.GetSize() == input_label_mha.GetSize()
+                ), f"Image {input_image_mha.GetSize()} and label {input_label_mha.GetSize()} size mismatch."
+                input_label_mha = sitk.DICOMOrient(input_label_mha, "LPI")
+                sitk.WriteImage(
+                    input_label_mha, output_label_mha_path, useCompression=True
+                )
+
         except Exception as e:
             convertion_log["id"] = "error"
             convertion_log["error"] = str(e)
             error_info = f"SeriesUID{series_id} | " + str(e)
             convertion_log["Unknown_error_detail"] = error_info
             print(error_info)
-        
+
         return convertion_log
-    
+
     @staticmethod
-    def convert_one_sample_dcm(image_path:str, label_path:str):
+    def convert_one_sample_dcm(image_path: str, label_path: str):
         input_image_dcms, input_image_mha = read_dcm_as_sitk(image_path)
         return input_image_mha, None
-    
+
     @staticmethod
     def convert_one_sample_nii(image_path, label_path):
         if image_path is not None and os.path.exists(image_path):
@@ -136,25 +156,41 @@ class StandardFileFormatter:
             ):
                 result = self.convert_one_sample(args)
                 per_sample_log.append(result)
-        
+
         convertion_log = {
             "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "data_root": self.args.data_root, 
+            "data_root": self.args.data_root,
             "dest_root": self.args.dest_root,
             "spacing": self.args.spacing,
             "size": self.args.size,
             "per_sample_log": per_sample_log,
         }
-        json.dump(convertion_log, open(os.path.join(self.args.dest_root, "convertion_log.json"), "w"), indent=4)
-        print(f"Converted {len(per_sample_log)} series. Saved to {self.args.dest_root}.")
+        json.dump(
+            convertion_log,
+            open(os.path.join(self.args.dest_root, "convertion_log.json"), "w"),
+            indent=4,
+        )
+        print(
+            f"Converted {len(per_sample_log)} series. Saved to {self.args.dest_root}."
+        )
 
     def argparse(self) -> argparse.ArgumentParser:
-        parser = argparse.ArgumentParser(description="Convert all NIfTI files in a directory to MHA format.")
+        parser = argparse.ArgumentParser(
+            description="Convert all NIfTI files in a directory to MHA format."
+        )
         parser.add_argument("data_root", type=str, help="Containing NIfTI files.")
         parser.add_argument("dest_root", type=str, help="Save MHA files.")
         parser.add_argument("--mp", action="store_true", help="Use multiprocessing.")
-        parser.add_argument("--spacing", type=float, nargs=3, default=None, help="Resample to this spacing.")
-        parser.add_argument("--size", type=int, nargs=3, default=None, help="Crop to this size.")
+        parser.add_argument(
+            "--spacing",
+            type=float,
+            nargs=3,
+            default=None,
+            help="Resample to this spacing.",
+        )
+        parser.add_argument(
+            "--size", type=int, nargs=3, default=None, help="Crop to this size."
+        )
         return parser
 
 
@@ -210,7 +246,7 @@ class format_from_unsup_datasets(StandardFileFormatter):
     MINIMUM_DCM_SLICES = 30
 
     @staticmethod
-    def _series_id(image_path: str|None, label_path: str|None) -> str:
+    def _series_id(image_path: str | None, label_path: str | None) -> str:
         raise NotImplementedError("Unsup dataset requires no series_id")
 
     def tasks(self) -> list:
@@ -218,8 +254,12 @@ class format_from_unsup_datasets(StandardFileFormatter):
         id = 0
         deprecated_dcm = 0
         for root, dirs, files in tqdm(os.walk(self.args.data_root), desc="Searching"):
-            dcm_files = [f for f in files if f.lower().endswith('.dcm')]
-            nii_files = [f for f in files if f.lower().endswith('.nii') or f.lower().endswith('.nii.gz')]
+            dcm_files = [f for f in files if f.lower().endswith(".dcm")]
+            nii_files = [
+                f
+                for f in files
+                if f.lower().endswith(".nii") or f.lower().endswith(".nii.gz")
+            ]
 
             # dcm files
             if len(dcm_files) >= self.MINIMUM_DCM_SLICES:
@@ -244,7 +284,9 @@ class format_from_unsup_datasets(StandardFileFormatter):
             for nii in nii_files:
                 nii_path = os.path.join(root, nii)
                 tqdm.write(f"Found available nii file: {nii_path}")
-                label_path = nii_path.replace("image", "label").replace("_0000.nii.gz", ".nii.gz")
+                label_path = nii_path.replace("image", "label").replace(
+                    "_0000.nii.gz", ".nii.gz"
+                )
                 task_list.append(
                     (
                         nii_path,
@@ -257,7 +299,9 @@ class format_from_unsup_datasets(StandardFileFormatter):
                 )
                 id += 1
 
-        print(f"Total {len(task_list)+deprecated_dcm} series, "
-              f"among which {len(task_list)} available series, "
-              f"{deprecated_dcm} deprecated dcms series.")
+        print(
+            f"Total {len(task_list)+deprecated_dcm} series, "
+            f"among which {len(task_list)} available series, "
+            f"{deprecated_dcm} deprecated dcms series."
+        )
         return task_list
