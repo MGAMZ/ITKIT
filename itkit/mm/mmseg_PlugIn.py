@@ -128,6 +128,13 @@ class IoUMetric_PerClass(IoUMetric):
 
         return metrics
 
+    @staticmethod
+    def intersect_and_union(pred_label: torch.Tensor, label: torch.Tensor,
+                            num_classes: int, ignore_index: int):
+        pred_label = pred_label.to(device='cpu', dtype=torch.uint8)
+        label = label.to(device='cpu', dtype=torch.uint8)
+        return super(IoUMetric_PerClass).intersect_and_union(pred_label, label, num_classes, ignore_index)
+
 
 class PackSegInputs(BaseTransform):
     """Pack the inputs data for the semantic segmentation.
