@@ -53,6 +53,11 @@ dev = [
   "types-openpyxl",
   "pandas-stubs",
   "scipy-stubs",
+  "pyright",
+  "autopep8",
+  "black",
+  "isort",
+  "mypy",
 ]
 nvidia = [
   "onnx",
@@ -98,3 +103,6 @@ include = ["itkit*"]
 [tool.mypy]
 ignore_missing_imports = true
 disable_error_code = ["misc", "override", "assignment", "union-attr", "has-type", "attr-defined", "union-attr", "var-annotated"]
+
+[tool.pyright]
+reportMissingImports = false
