@@ -14,11 +14,11 @@ class FLARE2022_formatter(StandardFileFormatter):
         return os.path.join(self.args.data_root, "Training", "FLARE_LabeledCase50")
     
     @staticmethod
-    def _series_id(image_path, label_path:str|None):
+    def _series_id(image_path: str, label_path:str|None):
         return os.path.basename(image_path).replace("_0000.nii.gz", "").replace("Case_", "")
     
     def tasks(self) -> list:
-        task_list = []
+        task_list: list[tuple] = []
         
         for unsup_folders in self._unsup_folders:
             for series_name in os.listdir(unsup_folders):

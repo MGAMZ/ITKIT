@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 from collections import namedtuple
-#import cupy
+import cupy
 from string import Template
 
 

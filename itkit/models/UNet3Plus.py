@@ -120,6 +120,7 @@ class UNet3Plus(nn.Module):
         )
 
         # Classification Guided Module
+        self.cgm: nn.Sequential | None
         if self.CGM:
             self.cgm = nn.Sequential(
                 nn.Dropout(0.5),
@@ -171,6 +172,7 @@ class UNet3Plus(nn.Module):
         self.final = Conv(self.upsample_channels, output_channels, kernel_size=1)
 
         # Deep Supervision
+        self.deep_sup: nn.ModuleList | None
         if self.deep_supervision:
             self.deep_sup = nn.ModuleList([
                 ConvBlock(self.upsample_channels, output_channels, n=1, is_bn=False, is_relu=False, dim=dim)
@@ -180,7 +182,7 @@ class UNet3Plus(nn.Module):
         else:
             self.deep_sup = None
 
-    def _maybe_checkpoint(self, func, *args):
+    def _maybe_checkpoint(self, func, *args) -> torch.Tensor:
         """使用torch的checkpoint机制来节省内存"""
         if self.use_torch_checkpoint:
             return checkpoint(func, *args)

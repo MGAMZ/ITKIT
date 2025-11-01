@@ -44,7 +44,7 @@ Above all, the `process` module is the core of this repo, providing several comm
 
 ### From PyPI
 
-Just run: `pip install itkit[medical_vision]`
+Just run: `pip install itkit`
 
 ### From GitHub Repo
 
@@ -57,14 +57,14 @@ git clone https://gitee.com/MGAM/ITKIT.git
 Then, install the package:
 
 ```bash
-pip install ITKIT[medical_vision]
+pip install ITKIT
 ```
 
 Optional dependencies:
 
 - dev: for development and testing
 - nvidia: onnx, tensorrt.
-- medical_vision: pathology and dicom IO.
+- pathology: pathology IO.
 - pytorch: if you want to use the lightning extension. *Note that this dependency does not include `torch` itself, please install it separately according to your system and CUDA version.*
 - mm: if you want to use with OpenMMLab.
 - gui: if you want to use the PyQt6 GUI app.

@@ -83,9 +83,3 @@ def merge_masks(nii_paths: list[str],
         raise ValueError("No mask found in the provided paths")
     
     return merged_mask.astype(dtype)
-
-
-
-if __name__ == "__main__":
-    nii_path = '/fileser51/zhangyiqin.sx/Totalsegmentator_Data/Totalsegmentator_dataset_v201/s0000/ct.nii.gz'
-    sitk_img = convert_nii_sitk(nii_path)

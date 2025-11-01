@@ -86,7 +86,6 @@ class SelfAttention(nn.Module):
             kv = kv.view(B, N, 2, self.num_heads, self.attention_head_dim).permute(2, 0, 3, 1, 4)
 
         # k, v shape: (B, num_heads, N_kv, head_dim)
-        kv: torch.Tensor
         k, v = kv.unbind(0)
 
         if self.use_SDPA:

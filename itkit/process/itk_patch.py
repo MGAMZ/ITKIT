@@ -91,6 +91,7 @@ class PatchProcessor(DatasetProcessor):
         self.keep_empty_label_prob = keep_empty_label_prob
         self.still_save = still_save
         # Prepare global image/ and label/ output directories under destination
+        assert self.dest_folder is not None
         self.image_dir = Path(self.dest_folder) / "image"
         self.label_dir = Path(self.dest_folder) / "label"
         self.image_dir.mkdir(parents=True, exist_ok=True)
@@ -117,7 +118,7 @@ class PatchProcessor(DatasetProcessor):
                         minimum_foreground_ratio: float,
                         still_save_when_no_label: bool) -> list[tuple[sitk.Image, sitk.Image | None]]:
         # Simplified version
-        no_label = (label is None)
+        no_label = label is None
         img_arr = sitk.GetArrayFromImage(image)
         if no_label:
             lbl_arr = None
@@ -160,6 +161,7 @@ class PatchProcessor(DatasetProcessor):
                             save = False
                         lbl_patch_np = None
                     else:
+                        assert lbl_arr is not None
                         lbl_patch_np = lbl_arr[z:z+pZ, y:y+pY, x:x+pX]
                         fg_ratio = np.sum(lbl_patch_np > 0) / lbl_patch_np.size
                         if (fg_ratio < minimum_foreground_ratio):
@@ -181,6 +183,7 @@ class PatchProcessor(DatasetProcessor):
                         if no_label:
                             lbl_patch = None
                         else:
+                            assert lbl_patch_np is not None
                             lbl_patch = sitk.GetImageFromArray(lbl_patch_np)
                             lbl_patch.SetOrigin(new_origin)
                             lbl_patch.SetSpacing(spacing)

@@ -1,3 +1,4 @@
+from typing import Any
 import random, pdb, math, warnings
 from numbers import Number
 from collections.abc import Sequence
@@ -454,7 +455,7 @@ class RandomCrop3D(BaseTransform):
         self.std_threshold = std_threshold
         self.ignore_index = ignore_index
 
-    def crop_bbox(self, results: dict) -> tuple | None:
+    def crop_bbox(self, results: dict) -> tuple:
         """get a crop bounding box.
 
         Args:
@@ -489,11 +490,12 @@ class RandomCrop3D(BaseTransform):
         img = results["img"]
         ann = results["gt_seg_map"]
         
+        ccm_check_ = None
+        std_check_ = None
+        
         # crop the volume
         for _ in range(self.CROP_RETRY):
             crop_bbox = generate_crop_bbox(img)
-            ccm_check_ = None
-            std_check_ = None
             
             # crop check: category max ratio
             if self.cat_max_ratio is not None and self.cat_max_ratio < 1.0:
@@ -515,12 +517,13 @@ class RandomCrop3D(BaseTransform):
             return crop_bbox
         
         else:
-            warnings.warn(Fore.YELLOW + \
-                          f"Cannot find a valid crop bbox after {self.CROP_RETRY+1} trials. " + \
-                          f"Last check result: ccm_check={ccm_check_}, std_check={std_check_}." + \
-                          Style.RESET_ALL)
-            return None
-        
+            raise RuntimeError(
+                Fore.YELLOW + \
+                f"Cannot find a valid crop bbox after {self.CROP_RETRY+1} trials. " + \
+                f"Last check result: ccm_check={ccm_check_}, std_check={std_check_}." + \
+                Style.RESET_ALL
+            )
+
     def crop(self, img: np.ndarray, crop_bbox: tuple) -> np.ndarray:
         """Crop from ``img``
 
@@ -909,7 +912,7 @@ class RandomRotate3D_GPU:
 
         return F.affine_grid(theta, size=(N, C, Z, Y, X), align_corners=True)  # [N,Z,Y,X,3]
 
-    def warp(self, x:torch.Tensor, grid:torch.Tensor, interp_mode:str) -> tuple[torch.Tensor, torch.Tensor]:
+    def warp(self, x:torch.Tensor, grid:torch.Tensor, interp_mode:str):
         if x.ndim != 5:
             raise ValueError(f"image and label must be [N,C,Z,Y,X], got {x.shape}")
         dtype_in = x.dtype
@@ -951,7 +954,7 @@ class RandomPatch3D(BaseTransform):
         self.patch_size = patch_size
         self.keys = keys
     
-    def transform(self, results:dict[str, np.ndarray]):
+    def transform(self, results:dict[str, Any]):
         """Randomly crop a patch from the 3D volume
         
         Args:

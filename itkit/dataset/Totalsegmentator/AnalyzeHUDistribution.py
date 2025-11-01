@@ -6,8 +6,7 @@ import numpy as np
 import SimpleITK as sitk
 import pandas as pd
 
-from itkit.dataset.Totalsegmentator.meta import (
-    META_CSV_PATH, CLASS_INDEX_MAP)
+from itkit.dataset.Totalsegmentator.meta import CLASS_INDEX_MAP
 
 
 

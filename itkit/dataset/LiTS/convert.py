@@ -15,13 +15,14 @@ class LiTSFormatter(StandardFileFormatter):
     def _series_id(image_path: str | None, label_path: str | None) -> str:
         """Extract numeric ID from filename: volume-123.nii -> 123"""
         path = image_path or label_path
+        assert path is not None, "Either image_path or label_path must be provided."
         basename = os.path.basename(path)
         # Remove 'volume-' or 'segmentation-' prefix and file extension
         name = basename.replace("volume-", "").replace("segmentation-", "")
         name = name.replace(".nii.gz", "").replace(".nii", "")
         return name
 
-    def tasks(self) -> list[tuple[str | None, str | None, str, str, tuple[float, float, float] | None, tuple[int, int, int] | None]]:
+    def tasks(self):
         spacing = tuple(self.args.spacing) if self.args.spacing else None
         size = tuple(self.args.size) if self.args.size else None
         task_list = []

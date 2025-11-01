@@ -30,7 +30,7 @@ class StandardFileFormatter:
         """Return a list of args for `convert_one_sample`."""
 
     @staticmethod
-    def _series_id(image_path: str|None, label_path: str|None) -> str:
+    def _series_id(image_path, label_path):
         return os.path.basename(label_path).replace(".nii.gz", "")
 
     def convert_one_sample(self, args):

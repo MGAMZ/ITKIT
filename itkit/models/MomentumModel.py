@@ -21,7 +21,7 @@ class MomentumAvgModel(torch.nn.Module):
         
         # For DeepSpeed, get the full underlying model parameters
         if self.is_deepspeed:
-            with model.module.summon_full_params():
+            with model.module.summon_full_params(): # pyright: ignore
                 self.module = copy.deepcopy(model.module).requires_grad_(False)
         else:
             target_model = model.module if self.is_distributed else model

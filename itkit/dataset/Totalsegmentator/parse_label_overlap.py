@@ -6,12 +6,9 @@ from tqdm import tqdm
 import numpy as np
 import nibabel as nib
 
-from itkit.dataset.Totalsegmentator.meta import DATA_ROOT
 
-
-
-def load_case_data(case_name):
-    case_path = os.path.join(DATA_ROOT, case_name)
+def load_case_data(data_root:str, case_name:str):
+    case_path = os.path.join(data_root, case_name)
     if not os.path.exists(case_path):
         raise FileNotFoundError(f"Case path {case_path} does not exist.")
     
@@ -73,10 +70,3 @@ def calculate_overlap(segmentations):
                 overlap_classes[index].append(class_name)
     
     return overlap_matrix, overlap_classes
-
-
-
-if __name__ == '__main__':
-    sample = load_case_data('s0000')
-    overlap_matrix = calculate_overlap(sample['segmentations'])
-    pdb.set_trace()
