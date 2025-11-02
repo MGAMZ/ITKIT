@@ -31,8 +31,8 @@ class ValidationMixin:
         """
         self.cfg = cfg
         self.mode = mode
-        self.invalid: list[tuple[str, str, str]] = []  # List of (name, reasons, paths)
-        self.valid_items: list[tuple[str, str]] = []  # List of (name, paths)
+        self.invalid: list[tuple[str,str,str]] = []  # List of (name, reasons, paths)
+        self.valid_items: list[tuple[str,str]] = []  # List of (name, paths)
 
     def validate_sample_metadata(
         self, size: list[int], spacing: list[float]
@@ -215,9 +215,7 @@ class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
         mp: bool = False,
         workers: int | None = None,
     ):
-        DatasetProcessor.__init__(
-            self, source_folder, dest_folder=None, mp=mp, workers=workers
-        )
+        DatasetProcessor.__init__(self, source_folder, dest_folder=None, mp=mp, workers=workers)
         ValidationMixin.__init__(self, cfg, mode)
         self.output_dir = output_dir
 
@@ -225,7 +223,7 @@ class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
         """Process one image/label pair"""
         img_path, lbl_path = args
         name = os.path.basename(img_path)
-
+        
         try:
             lbl = sitk.ReadImage(lbl_path)
             size = list(lbl.GetSize()[::-1])
@@ -237,9 +235,7 @@ class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
                 self.valid_items.append((name, (img_path, lbl_path)))
             return SeriesMetadata.from_sitk_image(lbl, name)
         except Exception as e:
-            self.invalid.append(
-                (name, [f"Failed to read: {str(e)}"], (img_path, lbl_path))
-            )
+            self.invalid.append((name, [f"Failed to read: {str(e)}"], (img_path, lbl_path)))
             return None
 
     def process(self, desc: str = "Checking"):
@@ -252,7 +248,7 @@ class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
             meta_path = get_series_meta_path(self.source_folder)
             os.remove(meta_path)
             series_meta = None
-
+            
         if series_meta is not None:
             print("Found existing series_meta.json, performing fast check.")
             items = self.get_items_to_process()
@@ -264,7 +260,7 @@ class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
 
         # Execute operations based on mode
         self.execute_operation(self.output_dir)
-
+        
         # Save metadata to source folder in check mode
         if not self.output_dir:
             meta_path = get_series_meta_path(self.source_folder)
@@ -284,12 +280,7 @@ class SingleCheckProcessor(SingleFolderProcessor, ValidationMixin):
         workers: int | None = None,
     ):
         SingleFolderProcessor.__init__(
-            self,
-            source_folder,
-            dest_folder=None,
-            mp=mp,
-            workers=workers,
-            recursive=False,
+            self, source_folder, dest_folder=None, mp=mp, workers=workers, recursive=False
         )
         ValidationMixin.__init__(self, cfg, mode)
         self.output_dir = output_dir
@@ -297,18 +288,18 @@ class SingleCheckProcessor(SingleFolderProcessor, ValidationMixin):
     def process_one(self, img_path: str) -> SeriesMetadata | None:
         """Process one image file"""
         name = os.path.basename(img_path)
-
+        
         try:
             img = sitk.ReadImage(img_path)
             size = list(img.GetSize()[::-1])
             spacing = list(img.GetSpacing()[::-1])
             reasons = self.validate_sample_metadata(size, spacing)
-
+            
             if reasons:
                 self.invalid.append((name, reasons, img_path))
             else:
                 self.valid_items.append((name, img_path))
-
+            
             # Always return metadata if image can be read
             return SeriesMetadata.from_sitk_image(img, name)
         except Exception as e:
@@ -330,7 +321,7 @@ class SingleCheckProcessor(SingleFolderProcessor, ValidationMixin):
 
         # Execute operations based on mode
         self.execute_operation(self.output_dir)
-
+        
         # Save metadata to source folder in check mode
         if not self.output_dir:
             meta_path = get_series_meta_path(self.source_folder)
@@ -339,8 +330,8 @@ class SingleCheckProcessor(SingleFolderProcessor, ValidationMixin):
 
 def detect_processor_type(source_folder: str) -> ProcessorType:
     """Detect processor type based on folder structure"""
-    img_dir = os.path.join(source_folder, "image")
-    lbl_dir = os.path.join(source_folder, "label")
+    img_dir = os.path.join(source_folder, 'image')
+    lbl_dir = os.path.join(source_folder, 'label')
     if os.path.isdir(img_dir) and os.path.isdir(lbl_dir):
         return ProcessorType.DATASET
     else:
@@ -456,12 +447,12 @@ def main():
 
     # Create processor and run
     processor = CheckProcessor(
-        source_folder=args.sample_folder,
-        cfg=cfg,
-        mode=args.mode,
-        output_dir=args.output,
-        mp=args.mp,
-        workers=args.workers,
+        source_folder = args.sample_folder,
+        cfg = cfg,
+        mode = args.mode,
+        output_dir = args.output,
+        mp = args.mp,
+        workers = args.workers,
     )
 
     # Process and save metadata

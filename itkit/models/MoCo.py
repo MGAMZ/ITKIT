@@ -23,25 +23,26 @@ from ..mm.mmseg_Dev3D import PixelUnshuffle1D, PixelUnshuffle3D
 from .SelfSup import AutoEncoderSelfSup, VoxelData
 
 
-class MoCoDataSample(mmengine.structures.BaseDataElement):
-    def set_view1(self, value: Tensor):
-        self.set_field(value, "view1", dtype=VoxelData)
 
-    def set_view2(self, value: Tensor):
-        self.set_field(value, "view2", dtype=VoxelData)
+class MoCoDataSample(mmengine.structures.BaseDataElement):
+    def set_view1(self, value:Tensor):
+        self.set_field(value, 'view1', dtype=VoxelData)
+
+    def set_view2(self, value:Tensor):
+        self.set_field(value, 'view2', dtype=VoxelData)
 
 
 class PackMoCoInput(BaseTransform):
-    def __init__(self, fp16: bool = False) -> None:
+    def __init__(self, fp16:bool = False) -> None:
         self.fp16 = fp16
-
-    def transform(self, results: dict):
-        assert len(results["img"]) == 2
-        inputs = [torch.from_numpy(view) for view in results["img"]]
+    
+    def transform(self, results:dict):
+        assert len(results['img']) == 2
+        inputs = [torch.from_numpy(view) for view in results['img']]
         datasample = MoCoDataSample(
             view_1=VoxelData(data=inputs[0]),
             view_2=VoxelData(data=inputs[1]),
-            metainfo={"sample_file_path": results["img_path"]},
+            metainfo={"sample_file_path": results['img_path']},
         )
         if self.fp16:
             inputs = [inp.half() for inp in inputs]
@@ -139,17 +140,16 @@ class MoCoV3Head_WithAcc(BaseModule):
 
 
 class MoCoV3(AutoEncoderSelfSup):
-    def __init__(
-        self,
-        base_momentum: float = 0.01,
-        backbone_checkpoint: bool = False,
-        *args,
-        **kwargs,
-    ) -> None:
+    def __init__(self, 
+                 base_momentum: float = 0.01, 
+                 backbone_checkpoint: bool = False,
+                 *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.base_momentum = base_momentum
         self.backbone_checkpoint = backbone_checkpoint
-        self.momentum_encoder = CosineEMA(self.whole_model_, momentum=base_momentum)
+        self.momentum_encoder = CosineEMA(
+            self.whole_model_, momentum=base_momentum
+        )
 
     @staticmethod
     def calc_acc(logits: Tensor, labels: Tensor) -> Tensor:
@@ -167,10 +167,10 @@ class MoCoV3(AutoEncoderSelfSup):
         return acc.unsqueeze(0)
 
     def loss(
-        self,
-        inputs: list[Tensor],
-        data_samples: list[DataSample] | None = None,
-        **kwargs,
+        self, 
+        inputs: list[Tensor], 
+        data_samples: list[DataSample]|None = None, 
+        **kwargs
     ) -> dict[str, Tensor]:
         """The forward function in training.
 
@@ -185,8 +185,8 @@ class MoCoV3(AutoEncoderSelfSup):
         assert isinstance(inputs, list)
 
         if self.backbone_checkpoint:
-            q1 = torch_ckpt(self.whole_model_, inputs[0])[0]  # type:ignore
-            q2 = torch_ckpt(self.whole_model_, inputs[1])[0]  # type:ignore
+            q1 = torch_ckpt(self.whole_model_, inputs[0])[0]    # type:ignore
+            q2 = torch_ckpt(self.whole_model_, inputs[1])[0]    # type:ignore
         else:
             q1 = self.whole_model_(inputs[0])[0]
             q2 = self.whole_model_(inputs[1])[0]

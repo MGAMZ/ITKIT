@@ -11,26 +11,23 @@ import numpy as np
 import SimpleITK as sitk
 
 
+
 STANDARD_DIRECTION = [1, 0, 0, 0, 1, 0, 0, 0, 1]
 STANDARD_ORIGIN = [0, 0, 0]
 PIXEL_TYPE = lambda field: sitk.sitkInt16 if field == "image" else sitk.sitkUInt8
-INTERPOLATOR = lambda field: (
-    sitk.sitkLinear if field == "image" else sitk.sitkNearestNeighbor
-)
+INTERPOLATOR = lambda field: sitk.sitkLinear if field == "image" else sitk.sitkNearestNeighbor
 
 
-def sitk_resample_to_spacing(
-    mha: sitk.Image,
-    spacing: list[float],
-    field: Literal["image", "label"],
-    interp_method=None,
-):
+def sitk_resample_to_spacing(mha:sitk.Image, 
+                             spacing: list[float], 
+                             field: Literal["image", "label"],
+                             interp_method=None):
     """Resample an image to a new spacing.
 
     Args:
         mha (sitk.Image): input image.
         spacing (tuple[float,float,float]): new spacing at [Z,Y,X] order.
-        field (str, optional):
+        field (str, optional): 
             Processing field, Literal['image', 'label', 'mask'].
             The parameter will affect the interpolation method and the output format.
         standardize (bool, optional): Whether to reset origin and direction. Defaults to False.
@@ -41,7 +38,7 @@ def sitk_resample_to_spacing(
     assert field in ["image", "label"], "field must be one of ['image', 'label']"
     assert len(spacing) == 3, f"Spacing must be a 3-tuple, got {spacing}"
 
-    # Calculate the resampled spacing.
+    # Calculate the resampled spacing. 
     # The `None` values will be filled with original spacing.
     spacing = spacing[::-1]
     original_spacing = mha.GetSpacing()
@@ -49,19 +46,17 @@ def sitk_resample_to_spacing(
         if spacing[i] == -1:
             spacing[i] = original_spacing[i]
         else:
-            assert (
-                spacing[i] > 0
-            ), f"Spacing must be positive or -1 (Not Changed), but got {spacing}"
+            assert spacing[i] > 0, f"Spacing must be positive or -1 (Not Changed), but got {spacing}"
 
     # Skip if original spacing is equal to target spacing
     if original_spacing == spacing:
         return mha
-
+    
     # Calculate the resampled size, required by `sitk.Resample` API.
     original_size = mha.GetSize()
     spacing_ratio = [original_spacing[i] / spacing[i] for i in range(3)]
     resampled_size = [int(original_size[i] * spacing_ratio[i]) for i in range(3)]
-
+    
     # Execute
     try:
         return sitk.Resample(
@@ -91,7 +86,7 @@ def sitk_resample_to_image(
     reference_image: sitk.Image,
     field: Literal["image", "label"],
     default_value=0.0,
-    interp_method=None,
+    interp_method=None
 ):
     """Resample a sitk.Image to align with a reference sitk.Image.
 
@@ -117,7 +112,10 @@ def sitk_resample_to_image(
 
 
 def sitk_resample_to_size(
-    image, new_size: list[float], field: Literal["image", "label"], interp_method=None
+    image,
+    new_size: list[float],
+    field: Literal["image", "label"],
+    interp_method=None
 ):
     """Resample a sitk.Image to a new size.
 
@@ -125,32 +123,30 @@ def sitk_resample_to_size(
         image (sitk.Image): Input image.
         new_size (list[float]): New size [Z, Y, X]; use -1 to keep original for a dimension.
         field (str, optional): Processing target, choose from 'image', 'label', 'mask'. Determines interpolation and output pixel type.
-        interp_method: Custom interpolation method (overrides default).
+        interp_method: Custom interpolation method (overrides default). 
 
     Returns:
         sitk.Image: Resampled sitk.Image.
     """
     assert len(new_size) == 3, f"Size must be a 3-tuple, got {new_size}"
-
+    
     new_size = new_size[::-1]
     original_size = image.GetSize()
     for i in range(3):
         if new_size[i] == -1:
             new_size[i] = original_size[i]
         else:
-            assert (
-                new_size[i] > 0
-            ), f"Size must be positive or -1 (Not Changed), but got {new_size}"
-
+            assert new_size[i] > 0, f"Size must be positive or -1 (Not Changed), but got {new_size}"
+    
     if new_size == original_size:
         return image
-
+    
     original_spacing = image.GetSpacing()
     new_spacing = np.divide(original_spacing, np.divide(new_size, original_size))
-
+    
     return sitk.Resample(
         image1=image,
-        size=new_size,  # pyright:ignore[reportArgumentType]
+        size=new_size, # pyright:ignore[reportArgumentType]
         interpolator=interp_method or INTERPOLATOR(field),
         outputSpacing=new_spacing,
         outputPixelType=PIXEL_TYPE(field),
@@ -161,9 +157,7 @@ def sitk_resample_to_size(
 
 
 def sitk_new_blank_image(size, spacing, direction, origin, default_value=0.0):
-    image = sitk.GetImageFromArray(
-        np.ones(size, dtype=np.float32).T * default_value, isVector=False
-    )
+    image = sitk.GetImageFromArray(np.ones(size, dtype=np.float32).T * default_value, isVector=False)
     image.SetSpacing(spacing)
     image.SetDirection(direction)
     image.SetOrigin(origin)
@@ -176,17 +170,12 @@ def nii_to_sitk(
     value_offset: int | float | None = None,
 ) -> sitk.Image:
     try:
-        sitk_img = sitk.ReadImage(
-            nii_path,
-            outputPixelType=sitk.sitkInt16 if field == "image" else sitk.sitkUInt8,
-        )
+        sitk_img = sitk.ReadImage(nii_path, outputPixelType=sitk.sitkInt16 if field == "image" else sitk.sitkUInt8)
         if value_offset is not None:
-            sitk_img_new = sitk.GetImageFromArray(
-                sitk.GetArrayFromImage(sitk_img) + value_offset
-            )
+            sitk_img_new = sitk.GetImageFromArray(sitk.GetArrayFromImage(sitk_img) + value_offset)
             sitk_img_new.CopyInformation(sitk_img)
             sitk_img = sitk_img_new
-
+    
     except Exception as e:
         raise ValueError(f"Failed to load NIfTI file: {nii_path}.") from e
 
@@ -218,7 +207,7 @@ def LoadDcmAsSitkImage(dcm_paths, read_workers=8):
     return sitk_image
 
 
-def merge_masks(mhas: list[str] | list[sitk.Image], dtype=np.uint8) -> sitk.Image:
+def merge_masks(mhas: list[str]|list[sitk.Image], dtype=np.uint8) -> sitk.Image:
     """
     Merge all class-wise binary masks into a single multi-class mask and return as a SimpleITK image.
 
@@ -238,7 +227,7 @@ def merge_masks(mhas: list[str] | list[sitk.Image], dtype=np.uint8) -> sitk.Imag
             mask = mha
         else:
             raise NotImplementedError(f"Unsupported type: {type(mha)}")
-
+        
         mask_array = sitk.GetArrayFromImage(mask)
         if merged_mask is None:
             merged_mask = np.zeros_like(mask_array)

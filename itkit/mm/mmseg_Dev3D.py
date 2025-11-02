@@ -27,6 +27,7 @@ from ..criterions.segment import DiceLoss_3D
 from ..process.GeneralPreProcess import RandomRotate3D_GPU
 
 
+
 class VolumeData(BaseDataElement):
     """Data structure for volume-level annotations or predictions.
 
@@ -78,24 +79,17 @@ class VolumeData(BaseDataElement):
             if not hasattr(self, name):
                 super().__setattr__(name, value)
             else:
-                raise AttributeError(
-                    f"{name} has been used as a private attribute, which is immutable."
-                )
+                raise AttributeError(f"{name} has been used as a private attribute, which is immutable.")
 
         else:
             assert isinstance(value, (Tensor, np.ndarray)), (
                 f"Can not set {type(value)}, only support" f" {(Tensor, np.ndarray)}"
             )
 
-            assert value.ndim in [
-                3,
-                4,
-            ], f"The dim of value must be 3 or 4, but got {value.ndim}"
+            assert value.ndim in [3,4,], f"The dim of value must be 3 or 4, but got {value.ndim}"
             if value.ndim == 3:
                 value = value[None]
-                warnings.warn(
-                    f"The shape of value will convert from {value.shape[-3:]} to {value.shape}"
-                )
+                warnings.warn(f"The shape of value will convert from {value.shape[-3:]} to {value.shape}")
             super().__setattr__(name, value)
 
     def __getitem__(self, item: Sequence[int | slice]) -> "VolumeData":
@@ -114,13 +108,11 @@ class VolumeData(BaseDataElement):
             tmp_item: list[slice] = list()
             for index, single_item in enumerate(item[::-1]):
                 if isinstance(single_item, int):
-                    tmp_item.insert(0, slice(single_item, None, self.shape[-index - 1]))  # type: ignore
+                    tmp_item.insert(0,slice(single_item, None, self.shape[-index - 1])) # type: ignore
                 elif isinstance(single_item, slice):
                     tmp_item.insert(0, single_item)
                 else:
-                    raise TypeError(
-                        f"The type of element in input must be int or slice, but got {type(single_item)}"
-                    )
+                    raise TypeError(f"The type of element in input must be int or slice, but got {type(single_item)}")
             tmp_item.insert(0, slice(None, None, None))
             item = tuple(tmp_item)
             for k, v in self.items():
@@ -391,9 +383,7 @@ class EncoderDecoder_3D(EncoderDecoder):
                 i_seg_pred = i_seg_logits.argmax(dim=0, keepdim=True)
             else:
                 i_seg_logits = i_seg_logits.sigmoid()
-                i_seg_pred = (i_seg_logits > self.decode_head.threshold).to(
-                    i_seg_logits
-                )
+                i_seg_pred = (i_seg_logits > self.decode_head.threshold).to(i_seg_logits)
             data_samples[i].set_data(
                 {
                     "seg_logits": VolumeData(**{"data": i_seg_logits}),  # type: ignore
@@ -433,8 +423,7 @@ class BaseDecodeHead_3D(BaseDecodeHead):
         seg_label = F.interpolate(
             input=seg_label,
             size=seg_logit.shape[2:],  # Skip batch and channel dimension.
-            mode="nearest",
-        )
+            mode="nearest")
 
         if self.sampler is not None:
             seg_weight = self.sampler.sample(seg_logit, seg_label)
@@ -475,7 +464,7 @@ class BaseDecodeHead_3D(BaseDecodeHead):
         self,
         inputs: tuple[Tensor],
         batch_data_samples: list[Seg3DDataSample],
-        train_cfg: dict | None = None,
+        train_cfg:dict|None=None,
     ) -> dict:
         """Forward function for training.
 
@@ -505,12 +494,11 @@ class BaseDecodeHead_3D(BaseDecodeHead):
                 seg_logit,
                 seg_label,
                 losses,
-                weight=1 / (self.deep_supervision_weight_truth**i),
-            )
+                weight=1 / (self.deep_supervision_weight_truth**i))
 
-        losses["acc_seg"] = accuracy(
-            seg_logits[0], seg_label.squeeze(1), ignore_index=self.ignore_index
-        )
+        losses["acc_seg"] = accuracy(seg_logits[0], 
+                                     seg_label.squeeze(1), 
+                                     ignore_index=self.ignore_index)
 
         return losses
 
@@ -542,15 +530,14 @@ class BaseDecodeHead_3D(BaseDecodeHead):
         else:
             size = batch_img_metas[0]["img_shape"]
 
-        seg_logits = F.interpolate(input=seg_logits, size=size, mode="nearest")
+        seg_logits = F.interpolate(
+            input=seg_logits,
+            size=size,
+            mode="nearest")
         return seg_logits
 
-    def _stack_batch_gt(
-        self, batch_data_samples: list[Seg3DDataSample], gt_key
-    ) -> Tensor:
-        gt_semantic_segs = [
-            data_sample.get(gt_key).data for data_sample in batch_data_samples
-        ]
+    def _stack_batch_gt(self, batch_data_samples: list[Seg3DDataSample], gt_key) -> Tensor:
+        gt_semantic_segs = [data_sample.get(gt_key).data for data_sample in batch_data_samples]
         return torch.stack(gt_semantic_segs, dim=0)
 
 
@@ -736,9 +723,7 @@ class Seg3DLocalVisualizer(SegLocalVisualizer):
                 - pred_sem_seg (data:VolumeData): tensor (1, Z, Y, X)
                 - seg_logits (data:VolumeData): tensor (Classes, Z, Y, X)
         """
-        assert image.ndim == 4, (
-            f"The input image must be 4D, but got " f"shape {image.shape}."
-        )
+        assert image.ndim == 4, f"The input image must be 4D, but got " f"shape {image.shape}."
         Z, Y, X, C = image.shape
         name += f"_z{Z}"
         random_selected_z = np.random.randint(0, Z)
@@ -746,27 +731,19 @@ class Seg3DLocalVisualizer(SegLocalVisualizer):
         image = (image / image.max() * 255).astype(np.uint8)  # (Y, X, C)
         if self.resize is not None:
             image = cv2.resize(image, self.resize, interpolation=cv2.INTER_LINEAR)
-
+        
         if data_sample is not None:
             if "gt_sem_seg" in data_sample:
                 assert data_sample.gt_sem_seg.data.shape[-3:] == torch.Size([Z, Y, X])
-                gt_sem_seg_2d = data_sample.gt_sem_seg.data[:, random_selected_z].to(
-                    torch.uint8
-                )
+                gt_sem_seg_2d = data_sample.gt_sem_seg.data[:, random_selected_z].to(torch.uint8)
                 if self.resize is not None:
-                    gt_sem_seg_2d = F.interpolate(
-                        gt_sem_seg_2d[None], self.resize, mode="nearest"
-                    ).squeeze(0)
+                    gt_sem_seg_2d = F.interpolate(gt_sem_seg_2d[None], self.resize, mode="nearest").squeeze(0)
 
             if "pred_sem_seg" in data_sample:
                 assert data_sample.pred_sem_seg.data.shape[-3:] == torch.Size([Z, Y, X])
-                pred_sem_seg_2d = data_sample.pred_sem_seg.data[
-                    :, random_selected_z
-                ].to(torch.uint8)
+                pred_sem_seg_2d = data_sample.pred_sem_seg.data[:, random_selected_z].to(torch.uint8)
                 if self.resize is not None:
-                    pred_sem_seg_2d = F.interpolate(
-                        pred_sem_seg_2d[None], self.resize, mode="nearest"
-                    ).squeeze(0)
+                    pred_sem_seg_2d = F.interpolate(pred_sem_seg_2d[None], self.resize, mode="nearest").squeeze(0)
 
             data_sample_2D = SegDataSample(
                 gt_sem_seg=PixelData(data=gt_sem_seg_2d),
@@ -828,7 +805,7 @@ class PackSeg3DInputs(PackSegInputs):
             data_sample.gt_sem_seg_one_hot = VolumeData(data=data)
 
         if "seg_fields" in results:
-            for key in results["seg_fields"]:
+            for key in results['seg_fields']:
                 if key not in data_sample.keys():
                     other_seg = BaseDataElement(data=to_tensor(results[key]))
                     data_sample.set_field(other_seg, key)
@@ -865,7 +842,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         size_divisor: int | None = None,
         pad_val: int | float = 0,
         seg_pad_val: int | float = 255,
-        rot3D_angle: Sequence | None = None,
+        rot3D_angle: Sequence|None = None,
         test_cfg: dict | None = None,
         non_blocking: bool = True,
     ):
@@ -875,9 +852,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         self.size_divisor = size_divisor
         self.pad_val = pad_val
         self.seg_pad_val = seg_pad_val
-        self.rot3D_aug = (
-            RandomRotate3D_GPU(rot3D_angle) if rot3D_angle is not None else None
-        )
+        self.rot3D_aug = RandomRotate3D_GPU(rot3D_angle) if rot3D_angle is not None else None
 
         if mean is not None:
             assert std is not None, (
@@ -920,20 +895,14 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         Tensor: The 5D-tensor.
         List[:obj:`SegDataSample`]: After the padding of the gt_seg_map.
         """
-        assert isinstance(
-            inputs, list
-        ), f"Expected input type to be list, but got {type(inputs)}"
+        assert isinstance(inputs, list), f"Expected input type to be list, but got {type(inputs)}"
         assert len({tensor.ndim for tensor in inputs}) == 1, (
             f"Expected the dimensions of all inputs must be the same, "
-            f"but got {[tensor.ndim for tensor in inputs]}"
-        )
-        assert inputs[0].ndim == 4, (
-            f"Expected tensor dimension to be 4, " f"but got {inputs[0].ndim}"
-        )
+            f"but got {[tensor.ndim for tensor in inputs]}")
+        assert inputs[0].ndim == 4, f"Expected tensor dimension to be 4, " f"but got {inputs[0].ndim}"
         assert len({tensor.shape[0] for tensor in inputs}) == 1, (
             f"Expected the channels of all inputs must be the same, "
-            f"but got {[tensor.shape[0] for tensor in inputs]}"
-        )
+            f"but got {[tensor.shape[0] for tensor in inputs]}")
 
         padded_inputs = []
         padded_samples = []
@@ -971,17 +940,13 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
                 if "gt_sem_seg" in data_sample:
                     gt_sem_seg = data_sample.gt_sem_seg.data
                     del data_sample.gt_sem_seg.data
-                    data_sample.gt_sem_seg.data = F.pad(
-                        gt_sem_seg, padding_size, value=seg_pad_val
-                    )
+                    data_sample.gt_sem_seg.data = F.pad(gt_sem_seg, padding_size, value=seg_pad_val)
                     pad_shape = data_sample.gt_sem_seg.shape
                 if "gt_sem_seg_one_hot" in data_sample:
                     gt_sem_seg_one_hot = data_sample.gt_sem_seg_one_hot.data
                     del data_sample.gt_sem_seg_one_hot.data
-                    data_sample.gt_sem_seg_one_hot.data = F.pad(
-                        gt_sem_seg_one_hot, padding_size, value=0
-                    )
-
+                    data_sample.gt_sem_seg_one_hot.data = F.pad(gt_sem_seg_one_hot, padding_size, value=0)
+                
                 data_sample.set_metainfo(
                     {
                         "img_shape": tensor.shape[-3:],
@@ -990,14 +955,12 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
                     }
                 )
                 padded_samples.append(data_sample)
-
+            
             else:
-                padded_samples.append(
-                    {
-                        "img_padding_size": padding_size,
-                        "pad_shape": pad_volume.shape[-3:],
-                    }
-                )
+                padded_samples.append({
+                    "img_padding_size": padding_size,
+                    "pad_shape": pad_volume.shape[-3:]
+                })
 
         return torch.stack(padded_inputs, dim=0), padded_samples
 
@@ -1005,12 +968,12 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         lbl = torch.stack([sample.gt_sem_seg.data for sample in data_samples])
 
         grid = self.rot3D_aug._gen_grid(inputs)
-        rot_inputs = self.rot3D_aug.warp(inputs, grid, "bilinear")
-        rot_lbl = self.rot3D_aug.warp(lbl, grid, "nearest")
+        rot_inputs = self.rot3D_aug.warp(inputs, grid, 'bilinear')
+        rot_lbl = self.rot3D_aug.warp(lbl, grid, 'nearest')
 
         for i, one_rot_lbl in enumerate(rot_lbl):
             data_samples[i].gt_sem_seg.data = one_rot_lbl
-
+        
         return rot_inputs, data_samples
 
     def forward(self, data: dict, training: bool = False) -> dict[str, Any]:
@@ -1024,7 +987,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         Returns:
             Dict: Data in the same format as the model input.
         """
-
+        
         data = self.cast_data(data)  # type: ignore
         inputs = data["inputs"]
         data_samples = data.get("data_samples", None)
@@ -1048,13 +1011,11 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
             )
             if self.rot3D_aug is not None:
                 inputs, data_samples = self._rotate_augment(inputs, data_samples)
-
+        
         else:
             vol_size = inputs[0].shape[1:]
-            assert all(
-                input_.shape[1:] == vol_size for input_ in inputs
-            ), "The volume size in a batch should be the same."
-
+            assert all(input_.shape[1:] == vol_size for input_ in inputs), "The volume size in a batch should be the same."
+            
             if self.test_cfg is not None:
                 inputs, data_samples = self.stack_batch_3D(
                     inputs=inputs,
@@ -1062,8 +1023,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
                     size=self.test_cfg.get("size", None),
                     size_divisor=self.test_cfg.get("size_divisor", None),
                     pad_val=self.pad_val,
-                    seg_pad_val=self.seg_pad_val,
-                )
+                    seg_pad_val=self.seg_pad_val)
             else:
                 inputs = torch.stack(inputs, dim=0)
 
@@ -1090,17 +1050,15 @@ class PixelUnshuffle1D(torch.nn.Module):
 
 
 class PixelShuffle3D(torch.nn.Module):
-    def __init__(self, upscale_factor: int | Sequence[int]):
+    def __init__(self, upscale_factor: int|Sequence[int]):
         super(PixelShuffle3D, self).__init__()
-
+        
         if isinstance(upscale_factor, int):
             self.upscale_factor = (upscale_factor, upscale_factor, upscale_factor)
         elif isinstance(upscale_factor, Sequence) and len(upscale_factor) == 3:
             self.upscale_factor = tuple(upscale_factor)
         else:
-            raise ValueError(
-                f"upscale_factor must be an int or a sequence of 3 ints, but got {upscale_factor}"
-            )
+            raise ValueError(f"upscale_factor must be an int or a sequence of 3 ints, but got {upscale_factor}")
 
     def forward(self, inputs: Tensor):
         # validate
@@ -1109,34 +1067,26 @@ class PixelShuffle3D(torch.nn.Module):
         total_factor = rx * ry * rz
         out_channels = channels // total_factor
         if channels % total_factor != 0:
-            raise ValueError(
-                f"Input channels ({channels}) must be divisible by the product of upscale factors ({rx}*{ry}*{rz}={total_factor})."
-            )
-
+            raise ValueError(f"Input channels ({channels}) must be divisible by the product of upscale factors ({rx}*{ry}*{rz}={total_factor}).")
+        
         # execute
         mid = inputs.view(batch, out_channels, rx, ry, rz, x, y, z)
         mid = mid.permute(0, 1, 5, 2, 6, 3, 7, 4)
         outputs = mid.contiguous().view(batch, out_channels, x * rx, y * ry, z * rz)
-
+        
         return outputs
 
 
 class PixelUnshuffle3D(torch.nn.Module):
-    def __init__(self, downscale_factor: int | Sequence[int]):
+    def __init__(self, downscale_factor: int|Sequence[int]):
         super(PixelUnshuffle3D, self).__init__()
-
+        
         if isinstance(downscale_factor, int):
-            self.downscale_factor = (
-                downscale_factor,
-                downscale_factor,
-                downscale_factor,
-            )
+            self.downscale_factor = (downscale_factor, downscale_factor, downscale_factor)
         elif isinstance(downscale_factor, Sequence) and len(downscale_factor) == 3:
             self.downscale_factor = tuple(downscale_factor)
         else:
-            raise ValueError(
-                f"downscale_factor must be an int or a sequence of 3 ints, but got {downscale_factor}"
-            )
+            raise ValueError(f"downscale_factor must be an int or a sequence of 3 ints, but got {downscale_factor}")
 
     def forward(self, inputs: Tensor):
         # validate
@@ -1144,13 +1094,11 @@ class PixelUnshuffle3D(torch.nn.Module):
         rx, ry, rz = self.downscale_factor
         out_channels = channels * (rx * ry * rz)
         if x % rx != 0 or y % ry != 0 or z % rz != 0:
-            raise ValueError(
-                f"Input dimensions ({x}, {y}, {z}) must be divisible by the downscale factors ({rx}, {ry}, {rz})."
-            )
-
+            raise ValueError(f"Input dimensions ({x}, {y}, {z}) must be divisible by the downscale factors ({rx}, {ry}, {rz}).")
+        
         # execute
         mid = inputs.view(batch, channels, x // rx, rx, y // ry, ry, z // rz, rz)
         mid = mid.permute(0, 1, 3, 5, 7, 2, 4, 6)
         outputs = mid.contiguous().view(batch, out_channels, x // rx, y // ry, z // rz)
-
+        
         return outputs

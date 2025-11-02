@@ -15,6 +15,7 @@ from mmpretrain.structures import DataSample
 from mmpretrain.models.selfsup.base import BaseSelfSupervisor
 
 
+
 class AutoEncoderSelfSup(BaseSelfSupervisor):
     def __init__(
         self,
@@ -28,7 +29,7 @@ class AutoEncoderSelfSup(BaseSelfSupervisor):
         *args,
         **kwargs,
     ) -> None:
-
+        
         encoder_decoder = [MODELS.build(encoder)]
         if neck is not None:
             encoder_decoder.append(MODELS.build(neck))
@@ -88,23 +89,23 @@ class AutoEncoderSelfSup(BaseSelfSupervisor):
 
 class VoxelData(BaseDataElement):
     """Data structure for voxel-level annotations or predictions.
-
-    All data items in ``data_fields`` of ``VoxelData`` meet the following
+    
+    All data items in ``data_fields`` of ``VoxelData`` meet the following  
     requirements:
-
+    
     - They all have 4 dimensions in orders of channel, depth, height, and width
     - They should have the same depth, height and width
-
+    
     Examples:
         >>> metainfo = dict(
         ...     vol_id=random.randint(0, 100),
-        ...     vol_shape=(random.randint(32,64),
+        ...     vol_shape=(random.randint(32,64), 
         ...               random.randint(64,128),
         ...               random.randint(64,128)))
         >>> volume = np.random.randint(0, 255, (4, 32, 64, 64))
         >>> featmap = torch.randint(0, 255, (10, 32, 64, 64))
         >>> voxel_data = VoxelData(metainfo=metainfo,
-        ...                        volume=volume,
+        ...                        volume=volume, 
         ...                        featmap=featmap)
         >>> print(voxel_data.shape)
         (32, 64, 64)
@@ -117,18 +118,16 @@ class VoxelData(BaseDataElement):
             if isinstance(v, (np.ndarray, torch.Tensor)):
                 return v.shape[1:]  # 跳过channel维度
         return None
-
+    
     def __setattr__(self, name, val):
         """设置属性时验证数据维度。"""
         if isinstance(val, (np.ndarray, torch.Tensor)):
             if len(val.shape) != 4:
                 raise ValueError(
-                    f"The dims of {name} should be 4, but got {len(val.shape)}"
-                )
-            if hasattr(self, "shape"):
+                    f'The dims of {name} should be 4, but got {len(val.shape)}')
+            if hasattr(self, 'shape'):
                 if self.shape and self.shape != val.shape[1:]:
                     raise ValueError(
-                        f"The shape of {name} does not match the existing shape: "
-                        f"expected {self.shape}, but got {val.shape[1:]}"
-                    )
+                        f'The shape of {name} does not match the existing shape: '
+                        f'expected {self.shape}, but got {val.shape[1:]}')
         super().__setattr__(name, val)

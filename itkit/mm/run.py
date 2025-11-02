@@ -1,5 +1,4 @@
 import os, sys, re, argparse, pdb
-
 sys.path.append(os.getcwd())
 from pathlib import Path
 from bdb import BdbQuit
@@ -46,62 +45,18 @@ class auto_runner:
     @classmethod
     def start_from_args(cls):
         parser = argparse.ArgumentParser(description="itkit OpenMM experiment runner")
-        parser.add_argument(
-            "exp_name", type=str, nargs="+", help="Experiment name or version"
-        )
-        parser.add_argument(
-            "--VRamAlloc", type=str, default="pytorch", help="Set memory allocator"
-        )
-        parser.add_argument(
-            "--local-rank", type=int, default=0, help="Number of nodes (local rank)"
-        )
-        parser.add_argument(
-            "--models",
-            type=str,
-            default=SUPPORTED_MODELS,
-            help="Select models",
-            nargs="+",
-        )
-        parser.add_argument(
-            "--work-dir-root",
-            type=str,
-            default=MM_WORK_DIR_ROOT,
-            help="Root directory to store experiment results",
-        )
-        parser.add_argument(
-            "--test-work-dir-root",
-            type=str,
-            default=MM_TEST_DIR_ROOT,
-            help="Working directory during testing",
-        )
-        parser.add_argument(
-            "--config-root",
-            type=str,
-            default=MM_CONFIG_ROOT,
-            help="Root directory for configuration files",
-        )
+        parser.add_argument("exp_name", type=str, nargs="+", help="Experiment name or version")
+        parser.add_argument("--VRamAlloc", type=str, default="pytorch", help="Set memory allocator")
+        parser.add_argument("--local-rank", type=int, default=0, help="Number of nodes (local rank)")
+        parser.add_argument("--models", type=str, default=SUPPORTED_MODELS, help="Select models", nargs="+")
+        parser.add_argument("--work-dir-root", type=str, default=MM_WORK_DIR_ROOT, help="Root directory to store experiment results")
+        parser.add_argument("--test-work-dir-root", type=str, default=MM_TEST_DIR_ROOT, help="Working directory during testing")
+        parser.add_argument("--config-root", type=str, default=MM_CONFIG_ROOT, help="Root directory for configuration files",)
         parser.add_argument("--cfg-options", nargs="+", action=DictAction)
-        parser.add_argument(
-            "--test", default=False, action="store_true", help="Test only mode"
-        )
-        parser.add_argument(
-            "--auto-retry",
-            type=int,
-            default=0,
-            help="Number of auto retries for a failed experiment",
-        )
-        parser.add_argument(
-            "--detect-anomaly",
-            default=False,
-            action="store_true",
-            help="Enable PyTorch anomaly detection",
-        )
-        parser.add_argument(
-            "--test-use-last-ckpt",
-            default=False,
-            action="store_true",
-            help="Use final checkpoint instead of best during testing",
-        )
+        parser.add_argument("--test", default=False, action="store_true", help="Test only mode")
+        parser.add_argument("--auto-retry", type=int, default=0, help="Number of auto retries for a failed experiment")
+        parser.add_argument("--detect-anomaly", default=False, action="store_true", help="Enable PyTorch anomaly detection")
+        parser.add_argument("--test-use-last-ckpt", default=False, action="store_true", help="Use final checkpoint instead of best during testing")
         args = parser.parse_args()
         return cls(
             exp_names=args.exp_name,
@@ -118,9 +73,7 @@ class auto_runner:
 
     def find_full_exp_name(self, exp_name):
         if exp_name[-1] == ".":
-            raise AttributeError(
-                f"Target experiment name must not end with '.': {exp_name}"
-            )
+            raise AttributeError(f"Target experiment name must not end with '.': {exp_name}")
 
         exp_list = os.listdir(self.config_root)
         for exp in exp_list:
@@ -130,13 +83,13 @@ class auto_runner:
                 return exp
 
             elif exp.startswith(exp_name):
-                pattern = r"\.[a-zA-Z]"  # Regex to find the first occurrence of '.' followed by a letter
+                pattern = (
+                    r"\.[a-zA-Z]"  # Regex to find the first occurrence of '.' followed by a letter
+                )
                 match = re.search(pattern, exp)
 
                 if match is None:
-                    raise ValueError(
-                        f"Cannot match experiment number under {self.config_root} directory: {exp}"
-                    )
+                    raise ValueError(f"Cannot match experiment number under {self.config_root} directory: {exp}")
 
                 if exp[: match.start()] == exp_name:
                     print(f"Found experiment by prefix: {exp_name} -> {exp}")
@@ -149,17 +102,15 @@ class auto_runner:
     def experiment_queue(self):
         print("Experiment queue started, importing dependencies...")
         from itkit.mm.experiment import experiment
-
-        def search_available_model_configs(exp_cfg_folder: Path):
+        
+        def search_available_model_configs(exp_cfg_folder:Path):
             available_model_cfgs = [
                 py_file
                 for py_file in exp_cfg_folder.glob("*.py")
                 if py_file.name != "mgam.py"
             ]
             if len(available_model_cfgs) == 0:
-                raise FileNotFoundError(
-                    f"No available model config files found in directory: {exp_cfg_folder}"
-                )
+                raise FileNotFoundError(f"No available model config files found in directory: {exp_cfg_folder}")
             else:
                 return available_model_cfgs
 
@@ -170,15 +121,11 @@ class auto_runner:
             print(f"{exp} experiment starting")
 
             # If no model names specified, search automatically
-            for model in self.model_names or search_available_model_configs(
-                Path(self.config_root, exp)
-            ):
+            for model in self.model_names or search_available_model_configs(Path(self.config_root, exp)):
                 # Determine config file path and save directories
                 config_path = os.path.join(self.config_root, f"{exp}/{model}.py")
                 if not os.path.exists(config_path):
-                    print(
-                        f"Config file does not exist: {config_path}, skipping this experiment"
-                    )
+                    print(f"Config file does not exist: {config_path}, skipping this experiment")
                     continue
                 work_dir_path = osp.join(self.work_dir_root, exp, model)
                 test_work_dir_path = osp.join(self.test_work_dir_root, exp, model)
@@ -202,7 +149,7 @@ class auto_runner:
                             self.cfg_options,
                             self.test,
                             self.detect_anomaly,
-                            self.test_use_last_ckpt,
+                            self.test_use_last_ckpt
                         )
 
                     except KeyboardInterrupt:
@@ -228,11 +175,7 @@ class auto_runner:
                             )
 
                     else:
-                        print(
-                            Fore.GREEN
-                            + f"Experiment completed: {work_dir_path}"
-                            + Style.RESET_ALL
-                        )
+                        print(Fore.GREEN + f"Experiment completed: {work_dir_path}" + Style.RESET_ALL)
                         if torch.distributed.is_initialized():
                             torch.distributed.destroy_process_group()
                         break

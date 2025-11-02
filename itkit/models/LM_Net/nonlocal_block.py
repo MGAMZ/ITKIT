@@ -4,34 +4,16 @@ from torch.nn import functional as F
 
 
 class _NonLocalBlockND(nn.Module):
-    def __init__(
-        self,
-        in_channels,
-        inter_channels=None,
-        dimension=2,
-        mode="embedded_gaussian",
-        sub_sample_factor=4,
-        bn_layer=True,
-    ):
+    def __init__(self, in_channels, inter_channels=None, dimension=2, mode='embedded_gaussian',
+                 sub_sample_factor=4, bn_layer=True):
         super(_NonLocalBlockND, self).__init__()
 
         assert dimension in [1, 2, 3]
-        assert mode in [
-            "embedded_gaussian",
-            "gaussian",
-            "dot_product",
-            "concatenation",
-            "concat_proper",
-            "concat_proper_down",
-        ]
+        assert mode in ['embedded_gaussian', 'gaussian', 'dot_product', 'concatenation', 'concat_proper', 'concat_proper_down']
 
         self.mode = mode
         self.dimension = dimension
-        self.sub_sample_factor = (
-            sub_sample_factor
-            if isinstance(sub_sample_factor, list)
-            else [sub_sample_factor]
-        )
+        self.sub_sample_factor = sub_sample_factor if isinstance(sub_sample_factor, list) else [sub_sample_factor]
 
         self.in_channels = in_channels
         self.inter_channels = inter_channels
@@ -54,103 +36,62 @@ class _NonLocalBlockND(nn.Module):
             max_pool = nn.MaxPool1d
             bn = nn.BatchNorm1d
 
-        self.g = conv_nd(
-            in_channels=self.in_channels,
-            out_channels=self.inter_channels,
-            kernel_size=1,
-            stride=1,
-            padding=0,
-        )
+        self.g = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels,
+                         kernel_size=1, stride=1, padding=0)
 
         if bn_layer:
             self.W = nn.Sequential(
-                conv_nd(
-                    in_channels=self.inter_channels,
-                    out_channels=self.in_channels,
-                    kernel_size=1,
-                    stride=1,
-                    padding=0,
-                ),
-                bn(self.in_channels),
+                conv_nd(in_channels=self.inter_channels, out_channels=self.in_channels,
+                        kernel_size=1, stride=1, padding=0),
+                bn(self.in_channels)
             )
             nn.init.constant_(self.W[1].weight, 0)
             nn.init.constant_(self.W[1].bias, 0)
         else:
-            self.W = conv_nd(
-                in_channels=self.inter_channels,
-                out_channels=self.in_channels,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            )
+            self.W = conv_nd(in_channels=self.inter_channels, out_channels=self.in_channels,
+                             kernel_size=1, stride=1, padding=0)
             nn.init.constant_(self.W.weight, 0)
             nn.init.constant_(self.W.bias, 0)
 
         self.theta = None
         self.phi = None
 
-        if mode in [
-            "embedded_gaussian",
-            "dot_product",
-            "concatenation",
-            "concat_proper",
-            "concat_proper_down",
-        ]:
-            self.theta = conv_nd(
-                in_channels=self.in_channels,
-                out_channels=self.inter_channels,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            )
-            self.phi = conv_nd(
-                in_channels=self.in_channels,
-                out_channels=self.inter_channels,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            )
+        if mode in ['embedded_gaussian', 'dot_product', 'concatenation', 'concat_proper', 'concat_proper_down']:
+            self.theta = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels,
+                                 kernel_size=1, stride=1, padding=0)
+            self.phi = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels,
+                               kernel_size=1, stride=1, padding=0)
 
-            if mode in ["concatenation"]:
+            if mode in ['concatenation']:
                 self.wf_phi = nn.Linear(self.inter_channels, 1, bias=False)
                 self.wf_theta = nn.Linear(self.inter_channels, 1, bias=False)
-            elif mode in ["concat_proper", "concat_proper_down"]:
-                self.psi = nn.Conv2d(
-                    in_channels=self.inter_channels,
-                    out_channels=1,
-                    kernel_size=1,
-                    stride=1,
-                    padding=0,
-                    bias=True,
-                )
+            elif mode in ['concat_proper', 'concat_proper_down']:
+                self.psi = nn.Conv2d(in_channels=self.inter_channels, out_channels=1, kernel_size=1, stride=1,
+                                     padding=0, bias=True)
 
-        if mode == "embedded_gaussian":
+        if mode == 'embedded_gaussian':
             self.operation_function = self._embedded_gaussian
-        elif mode == "dot_product":
+        elif mode == 'dot_product':
             self.operation_function = self._dot_product
-        elif mode == "gaussian":
+        elif mode == 'gaussian':
             self.operation_function = self._gaussian
-        elif mode == "concatenation":
+        elif mode == 'concatenation':
             self.operation_function = self._concatenation
-        elif mode == "concat_proper":
+        elif mode == 'concat_proper':
             self.operation_function = self._concatenation_proper
-        elif mode == "concat_proper_down":
+        elif mode == 'concat_proper_down':
             self.operation_function = self._concatenation_proper_down
         else:
-            raise NotImplementedError("Unknown operation function.")
+            raise NotImplementedError('Unknown operation function.')
 
         if any(ss > 1 for ss in self.sub_sample_factor):
             self.g = nn.Sequential(self.g, max_pool(kernel_size=sub_sample_factor))
             if self.phi is None:
                 self.phi = max_pool(kernel_size=sub_sample_factor)
             else:
-                self.phi = nn.Sequential(
-                    self.phi, max_pool(kernel_size=sub_sample_factor)
-                )
-            if mode == "concat_proper_down":
-                self.theta = nn.Sequential(
-                    self.theta, max_pool(kernel_size=sub_sample_factor)
-                )
+                self.phi = nn.Sequential(self.phi, max_pool(kernel_size=sub_sample_factor))
+            if mode == 'concat_proper_down':
+                self.theta = nn.Sequential(self.theta, max_pool(kernel_size=sub_sample_factor))
 
         # Initialise weights
         self._init_weights()
@@ -164,10 +105,10 @@ class _NonLocalBlockND(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x):
-        """
+        '''
         :param x:(N, C, T, H, W) for dimension=3; (N, C, H, W) for dimension 2; (N, C, T) for dimension 1
         :return:
-        """
+        '''
 
         output = self.operation_function(x)
         return output
@@ -250,17 +191,14 @@ class _NonLocalBlockND(nn.Module):
 
         # theta=>(b, c, t, h, w)[->(b, 0.5c, t, h, w)]->(b, thw, 0.5c)
         # phi  =>(b, c, t, h, w)[->(b, 0.5c, t, h, w)]->(b, thw/s**2, 0.5c)
-        theta_x = (
-            self.theta(x).view(batch_size, self.inter_channels, -1).permute(0, 2, 1)
-        )
+        theta_x = self.theta(x).view(batch_size, self.inter_channels, -1).permute(0, 2, 1)
         phi_x = self.phi(x).view(batch_size, self.inter_channels, -1).permute(0, 2, 1)
 
         # theta => (b, thw, 0.5c) -> (b, thw, 1) -> (b, 1, thw) -> (expand) (b, thw/s**2, thw)
         # phi => (b, thw/s**2, 0.5c) -> (b, thw/s**2, 1) -> (expand) (b, thw/s**2, thw)
         # f=> RELU[(b, thw/s**2, thw) + (b, thw/s**2, thw)] = (b, thw/s**2, thw)
-        f = self.wf_theta(theta_x).permute(0, 2, 1).repeat(
-            1, phi_x.size(1), 1
-        ) + self.wf_phi(phi_x).repeat(1, 1, theta_x.size(1))
+        f = self.wf_theta(theta_x).permute(0, 2, 1).repeat(1, phi_x.size(1), 1) + \
+            self.wf_phi(phi_x).repeat(1, 1, theta_x.size(1))
         f = F.relu(f, inplace=True)
 
         # Normalise the relations
@@ -290,9 +228,8 @@ class _NonLocalBlockND(nn.Module):
         # theta => (b, 0.5c, thw) -> (expand) (b, 0.5c, thw/s**2, thw)
         # phi => (b, 0.5c, thw/s**2) ->  (expand) (b, 0.5c, thw/s**2, thw)
         # f=> RELU[(b, 0.5c, thw/s**2, thw) + (b, 0.5c, thw/s**2, thw)] = (b, 0.5c, thw/s**2, thw)
-        f = theta_x.unsqueeze(dim=2).repeat(1, 1, phi_x.size(2), 1) + phi_x.unsqueeze(
-            dim=3
-        ).repeat(1, 1, 1, theta_x.size(2))
+        f = theta_x.unsqueeze(dim=2).repeat(1,1,phi_x.size(2),1) + \
+            phi_x.unsqueeze(dim=3).repeat(1,1,1,theta_x.size(2))
         f = F.relu(f, inplace=True)
 
         # psi -> W_psi^t * f -> (b, 1, thw/s**2, thw) -> (b, thw/s**2, thw)
@@ -326,9 +263,8 @@ class _NonLocalBlockND(nn.Module):
         # theta => (b, 0.5c, thw) -> (expand) (b, 0.5c, thw/s**2, thw)
         # phi => (b, 0.5, thw/s**2) ->  (expand) (b, 0.5c, thw/s**2, thw)
         # f=> RELU[(b, 0.5c, thw/s**2, thw) + (b, 0.5c, thw/s**2, thw)] = (b, 0.5c, thw/s**2, thw)
-        f = theta_x.unsqueeze(dim=2).repeat(1, 1, phi_x.size(2), 1) + phi_x.unsqueeze(
-            dim=3
-        ).repeat(1, 1, 1, theta_x.size(2))
+        f = theta_x.unsqueeze(dim=2).repeat(1,1,phi_x.size(2),1) + \
+            phi_x.unsqueeze(dim=3).repeat(1,1,1,theta_x.size(2))
         f = F.relu(f, inplace=True)
 
         # psi -> W_psi^t * f -> (b, 0.5c, thw/s**2, thw) -> (b, 1, thw/s**2, thw) -> (b, thw/s**2, thw)
@@ -343,7 +279,7 @@ class _NonLocalBlockND(nn.Module):
         y = y.contiguous().view(batch_size, self.inter_channels, *downsampled_size[2:])
 
         # upsample the final featuremaps # (b,0.5c,t/s1,h/s2,w/s3)
-        y = F.upsample(y, size=x.size()[2:], mode="trilinear")
+        y = F.upsample(y, size=x.size()[2:], mode='trilinear')
 
         # attention block output
         W_y = self.W(y)
@@ -352,20 +288,15 @@ class _NonLocalBlockND(nn.Module):
         return z
 
 
+
+
 class NONLocalBlock2D(_NonLocalBlockND):
-    def __init__(
-        self,
-        in_channels,
-        inter_channels=None,
-        mode="embedded_gaussian",
-        sub_sample_factor=4,
-        bn_layer=True,
-    ):
-        super(NONLocalBlock2D, self).__init__(
-            in_channels,
-            inter_channels=inter_channels,
-            dimension=2,
-            mode=mode,
-            sub_sample_factor=sub_sample_factor,
-            bn_layer=bn_layer,
-        )
+    def __init__(self, in_channels, inter_channels=None, mode='embedded_gaussian', sub_sample_factor=4, bn_layer=True):
+        super(NONLocalBlock2D, self).__init__(in_channels,
+                                              inter_channels=inter_channels,
+                                              dimension=2, mode=mode,
+                                              sub_sample_factor=sub_sample_factor,
+                                              bn_layer=bn_layer)
+
+
+

@@ -6,8 +6,8 @@ from itkit.dataset.base_convert import StandardFileFormatter
 
 class LiTSFormatter(StandardFileFormatter):
     """Convert LiTS volumes and segmentations into ITKIT's standard layout.
-
-    Expects all volume-*.nii[.gz] and segmentation-*.nii[.gz] files
+    
+    Expects all volume-*.nii[.gz] and segmentation-*.nii[.gz] files 
     in the same directory (flat structure).
     """
 
@@ -36,21 +36,19 @@ class LiTSFormatter(StandardFileFormatter):
             basename = os.path.basename(volume_path)
             seg_filename = basename.replace("volume-", "segmentation-")
             seg_path = os.path.join(self.args.data_root, seg_filename)
-
+            
             # Use segmentation path only if it exists
             label_path = seg_path if os.path.exists(seg_path) else None
             series_id = self._series_id(volume_path, label_path)
 
-            task_list.append(
-                (
-                    volume_path,
-                    label_path,
-                    self.args.dest_root,
-                    series_id,
-                    spacing,
-                    size,
-                )
-            )
+            task_list.append((
+                volume_path,
+                label_path,
+                self.args.dest_root,
+                series_id,
+                spacing,
+                size,
+            ))
 
         return task_list
 

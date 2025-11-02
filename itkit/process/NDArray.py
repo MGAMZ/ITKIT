@@ -1,6 +1,5 @@
 import warnings
-
-warnings.simplefilter("once", RuntimeWarning)
+warnings.simplefilter('once', RuntimeWarning)
 from typing_extensions import Literal
 from colorama import Fore, Style
 

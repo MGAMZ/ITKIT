@@ -45,9 +45,11 @@ class HingeEmbeddingLoss(BaseModule):
         pos_weight (float): The positive weight for the loss. Defaults to 1.0.
     """
 
-    def __init__(
-        self, num_classes: int, reduction="mean", loss_weight=1.0, pos_weight=1.0
-    ):
+    def __init__(self,
+                 num_classes:int, 
+                 reduction='mean',
+                 loss_weight=1.0,
+                 pos_weight=1.0):
         super(HingeEmbeddingLoss, self).__init__()
         self.num_classes = num_classes
         self.reduction = reduction
@@ -55,29 +57,28 @@ class HingeEmbeddingLoss(BaseModule):
         self.pos_weight = pos_weight
         self.loss = torch.nn.HingeEmbeddingLoss()
 
-    def forward(
-        self,
-        cls_score,
-        label,
-        weight=None,
-        avg_factor=None,
-        reduction_override=None,
-        **kwargs,
-    ):
-        assert reduction_override in (None, "none", "mean", "sum")
-        reduction = reduction_override if reduction_override else self.reduction
-
-        label[label < 0.5] = -1
-        label[label >= 0.5] = 1
-
+    def forward(self,
+                cls_score,
+                label,
+                weight=None,
+                avg_factor=None,
+                reduction_override=None,
+                **kwargs):
+        assert reduction_override in (None, 'none', 'mean', 'sum')
+        reduction = (
+            reduction_override if reduction_override else self.reduction)
+        
+        label[label<0.5] = -1
+        label[label>=0.5] = 1
+        
         loss_cls = self.loss(cls_score, label)
-        if reduction == "sum":
+        if reduction == 'sum':
             loss_cls = loss_cls.sum()
-        elif reduction == "mean":
+        elif reduction == 'mean':
             loss_cls = loss_cls.mean()
-        elif reduction == "none":
+        elif reduction == 'none':
             pass
         else:
             raise ValueError(f"Invalid reduction: {self.reduction}")
-
+        
         return self.loss_weight * loss_cls

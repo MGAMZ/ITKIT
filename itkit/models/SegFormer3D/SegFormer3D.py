@@ -32,13 +32,12 @@ class SelfAttention(nn.Module):
         use_SDPA: bool = True,
     ):
         super().__init__()
-        assert (
-            embed_dim % num_heads == 0
-        ), "Embedding dim must be divisible by number of heads!"
+        assert (embed_dim % num_heads == 0), \
+            "Embedding dim must be divisible by number of heads!"
 
         self.num_heads = num_heads
         self.attention_head_dim = embed_dim // num_heads
-        self.scale: float = self.attention_head_dim**-0.5
+        self.scale:float = self.attention_head_dim ** -0.5
 
         self.query = nn.Linear(embed_dim, embed_dim, bias=qkv_bias)
         self.key_value = nn.Linear(embed_dim, embed_dim * 2, bias=qkv_bias)
@@ -49,9 +48,7 @@ class SelfAttention(nn.Module):
         self.use_SDPA = use_SDPA and hasattr(F, "scaled_dot_product_attention")
 
         if not self.use_SDPA:
-            print(
-                "Warning: scaled_dot_product_attention not available or disabled. Using manual attention implementation."
-            )
+            print("Warning: scaled_dot_product_attention not available or disabled. Using manual attention implementation.")
 
         if sr_ratio is None:
             sr_ratio = 1
@@ -61,23 +58,17 @@ class SelfAttention(nn.Module):
             assert len(sr_ratio) == 3
             self.sr_ratio = tuple(sr_ratio)
         if any(r > 1 for r in self.sr_ratio):
-            self.sr = nn.Conv3d(
-                embed_dim, embed_dim, kernel_size=self.sr_ratio, stride=self.sr_ratio
-            )
+            self.sr = nn.Conv3d(embed_dim, embed_dim, kernel_size=self.sr_ratio, stride=self.sr_ratio)
             self.sr_norm = nn.LayerNorm(embed_dim)
         else:
             self.sr = None
 
-    def forward(self, x: torch.Tensor, patched_volume_size):
+    def forward(self, x:torch.Tensor, patched_volume_size):
         B, N, C = x.shape
         D, W, H = patched_volume_size
 
         # q shape: (B, num_heads, N, head_dim)
-        q: torch.Tensor = (
-            self.query(x)
-            .view(B, N, self.num_heads, self.attention_head_dim)
-            .permute(0, 2, 1, 3)
-        )
+        q:torch.Tensor = self.query(x).view(B, N, self.num_heads, self.attention_head_dim).permute(0, 2, 1, 3)
 
         if self.sr is not None:
             # x shape: (B, N, C) -> (B, C, N) -> (B, C, D, W, H)
@@ -88,15 +79,11 @@ class SelfAttention(nn.Module):
             x_ = self.sr_norm(x_)
             # kv shape: (2, B, num_heads, N_kv, head_dim) where N_kv = D'*W'*H'
             kv = self.key_value(x_)
-            kv = kv.view(B, -1, 2, self.num_heads, self.attention_head_dim).permute(
-                2, 0, 3, 1, 4
-            )
+            kv = kv.view(B, -1, 2, self.num_heads, self.attention_head_dim).permute(2, 0, 3, 1, 4)
         else:
             # kv shape: (2, B, num_heads, N, head_dim)
             kv = self.key_value(x)
-            kv = kv.view(B, N, 2, self.num_heads, self.attention_head_dim).permute(
-                2, 0, 3, 1, 4
-            )
+            kv = kv.view(B, N, 2, self.num_heads, self.attention_head_dim).permute(2, 0, 3, 1, 4)
 
         # k, v shape: (B, num_heads, N_kv, head_dim)
         k, v = kv.unbind(0)
@@ -104,9 +91,7 @@ class SelfAttention(nn.Module):
         if self.use_SDPA:
             # attn_output shape: (B, num_heads, N, head_dim)
             attn_output = F.scaled_dot_product_attention(
-                q,
-                k,
-                v,
+                q, k, v,
                 attn_mask=None,
                 dropout_p=self.attn_dropout_p if self.training else 0.0,
             )
@@ -126,19 +111,16 @@ class SelfAttention(nn.Module):
 
 class DWConv(nn.Module):
     """Depthwise Separable Convolution used in MLP"""
-
     def __init__(self, dim: int):
         super().__init__()
         self.dwconv = nn.Conv3d(dim, dim, 3, 1, 1, bias=True, groups=dim)
-        self.bn = nn.BatchNorm3d(
-            dim
-        )  # Consider replacing with LayerNorm if issues arise
+        self.bn = nn.BatchNorm3d(dim) # Consider replacing with LayerNorm if issues arise
 
     def forward(self, x, patched_volume_size):
         B, N, C = x.shape
         # Use the provided spatial dimensions
         D, W, H = patched_volume_size
-        if N == 0:  # Handle empty sequences if they occur
+        if N == 0: # Handle empty sequences if they occur
             return x
 
         # Reshape for convolution: (B, N, C) -> (B, C, N) -> (B, C, D, W, H)
@@ -152,7 +134,6 @@ class DWConv(nn.Module):
 
 class TransformerBlockMLP(nn.Module):
     """MLP block with Depthwise Separable Convolution"""
-
     def __init__(self, in_features: int, mlp_ratio: int, dropout: float):
         super().__init__()
         hidden_features = mlp_ratio * in_features
@@ -179,11 +160,11 @@ class TransformerBlock(nn.Module):
         self,
         embed_dim: int,
         num_heads: int,
-        mlp_ratio: int = 4,  # Default MLP ratio often 4
+        mlp_ratio: int = 4, # Default MLP ratio often 4
         sr_ratio: int = 1,
         qkv_bias: bool = False,
         attn_dropout: float = 0.0,
-        proj_dropout: float = 0.0,  # Typically same dropout for attn proj and mlp
+        proj_dropout: float = 0.0, # Typically same dropout for attn proj and mlp
         use_SDPA: bool = True,
     ):
         super().__init__()
@@ -201,7 +182,7 @@ class TransformerBlock(nn.Module):
         self.mlp = TransformerBlockMLP(
             in_features=embed_dim,
             mlp_ratio=mlp_ratio,
-            dropout=proj_dropout,  # Use proj_dropout for MLP dropout
+            dropout=proj_dropout, # Use proj_dropout for MLP dropout
         )
 
     def forward(self, x, patched_volume_size):
@@ -257,7 +238,7 @@ class MixVisionTransformer(nn.Module):
         patch_kernel_size: Sequence,
         patch_stride: Sequence,
         patch_padding: Sequence,
-        qkv_bias: bool = True,  # Common default
+        qkv_bias: bool = True, # Common default
         attn_dropout: float = 0.0,
         proj_dropout: float = 0.0,
         use_SDPA: bool = True,
@@ -280,7 +261,7 @@ class MixVisionTransformer(nn.Module):
                     padding=patch_padding[i],
                 )
             )
-            input_ch = embed_dims[i]  # Update input channel for the next stage
+            input_ch = embed_dims[i] # Update input channel for the next stage
 
         # Create Transformer Blocks for each stage
         self.blocks = nn.ModuleList()
@@ -303,9 +284,7 @@ class MixVisionTransformer(nn.Module):
             self.blocks.append(stage_blocks)
 
         # Layer Normalization after each stage's blocks
-        self.norms = nn.ModuleList(
-            [nn.LayerNorm(embed_dims[i]) for i in range(len(depths))]
-        )
+        self.norms = nn.ModuleList([nn.LayerNorm(embed_dims[i]) for i in range(len(depths))])
 
     def forward(self, x):
         outputs = []
@@ -317,7 +296,7 @@ class MixVisionTransformer(nn.Module):
             D, W, H = patched_volume_size
 
             # Apply transformer blocks for the current stage
-            for blk in self.blocks[i]:  # type:ignore
+            for blk in self.blocks[i]: # type:ignore
                 # Pass the spatial size to each block
                 x = blk(x, patched_volume_size)
 
@@ -336,23 +315,20 @@ class MixVisionTransformer(nn.Module):
 class SegFormerDecoderHead(nn.Module):
     def __init__(
         self,
-        input_feature_dims: list,  # Embed dims from encoder stages [C1, C2, C3, C4]
+        input_feature_dims: list, # Embed dims from encoder stages [C1, C2, C3, C4]
         decoder_head_embedding_dim: int,
-        final_upsampler_scale_factor: int | tuple[int],
+        final_upsampler_scale_factor: int|tuple[int],
         num_classes: int,
         dropout: float = 0.0,
     ):
         super().__init__()
-
+        
         class DecoderMapping(nn.Module):
             """Conv Embedding for Decoder"""
-
             def __init__(self, input_dim: int, embed_dim: int):
                 super().__init__()
                 # Use 1x1x1 Conv to project channels, acts on Volume format
-                self.proj = nn.Conv3d(
-                    input_dim, embed_dim, kernel_size=1, stride=1, padding=0
-                )
+                self.proj = nn.Conv3d(input_dim, embed_dim, kernel_size=1, stride=1, padding=0)
                 # Use BatchNorm or GroupNorm for Volume format
                 self.norm = nn.BatchNorm3d(embed_dim)
                 # Or: self.norm = nn.GroupNorm(num_groups=..., num_channels=embed_dim)
@@ -365,7 +341,7 @@ class SegFormerDecoderHead(nn.Module):
                 return x
 
         # Conv embedding layers for features from each encoder stage
-        self.mlps = nn.ModuleList()  # Keep name mlps for consistency or rename
+        self.mlps = nn.ModuleList() # Keep name mlps for consistency or rename
         for i in range(len(input_feature_dims)):
             self.mlps.append(
                 # Use the new Conv-based mapping layer
@@ -388,23 +364,18 @@ class SegFormerDecoderHead(nn.Module):
         )
         self.dropout = nn.Dropout(dropout)
         self.predict = nn.Conv3d(decoder_head_embedding_dim, num_classes, kernel_size=1)
-        self.upsample = nn.Upsample(
-            scale_factor=final_upsampler_scale_factor,
-            mode="trilinear",
-            align_corners=False,
-        )
+        self.upsample = nn.Upsample(scale_factor=final_upsampler_scale_factor, 
+                                    mode="trilinear", align_corners=False)
 
     def forward(self, encoder_features):
         # encoder_features is a list [c1, c2, c3, c4] from MixVisionTransformer
         B = encoder_features[0].shape[0]
-        target_size = encoder_features[0].shape[2:]  # Spatial size of the first stage
+        target_size = encoder_features[0].shape[2:] # Spatial size of the first stage
 
         all_features = []
         for i in range(len(encoder_features)):
             # Apply Conv mapping directly on the Volume feature map
-            feat = self.mlps[i](
-                encoder_features[i]
-            )  # Output: (B, C_decoder, Di, Wi, Hi)
+            feat = self.mlps[i](encoder_features[i]) # Output: (B, C_decoder, Di, Wi, Hi)
 
             # Interpolate to the target size (size of c1) if not already there
             if feat.shape[2:] != target_size:
@@ -436,15 +407,10 @@ class SegFormer3D(nn.Module):
         num_heads: list = [1, 2, 5, 8],
         mlp_ratios: list = [4, 4, 4, 4],
         depths: list = [2, 2, 2, 2],
-        sr_ratios: list[int | tuple[int, int, int]] = [
-            4,
-            2,
-            1,
-            1,
-        ],  # Sequence reduction ratios per stage
-        patch_kernel_size: list[int | tuple[int, int, int]] = [7, 3, 3, 3],
-        patch_stride: list[int | tuple[int, int, int]] = [4, 2, 2, 2],
-        patch_padding: list[int | tuple[int, int, int]] = [3, 1, 1, 1],
+        sr_ratios: list[int|tuple[int,int,int]] = [4, 2, 1, 1], # Sequence reduction ratios per stage
+        patch_kernel_size: list[int|tuple[int,int,int]] = [7, 3, 3, 3],
+        patch_stride: list[int|tuple[int,int,int]] = [4, 2, 2, 2],
+        patch_padding: list[int|tuple[int,int,int]] = [3, 1, 1, 1],
         decoder_head_embedding_dim: int = 256,
         num_classes: int = 3,
         qkv_bias: bool = True,
@@ -489,36 +455,34 @@ class SegFormer3D(nn.Module):
     # HACK For reviewers' requirements.
     def _forward_hook(self, module, input, output):
         self.feature_maps = output
-
     # HACK For reviewers' requirements.
     def _backward_hook(self, module, grad_in, grad_out):
         self.gradients = grad_out[0]
 
-    def forward(self, x, save_gradcam: bool = False, save_dir: str = "tmp"):
-        encoder_features = self.encoder(x)  # [N, C, Z, Y, X]
+    def forward(self, x, save_gradcam: bool = False, save_dir: str = 'tmp'):
+        encoder_features = self.encoder(x) # [N, C, Z, Y, X]
         segmentation_output = self.decoder(encoder_features)
 
         if save_gradcam:
             import os
-
             os.makedirs(save_dir, exist_ok=True)
             num_classes = segmentation_output.shape[1]
             self.zero_grad()
 
             # HACK only for KiTS23 dataset
-            class_id = ["Background", "Kidney", "Tumor", "Cyst"]
-
+            class_id = ['Background', 'Kidney', 'Tumor', 'Cyst']
+            
             plt.figure(figsize=(20, 5))
-
+            
             for cls in range(num_classes):
                 # 针对每个类别做反向传播
                 self.zero_grad()
                 score = segmentation_output[:, cls].sum()
                 score.backward(retain_graph=True)
 
-                grads = self.gradients  # (B, C, D, W, H)
-                fmap = self.feature_maps  # (B, C, D, W, H)
-                weights = grads.mean(dim=(2, 3, 4), keepdim=True)
+                grads = self.gradients           # (B, C, D, W, H)
+                fmap = self.feature_maps         # (B, C, D, W, H)
+                weights = grads.mean(dim=(2,3,4), keepdim=True)
                 cam = F.relu((weights * fmap).sum(dim=1, keepdim=True))
                 cam = cam - cam.min()
                 cam = cam / (cam.max() + 1e-8)
@@ -526,22 +490,22 @@ class SegFormer3D(nn.Module):
                 cam_np = cam.detach().cpu().numpy()
                 cam_slice = cam_np[0, 0, cam_np.shape[2] // 2]
                 plt.subplot(1, num_classes, cls + 1)
-                plt.imshow(cam_slice, cmap="winter", alpha=0.6)
-                plt.title(f"{class_id[cls]}")
-                plt.axis("off")
-
-            save_path = os.path.join(save_dir, "KiTS23_GradCAM.png")
+                plt.imshow(cam_slice, cmap='winter', alpha=0.6)
+                plt.title(f'{class_id[cls]}')
+                plt.axis('off')
+            
+            save_path = os.path.join(save_dir, 'KiTS23_GradCAM.png')
             plt.savefig(save_path)
             plt.close()
             exit(1)
 
-        return segmentation_output  # [N, C, Z, Y, X]
+        return segmentation_output # [N, C, Z, Y, X]
 
 
 def forward_test():
     # Test with non-cubic input
     input_size = (1, 4, 16, 128, 128)
-    input_tensor = torch.randn(input_size)  # Example: B, C, D, W, H
+    input_tensor = torch.randn(input_size) # Example: B, C, D, W, H
     device = torch.device("cpu")
 
     input_tensor = input_tensor.to(device)
@@ -553,7 +517,7 @@ def forward_test():
         embed_dims=[512, 1024, 1024, 2048],
         num_heads=[1, 2, 4, 8],
         depths=[2, 2, 2, 2],
-        sr_ratios=[(4, 4, 4), (2, 2, 2), (1, 2, 2), (1, 2, 2)],
+        sr_ratios=[(4,4,4), (2,2,2), (1,2,2), (1,2,2)]
     ).to(device)
 
     model.eval()
@@ -563,9 +527,11 @@ def forward_test():
     print(f"Output shape: {output.shape}")
 
     from ptflops import get_model_complexity_info
-
     macs, params = get_model_complexity_info(
-        model, input_size[1:], as_strings=False, verbose=True
+        model,
+        input_size[1:],
+        as_strings=False,
+        verbose=True
     )
     print(f"FLOPs (Multiply-Accumulate): {macs}")
     print(f"Params: {params}")
@@ -575,14 +541,14 @@ def profiling_test():
     import os
     import pandas as pd
     from datetime import datetime
-
+    
     # Configuration
-    input_shape = (2, 1, 80, 80, 80)  # B, C, D, W, H
+    input_shape = (2, 1, 80, 80, 80) # B, C, D, W, H
     num_classes = 3
     warmup_iterations = 5
-    profile_iterations = 1  # Profiler usually needs only one detailed run
-    output_dir = "profiling_results"  # Directory to save results
-    run_name = datetime.now().strftime("%Y%m%d_%H%M%S")  # Unique name for this run
+    profile_iterations = 1 # Profiler usually needs only one detailed run
+    output_dir = "profiling_results" # Directory to save results
+    run_name = datetime.now().strftime("%Y%m%d_%H%M%S") # Unique name for this run
     tensorboard_dir = os.path.join(output_dir, "tensorboard", run_name)
     xlsx_filename = os.path.join(output_dir, f"segformer3d_profile_{run_name}.xlsx")
 
@@ -603,7 +569,7 @@ def profiling_test():
         in_channels=input_shape[1],
         num_classes=num_classes,
     ).to(device)
-    model.eval()  # Set to evaluation mode
+    model.eval() # Set to evaluation mode
 
     # Create dummy input data
     input_tensor = torch.randn(input_shape, device=device)
@@ -625,21 +591,17 @@ def profiling_test():
 
     with torch.profiler.profile(
         activities=[
-            torch.profiler.ProfilerActivity.CPU,
-            torch.profiler.ProfilerActivity.CUDA,
-        ],
-        schedule=torch.profiler.schedule(
-            wait=1, warmup=10, active=profile_iterations, repeat=1
-        ),  # Use schedule for handler
-        on_trace_ready=tb_handler,  # Pass the handler
+            torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+        schedule=torch.profiler.schedule(wait=1, warmup=10, active=profile_iterations, repeat=1), # Use schedule for handler
+        on_trace_ready=tb_handler, # Pass the handler
         record_shapes=True,
         profile_memory=True,
-        with_stack=True,
+        with_stack=True
     ) as prof:
         with torch.no_grad():
-            for _ in range(10 + 1 + profile_iterations):  # wait, warmup, active steps
+            for _ in range(10 + 1 + profile_iterations): # wait, warmup, active steps
                 output = model(input_tensor)
-                prof.step()  # Signal the profiler schedule
+                prof.step() # Signal the profiler schedule
 
         print("Profiling finished.")
         print("-" * 80)
@@ -649,18 +611,10 @@ def profiling_test():
         print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=20))
         print("-" * 80)
         print("Profiler results grouped by call stack (Self CUDA time, Top 30):")
-        print(
-            prof.key_averages(group_by_stack_n=10).table(
-                sort_by="self_cuda_time_total", row_limit=30
-            )
-        )
+        print(prof.key_averages(group_by_stack_n=10).table(sort_by="self_cuda_time_total", row_limit=30))
         print("-" * 80)
         print("Profiler results grouped by call stack (Total CUDA time, Top 30):")
-        print(
-            prof.key_averages(group_by_stack_n=10).table(
-                sort_by="cuda_time_total", row_limit=30
-            )
-        )
+        print(prof.key_averages(group_by_stack_n=10).table(sort_by="cuda_time_total", row_limit=30))
         print("-" * 80)
 
         # --- TensorBoard Instructions ---
@@ -672,11 +626,10 @@ def profiling_test():
         print(f"Input shape: {input_tensor.shape}")
         print(f"Output shape: {output.shape}")
         expected_shape = (input_shape[0], num_classes, *input_shape[2:])
-        assert (
-            output.shape == expected_shape
-        ), f"Output shape {output.shape} does not match expected {expected_shape}"
+        assert output.shape == expected_shape, f"Output shape {output.shape} does not match expected {expected_shape}"
         print("Output shape matches expected shape.")
 
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     forward_test()

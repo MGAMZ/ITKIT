@@ -44,7 +44,6 @@ class MainWindow(QtWidgets.QMainWindow):
             ItkAugTab,
             ItkExtractTab,
         )
-
         tabs = QtWidgets.QTabWidget()
         tabs.setTabPosition(QtWidgets.QTabWidget.TabPosition.North)
         tabs.setDocumentMode(True)
@@ -66,7 +65,7 @@ def main():
     # Restore default SIGINT handler so Ctrl-C immediately terminates the process.
     # Without this, the Qt event loop may swallow SIGINT and prevent KeyboardInterrupt.
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-
+    
     scr = app.primaryScreen()
     if scr is not None:
         plug = app.platformName() if hasattr(app, "platformName") else "?"
@@ -95,14 +94,10 @@ def main():
         dark.setColor(QtGui.QPalette.ColorRole.Button, QtGui.QColor(53, 53, 53))
         dark.setColor(QtGui.QPalette.ColorRole.ButtonText, QtCore.Qt.GlobalColor.white)
         dark.setColor(QtGui.QPalette.ColorRole.BrightText, QtCore.Qt.GlobalColor.red)
-        dark.setColor(
-            QtGui.QPalette.ColorRole.Highlight, QtGui.QColor(142, 45, 197).lighter()
-        )
-        dark.setColor(
-            QtGui.QPalette.ColorRole.HighlightedText, QtCore.Qt.GlobalColor.black
-        )
+        dark.setColor(QtGui.QPalette.ColorRole.Highlight, QtGui.QColor(142, 45, 197).lighter())
+        dark.setColor(QtGui.QPalette.ColorRole.HighlightedText, QtCore.Qt.GlobalColor.black)
         app.setPalette(dark)
-
+    
     win = MainWindow()
     win.show()
     sys.exit(app.exec())

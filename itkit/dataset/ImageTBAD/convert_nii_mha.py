@@ -1,7 +1,6 @@
 import os
 from ..base_convert import StandardFileFormatter
 
-
 class ImageTBAD_formatter(StandardFileFormatter):
     def tasks(self) -> list:
         task_list = []
@@ -21,7 +20,6 @@ class ImageTBAD_formatter(StandardFileFormatter):
                     )
                 )
         return task_list
-
 
 if __name__ == "__main__":
     formatter = ImageTBAD_formatter()

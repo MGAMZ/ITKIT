@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 
+
 class AverageStrategy(ABC):
     """平均值计算策略的抽象基类"""
 

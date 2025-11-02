@@ -26,31 +26,24 @@ class BlurPool2d(nn.Module):
     Returns:
         torch.Tensor: the transformed tensor.
     """
-
     def __init__(self, channels, filt_size=3, stride=2) -> None:
         super(BlurPool2d, self).__init__()
         assert filt_size > 1
         self.channels = channels
         self.filt_size = filt_size
         self.stride = stride
-        # self.padding = [get_padding(filt_size, stride, dilation=1)] * 4
-        if filt_size > 9:
-            self.padding = 0
+        #self.padding = [get_padding(filt_size, stride, dilation=1)] * 4
+        if filt_size>9:
+            self.padding =0
         else:
-            self.padding = [filt_size // 2] * 4
-        coeffs = torch.tensor(
-            (np.poly1d((0.5, 0.5)) ** (self.filt_size - 1)).coeffs.astype(np.float32)
-        )
-        blur_filter = (coeffs[:, None] * coeffs[None, :])[None, None, :, :].repeat(
-            self.channels, 1, 1, 1
-        )
-        self.register_buffer("filt", blur_filter, persistent=False)
+            self.padding = [filt_size//2]*4
+        coeffs = torch.tensor((np.poly1d((0.5, 0.5)) ** (self.filt_size - 1)).coeffs.astype(np.float32))
+        blur_filter = (coeffs[:, None] * coeffs[None, :])[None, None, :, :].repeat(self.channels, 1, 1, 1)
+        self.register_buffer('filt', blur_filter, persistent=False)
 
-        self.conv = nn.Sequential(
-            nn.Conv2d(channels, channels, 3, 1, 1),
-            nn.BatchNorm2d(channels),
-            nn.LeakyReLU(inplace=True),
-        )
+        self.conv=nn.Sequential(nn.Conv2d(channels,channels,3,1,1),
+                              nn.BatchNorm2d(channels),
+                              nn.LeakyReLU(inplace=True))
 
         # a = torch.tensor([1., 2., 1.])
         # filt = (a[:, None] * a[None, :])
@@ -58,8 +51,9 @@ class BlurPool2d(nn.Module):
         # self.register_buffer('filt', filt[None, None, :, :].repeat((self.channels, 1, 1, 1)))
         #
 
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x=self.conv(x)
-        x = F.pad(x, self.padding, "reflect")
-        return F.conv2d(x, self.filt, stride=self.stride, groups=self.channels)
-        # return self.conv(x)
+        #x=self.conv(x)
+        x = F.pad(x, self.padding, 'reflect')
+        return F.conv2d(x, self.filt, stride=self.stride,groups=self.channels)
+        #return self.conv(x)

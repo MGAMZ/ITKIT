@@ -48,7 +48,7 @@ class _DepthWiseConv2dImplicitGEMMFP16(torch.autograd.Function):
 
 
 class DepthWiseConv2dImplicitGEMM(nn.Conv2d):
-    def __init__(self, channels, kernel, groups, bias=False):
+    def __init__(self, channels, kernel,groups, bias=False):
         super().__init__(channels, channels, kernel, groups=groups, bias=bias)
         # _load_extension()
 

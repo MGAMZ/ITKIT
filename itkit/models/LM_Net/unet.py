@@ -2,7 +2,6 @@ from torch import nn
 
 import torch
 
-
 # encoding block
 class encoding_block(nn.Module):
     """

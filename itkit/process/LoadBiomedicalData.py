@@ -18,7 +18,7 @@ the channel dimension order should align with
 
 
 class BaseLoadBiomedicalData(BaseTransform):
-    def _label_remap(self, mask: np.ndarray, label_map: dict):
+    def _label_remap(self, mask:np.ndarray, label_map:dict):
         mask_copy = mask.copy()
         for old_id, new_id in label_map.items():
             mask[mask_copy == old_id] = new_id
@@ -74,26 +74,16 @@ class LoadAnnoFromOpenCV(BaseLoadBiomedicalData):
 
 
 class LoadFromMHA(BaseLoadBiomedicalData):
-    def __init__(self, resample_spacing=None, resample_size=None, debug: bool = False):
+    def __init__(self, resample_spacing=None, resample_size=None, debug:bool=False):
         self.resample_spacing = resample_spacing
         self.resample_size = resample_size
         self.debug = debug
 
-    def _process_mha(self, mha, field: Literal["image", "label"]):
+    def _process_mha(self, mha, field:Literal["image", "label"]):
         if self.resample_spacing is not None:
-            mha = sitk_resample_to_spacing(
-                mha,
-                self.resample_spacing,
-                field,
-                interp_method=sitk.sitkLinear if field == "image" else None,
-            )
+            mha = sitk_resample_to_spacing(mha, self.resample_spacing, field, interp_method=sitk.sitkLinear if field == "image" else None)
         if self.resample_size is not None:
-            mha = sitk_resample_to_size(
-                mha,
-                self.resample_size,
-                field,
-                interp_method=sitk.sitkLinear if field == "image" else None,
-            )
+            mha = sitk_resample_to_size(mha, self.resample_size, field, interp_method=sitk.sitkLinear if field == "image" else None)
         # mha.GetSize(): [X, Y, Z]
         mha_array = sitk.GetArrayFromImage(mha)  # [Z, Y, X]
         return mha_array
@@ -145,10 +135,10 @@ class LoadMaskFromMHA(LoadFromMHA):
             mask = self._process_mha(mask_mha, "label")
             if results.get("label_map", None) is not None:
                 mask = self._label_remap(mask, results["label_map"])
-
-            results["gt_seg_map"] = mask  # output: [Z, Y, X]
+            
+            results["gt_seg_map"] = mask # output: [Z, Y, X]
             results["seg_fields"].append("gt_seg_map")
             if self.debug:
                 print(f"[LoadMaskMHA] `{mask_path}` shape: {mask.shape}")
-
+        
         return results

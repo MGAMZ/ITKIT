@@ -1,24 +1,27 @@
 import torch.nn as nn
 import torch
 from resnet import resnet50
-
-
-# from torchvision.models import resnet50
+#from torchvision.models import resnet50
 class TwinTowers(nn.Module):
-    def __init__(
-        self, cnn, n_classes=2, filters=[16, 32, 64, 128, 256], deep_supervision=False
-    ):
+    def __init__(self, cnn,n_classes=2, filters=[16,32, 64, 128, 256],deep_supervision=False):
         super(TwinTowers, self).__init__()
-        self.cnn = resnet50()
+        self.cnn=resnet50()
 
-    def forward(self, x, DCT):
+
+
+
+
+
+    def forward(self, x,DCT):
         x = self.cnn.conv1(x)
         x = self.cnn.bn1(x)
         x = self.cnn.relu(x)
         x = self.cnn.maxpool(x)
 
-        a = 0
 
+
+
+        a=0
 
 if __name__ == "__main__":
     x = torch.randn(2, 3, 224, 224)

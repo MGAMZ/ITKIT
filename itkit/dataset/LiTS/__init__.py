@@ -1,7 +1,7 @@
 CLASS_INDEX_MAP = {
-    "background": 0,
-    "liver": 1,
-    "nodule": 2,
+    'background': 0,
+    'liver': 1,
+    'nodule': 2,
 }
 
 from .convert import LiTSFormatter
