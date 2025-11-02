@@ -1,5 +1,3 @@
-# itkit/process/test_itk_patch.py
-import os
 import json
 import tempfile
 import subprocess
@@ -19,6 +17,7 @@ def sample_image():
     img.SetOrigin((0.0, 0.0, 0.0))
     return img
 
+
 @pytest.fixture
 def sample_label():
     arr = np.zeros((10, 10, 10), dtype=np.uint8)
@@ -28,32 +27,79 @@ def sample_label():
     lbl.SetOrigin((0.0, 0.0, 0.0))
     return lbl
 
+
+@pytest.fixture
+def temp_dir():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield Path(tmpdir)
+
+
+@pytest.fixture
+def processor():
+    return PatchProcessor('/tmp/src', '/tmp/dst', [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
+
+
+@pytest.fixture
+def temp_src_dst(temp_dir):
+    src = temp_dir / 'src'
+    dst = temp_dir / 'dst'
+    src.mkdir()
+    (src / 'image').mkdir()
+    (src / 'label').mkdir()
+    return src, dst
+
+
+@pytest.fixture
+def sample_files(temp_src_dst, sample_image, sample_label):
+    src, _ = temp_src_dst
+    img_path = src / 'image' / 'test.mha'
+    lbl_path = src / 'label' / 'test.mha'
+    sitk.WriteImage(sample_image, str(img_path))
+    sitk.WriteImage(sample_label, str(lbl_path))
+    return img_path, lbl_path
+
+
+def run_patch_command(src, dst, patch_size=[4, 4, 4], patch_stride=[2, 2, 2], mp=False):
+    cmd = [
+        sys.executable, '-m', 'itkit.process.itk_patch',
+        str(src), str(dst), '--patch-size', *map(str, patch_size), '--patch-stride', *map(str, patch_stride)
+    ]
+    if mp:
+        cmd.append('--mp')
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    return proc
+
 @pytest.mark.itk_process
 class TestPatchProcessor:
-    def test_parse_patch_size(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            meta_path = Path(tmpdir) / 'crop_meta.json'
-            # Create a complete CropMetadata and save it
-            from itkit.process.itk_patch import CropMetadata
-            crop_meta = CropMetadata(
-                src_folder='/tmp/src',
-                dst_folder='/tmp/dst',
-                patch_size=[64, 64, 64],
-                patch_stride=[32, 32, 32],
-                anno_available=[],
-                patch_meta={}
-            )
-            crop_meta.save(meta_path)
-            result = parse_patch_size(tmpdir)
-            assert result == [64, 64, 64]
+    def test_parse_patch_size(self, temp_dir):
+        meta_path = temp_dir / 'crop_meta.json'
+        # Create a complete CropMetadata and save it
+        from itkit.process.itk_patch import CropMetadata
+        crop_meta = CropMetadata(
+            src_folder='/tmp/src',
+            dst_folder='/tmp/dst',
+            patch_size=[64, 64, 64],
+            patch_stride=[32, 32, 32],
+            anno_available=[],
+            patch_meta={}
+        )
+        crop_meta.save(meta_path)
+        result = parse_patch_size(str(temp_dir))
+        assert result == [64, 64, 64]
 
-    def test_extract_patches_basic(self, sample_image, sample_label):
-        processor = PatchProcessor('/tmp/src', '/tmp/dst', [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
-        patches = processor.extract_patches(sample_image, sample_label, [4, 4, 4], [2, 2, 2], 0.0, False)
+    @pytest.mark.parametrize("patch_size, patch_stride", [
+        ([4, 4, 4], [2, 2, 2]),
+        ([3, 3, 3], [1, 1, 1]),
+        (4, 2),  # int inputs
+    ])
+    def test_extract_patches_basic(self, sample_image, sample_label, patch_size, patch_stride):
+        processor = PatchProcessor('/tmp/src', '/tmp/dst', patch_size, patch_stride, 0.0, 1.0, False)
+        patches = processor.extract_patches(sample_image, sample_label, patch_size, patch_stride, 0.0, False)
         assert len(patches) > 0
         img_patch, lbl_patch = patches[0]
-        assert img_patch.GetSize() == (4, 4, 4)
-        assert lbl_patch.GetSize() == (4, 4, 4)
+        expected_size = (patch_size,) * 3 if isinstance(patch_size, int) else tuple(patch_size)
+        assert img_patch.GetSize() == expected_size
+        assert lbl_patch.GetSize() == expected_size
         # Check properties are copied correctly
         assert img_patch.GetSpacing() == sample_image.GetSpacing()
         assert img_patch.GetDirection() == sample_image.GetDirection()
@@ -82,64 +128,57 @@ class TestPatchProcessor:
         processor = PatchProcessor('/tmp/src', '/tmp/dst', [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
         assert processor.is_valid_sample(sample_image, sample_label)
 
-    def test_is_valid_sample_size_mismatch(self, sample_image):
+    def test_is_valid_sample_size_mismatch(self, sample_image, sample_label):
         mismatched_label = sitk.GetImageFromArray(np.zeros((5, 10, 10), dtype=np.uint8))
         processor = PatchProcessor('/tmp/src', '/tmp/dst', [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
         assert not processor.is_valid_sample(sample_image, mismatched_label)
 
-    def test_process_one(self, sample_image, sample_label):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            img_path = Path(tmpdir) / 'img.mha'
-            lbl_path = Path(tmpdir) / 'lbl.mha'
-            sitk.WriteImage(sample_image, str(img_path))
-            sitk.WriteImage(sample_label, str(lbl_path))
-            processor = PatchProcessor(tmpdir, tmpdir + '/dst', [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
-            result = processor.process_one((str(img_path), str(lbl_path)))
-            assert result is not None
-            # Check that result is ProcessOneResult
-            from itkit.process.itk_patch import ProcessOneResult
-            assert isinstance(result, ProcessOneResult)
-            # Check patch metadata list
-            assert len(result.patch_metadata_list) > 0
-            for meta in result.patch_metadata_list:
-                assert hasattr(meta, 'name')
-                assert hasattr(meta, 'spacing')
-                assert hasattr(meta, 'size')
-            # Check source metadata
-            assert result.source_metadata.series_id == 'img'
-            assert result.source_metadata.num_patches > 0
+        processor = PatchProcessor('/tmp/src', '/tmp/dst', [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
+        invalid_image = sitk.GetImageFromArray(np.random.rand(10, 10, 5).astype(np.float32))  # 3D but different size
+        with pytest.raises(ValueError):
+            processor.extract_patches(invalid_image, sample_label, [4, 4, 4], [2, 2, 2], 0.0, False)
 
-    def test_main_subprocess(self, ):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            src = Path(tmpdir) / 'src'
-            dst = Path(tmpdir) / 'dst'
-            src.mkdir()
-            (src / 'image').mkdir()
-            (src / 'label').mkdir()
-            # Create dummy files
-            img = sitk.GetImageFromArray(np.random.rand(10, 10, 10).astype(np.float32))
-            lbl = sitk.GetImageFromArray(np.zeros((10, 10, 10), dtype=np.uint8))
-            sitk.WriteImage(img, str(src / 'image' / 'test.mha'))
-            sitk.WriteImage(lbl, str(src / 'label' / 'test.mha'))
-            
-            proc = subprocess.run([
-                sys.executable, '-m', 'itkit.process.itk_patch',
-                str(src), str(dst), '--patch-size', '4', '4', '4', '--patch-stride', '2', '2', '2'
-            ], capture_output=True, text=True)
-            assert proc.returncode == 0
-            assert (dst / 'crop_meta.json').exists()
+    def test_process_one(self, temp_dir, sample_image, sample_label):
+        img_path = temp_dir / 'img.mha'
+        lbl_path = temp_dir / 'lbl.mha'
+        sitk.WriteImage(sample_image, str(img_path))
+        sitk.WriteImage(sample_label, str(lbl_path))
+        processor = PatchProcessor(str(temp_dir), str(temp_dir / 'dst'), [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
+        result = processor.process_one((str(img_path), str(lbl_path)))
+        assert result is not None
+        # Check that result is ProcessOneResult
+        from itkit.process.itk_patch import ProcessOneResult
+        assert isinstance(result, ProcessOneResult)
+        # Check patch metadata list
+        assert len(result.patch_metadata_list) > 0
+        for meta in result.patch_metadata_list:
+            assert hasattr(meta, 'name')
+            assert hasattr(meta, 'spacing')
+            assert hasattr(meta, 'size')
+        # Check source metadata
+        assert result.source_metadata.series_id == 'img'
+        assert result.source_metadata.num_patches > 0
+
+    def test_main_subprocess(self, temp_src_dst, sample_image, sample_label):
+        src, dst = temp_src_dst
+        # Create dummy files
+        sitk.WriteImage(sample_image, str(src / 'image' / 'test.mha'))
+        sitk.WriteImage(sample_label, str(src / 'label' / 'test.mha'))
+        
+        proc = run_patch_command(src, dst)
+        assert proc.returncode == 0
+        assert (dst / 'crop_meta.json').exists()
 
     def test_parse_patch_size_file_not_found(self):
         with pytest.raises(FileNotFoundError):
             parse_patch_size('/nonexistent/path')
 
-    def test_parse_patch_size_invalid_json(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            meta_path = Path(tmpdir) / 'crop_meta.json'
-            with open(meta_path, 'w') as f:
-                f.write('invalid json')
-            with pytest.raises(json.JSONDecodeError):
-                parse_patch_size(tmpdir)
+    def test_parse_patch_size_invalid_json(self, temp_dir):
+        meta_path = temp_dir / 'crop_meta.json'
+        with open(meta_path, 'w') as f:
+            f.write('invalid json')
+        with pytest.raises(json.JSONDecodeError):
+            parse_patch_size(str(temp_dir))
 
     def test_extract_patches_patch_too_large(self, sample_image, sample_label):
         processor = PatchProcessor('/tmp/src', '/tmp/dst', [20, 20, 20], [2, 2, 2], 0.0, 1.0, False)
@@ -177,12 +216,11 @@ class TestPatchProcessor:
         result = processor.process_one(('/nonexistent/img.mha', '/nonexistent/lbl.mha'))
         assert result is None  # Should handle exception gracefully
 
-    def test_patch_processor_init_dirs(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            dst = Path(tmpdir) / 'dst'
-            processor = PatchProcessor('/tmp/src', str(dst), [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
-            assert (dst / 'image').exists()
-            assert (dst / 'label').exists()
+    def test_patch_processor_init_dirs(self, temp_dir):
+        dst = temp_dir / 'dst'
+        processor = PatchProcessor('/tmp/src', str(dst), [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
+        assert (dst / 'image').exists()
+        assert (dst / 'label').exists()
 
     def test_main_invalid_args(self):
         # Test with missing required args
@@ -191,22 +229,21 @@ class TestPatchProcessor:
         ], capture_output=True, text=True, input='')  # Simulate no args
         assert proc.returncode != 0  # Should fail due to missing args
 
-    def test_process_one_file_saving(self, sample_image, sample_label):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            img_path = Path(tmpdir) / 'img.mha'
-            lbl_path = Path(tmpdir) / 'lbl.mha'
-            dst = Path(tmpdir) / 'dst'
-            sitk.WriteImage(sample_image, str(img_path))
-            sitk.WriteImage(sample_label, str(lbl_path))
-            processor = PatchProcessor(tmpdir, str(dst), [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
-            result = processor.process_one((str(img_path), str(lbl_path)))
-            assert result is not None
-            # Check files are saved
-            image_files = list((dst / 'image').glob('*.mha'))
-            label_files = list((dst / 'label').glob('*.mha'))
-            assert len(image_files) > 0
-            assert len(label_files) > 0
-            assert len(image_files) == len(label_files)
+    def test_process_one_file_saving(self, temp_dir, sample_image, sample_label):
+        img_path = temp_dir / 'img.mha'
+        lbl_path = temp_dir / 'lbl.mha'
+        dst = temp_dir / 'dst'
+        sitk.WriteImage(sample_image, str(img_path))
+        sitk.WriteImage(sample_label, str(lbl_path))
+        processor = PatchProcessor(str(temp_dir), str(dst), [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
+        result = processor.process_one((str(img_path), str(lbl_path)))
+        assert result is not None
+        # Check files are saved
+        image_files = list((dst / 'image').glob('*.mha'))
+        label_files = list((dst / 'label').glob('*.mha'))
+        assert len(image_files) > 0
+        assert len(label_files) > 0
+        assert len(image_files) == len(label_files)
 
     def test_extract_patches_origin_calculation(self, sample_image, sample_label):
         processor = PatchProcessor('/tmp/src', '/tmp/dst', [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
@@ -262,73 +299,52 @@ class TestPatchProcessor:
         patches2 = processor2.extract_patches(sample_image, sample_label, [4, 4, 4], [2, 2, 2], 0.0, False)
         assert len(patches2) >= len(patches)  # At least as many
 
-    def test_saved_patches_content(self, sample_image, sample_label):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            img_path = Path(tmpdir) / 'img.mha'
-            lbl_path = Path(tmpdir) / 'lbl.mha'
-            dst = Path(tmpdir) / 'dst'
-            sitk.WriteImage(sample_image, str(img_path))
-            sitk.WriteImage(sample_label, str(lbl_path))
-            processor = PatchProcessor(tmpdir, str(dst), [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
-            processor.process_one((str(img_path), str(lbl_path)))
-            # Read back a saved patch
-            saved_img = sitk.ReadImage(str(dst / 'image' / 'img_p0.mha'))
-            saved_lbl = sitk.ReadImage(str(dst / 'label' / 'img_p0.mha'))
-            assert saved_img.GetSize() == (4, 4, 4)
-            assert saved_lbl.GetSize() == (4, 4, 4)
-            # Check content matches original slice
-            orig_arr = sitk.GetArrayFromImage(sample_image)
-            saved_arr = sitk.GetArrayFromImage(saved_img)
-            assert np.allclose(saved_arr, orig_arr[:4, :4, :4])
+    def test_saved_patches_content(self, temp_dir, sample_image, sample_label):
+        img_path = temp_dir / 'img.mha'
+        lbl_path = temp_dir / 'lbl.mha'
+        dst = temp_dir / 'dst'
+        sitk.WriteImage(sample_image, str(img_path))
+        sitk.WriteImage(sample_label, str(lbl_path))
+        processor = PatchProcessor(str(temp_dir), str(dst), [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
+        processor.process_one((str(img_path), str(lbl_path)))
+        # Read back a saved patch
+        saved_img = sitk.ReadImage(str(dst / 'image' / 'img_p0.mha'))
+        saved_lbl = sitk.ReadImage(str(dst / 'label' / 'img_p0.mha'))
+        assert saved_img.GetSize() == (4, 4, 4)
+        assert saved_lbl.GetSize() == (4, 4, 4)
+        # Check content matches original slice
+        orig_arr = sitk.GetArrayFromImage(sample_image)
+        saved_arr = sitk.GetArrayFromImage(saved_img)
+        assert np.allclose(saved_arr, orig_arr[:4, :4, :4])
 
-    def test_crop_meta_json(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            src = Path(tmpdir) / 'src'
-            dst = Path(tmpdir) / 'dst'
-            src.mkdir()
-            (src / 'image').mkdir()
-            (src / 'label').mkdir()
-            img = sitk.GetImageFromArray(np.random.rand(10, 10, 10).astype(np.float32))
-            lbl = sitk.GetImageFromArray(np.zeros((10, 10, 10), dtype=np.uint8))
-            sitk.WriteImage(img, str(src / 'image' / 'test.mha'))
-            sitk.WriteImage(lbl, str(src / 'label' / 'test.mha'))
-            
-            proc = subprocess.run([
-                sys.executable, '-m', 'itkit.process.itk_patch',
-                str(src), str(dst), '--patch-size', '4', '4', '4', '--patch-stride', '2', '2', '2'
-            ], capture_output=True, text=True)
-            assert proc.returncode == 0, f"Process failed: {proc.stderr}"
-            
-            # Check crop_meta.json exists and has correct structure
-            meta_path = dst / 'crop_meta.json'
-            assert meta_path.exists()
-            with open(meta_path) as f:
-                meta = json.load(f)
-            assert 'patch_size' in meta
-            assert 'patch_meta' in meta
-            assert 'test' in meta['patch_meta']
-            assert meta['patch_meta']['test']['num_patches'] > 0
-            
-            # Check that standard meta.json files also exist
-            assert (dst / "meta.json").exists()
-            assert (dst / "image" / "meta.json").exists()
-            assert (dst / "label" / "meta.json").exists()
+    def test_crop_meta_json(self, temp_src_dst, sample_image, sample_label):
+        src, dst = temp_src_dst
+        sitk.WriteImage(sample_image, str(src / 'image' / 'test.mha'))
+        sitk.WriteImage(sample_label, str(src / 'label' / 'test.mha'))
+        
+        proc = run_patch_command(src, dst)
+        assert proc.returncode == 0, f"Process failed: {proc.stderr}"
+        
+        # Check crop_meta.json exists and has correct structure
+        meta_path = dst / 'crop_meta.json'
+        assert meta_path.exists()
+        with open(meta_path) as f:
+            meta = json.load(f)
+        assert 'patch_size' in meta
+        assert 'patch_meta' in meta
+        assert 'test' in meta['patch_meta']
+        assert meta['patch_meta']['test']['num_patches'] > 0
+        
+        # Check that standard meta.json files also exist
+        assert (dst / "meta.json").exists()
+        assert (dst / "image" / "meta.json").exists()
+        assert (dst / "label" / "meta.json").exists()
 
-    def test_multiprocessing_mode(self):
+    def test_multiprocessing_mode(self, temp_src_dst, sample_image, sample_label):
         # Simple test: mp=True should not crash immediately
-        with tempfile.TemporaryDirectory() as tmpdir:
-            src = Path(tmpdir) / 'src'
-            dst = Path(tmpdir) / 'dst'
-            src.mkdir()
-            (src / 'image').mkdir()
-            (src / 'label').mkdir()
-            img = sitk.GetImageFromArray(np.random.rand(10, 10, 10).astype(np.float32))
-            lbl = sitk.GetImageFromArray(np.zeros((10, 10, 10), dtype=np.uint8))
-            sitk.WriteImage(img, str(src / 'image' / 'test.mha'))
-            sitk.WriteImage(lbl, str(src / 'label' / 'test.mha'))
-            
-            proc = subprocess.run([
-                sys.executable, '-m', 'itkit.process.itk_patch',
-                str(src), str(dst), '--patch-size', '4', '4', '4', '--patch-stride', '2', '2', '2', '--mp'
-            ], capture_output=True, text=True)
-            assert proc.returncode == 0  # Should succeed without error
+        src, dst = temp_src_dst
+        sitk.WriteImage(sample_image, str(src / 'image' / 'test.mha'))
+        sitk.WriteImage(sample_label, str(src / 'label' / 'test.mha'))
+        
+        proc = run_patch_command(src, dst, mp=True)
+        assert proc.returncode == 0  # Should succeed without error

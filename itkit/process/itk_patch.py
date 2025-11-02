@@ -118,8 +118,8 @@ class PatchProcessor(DatasetProcessor):
                         minimum_foreground_ratio: float,
                         still_save_when_no_label: bool) -> list[tuple[sitk.Image, sitk.Image | None]]:
         if label is not None:
-            assert image.GetSize() == label.GetSize(), \
-                f"Image ({image.GetSize()}) and label ({label.GetSize()}) must have the same size."
+            if image.GetSize() != label.GetSize():
+                raise ValueError(f"Image ({image.GetSize()}) and label ({label.GetSize()}) must have the same size.")
 
         img_arr = sitk.GetArrayFromImage(image)
         if label is None:
