@@ -191,11 +191,11 @@ class PatchProcessor(DatasetProcessor):
                         
                         assert (img_patch_size := img_patch.GetSize()[::-1]) == (pZ, pY, pX), (
                             f"Unexpected image patch shape: {img_patch_size}, expected {(pZ, pY, pX)}. "
-                            f"Current Patch origin pixel z:{z}, y:{y}, x:{x}"
+                            f"Current Patch origin pixel z:{z}, y:{y}, x:{x}, Series image size: {img_arr.shape}"
                         )
                         assert lbl_patch_np is None or (lbl_patch_size := lbl_patch.GetSize()[::-1]) == (pZ, pY, pX), (
                             f"Unexpected label patch shape: {lbl_patch_size}, expected {(pZ, pY, pX)}"
-                            f"Current Patch origin pixel z:{z}, y:{y}, x:{x}"
+                            f"Current Patch origin pixel z:{z}, y:{y}, x:{x}, Series label size: {lbl_arr.shape}"
                         )
                         
                         patches.append((img_patch, lbl_patch))
