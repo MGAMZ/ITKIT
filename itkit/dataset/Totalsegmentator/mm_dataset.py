@@ -5,9 +5,8 @@ from tqdm import tqdm
 import orjson
 import pandas as pd
 
-from ..base import mgam_SemiSup_3D_Mha, mgam_SemiSup_Precropped_Npz, mgam_SeriesPatched_Structure
+from ..base import mgam_SemiSup_3D_Mha, mgam_SeriesPatched_Structure
 from .meta import CLASS_INDEX_MAP, generate_subset_class_map_and_label_map, generate_reduced_class_map_and_label_map
-
 
 class TotalsegmentatorIndexer:
 
@@ -47,7 +46,6 @@ class TotalsegmentatorIndexer:
                               image_path.replace('img_dir', 'ann_dir')))
                 for image_path in selected_split_image_paths]
 
-
 class Tsd_base:
     METAINFO = dict(classes=list(CLASS_INDEX_MAP.keys()))
 
@@ -67,7 +65,7 @@ class Tsd_base:
         else:
             self.label_map = None
 
-        super().__init__(lazy_init=True, **kwargs)
+        super().__init__(lazy_init=True, **kwargs)  # type: ignore[call-arg]
 
     def _split(self):
         if self.meta_table is None:
@@ -77,9 +75,6 @@ class Tsd_base:
             return activate_series['image_id'].tolist()
 
 class Tsd_Mha(Tsd_base, mgam_SemiSup_3D_Mha):
-    ...
-
-class Tsd3D_PreCrop_Npz(Tsd_base, mgam_SemiSup_Precropped_Npz):
     ...
 
 class Tsd_Patch(Tsd_base, mgam_SeriesPatched_Structure):

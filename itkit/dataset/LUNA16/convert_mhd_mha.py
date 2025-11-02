@@ -2,10 +2,6 @@ import os
 from ..base_convert import StandardFileFormatter
 
 class LUNA16_formatter(StandardFileFormatter):
-    @staticmethod
-    def _series_id(image_path: str, label_path: str) -> str:
-        ...
-    
     def tasks(self) -> list:
         labels_folder = os.path.join(self.args.data_root, 'seg-lungs-LUNA16')
         labels_list = [file
@@ -23,12 +19,12 @@ class LUNA16_formatter(StandardFileFormatter):
             if series_file_name in labels_list:
                 label_path = os.path.join(labels_folder, series_file_name)
                 task_list.append((
-                    image_path, 
-                    label_path, 
-                    self.args.dest_root, 
-                    series_file_name, 
-                    self.spacing, 
-                    self.size
+                    image_path,
+                    label_path,
+                    self.args.dest_root,
+                    series_file_name,
+                    self.args.spacing,
+                    self.args.size
                 ))
         
         return task_list

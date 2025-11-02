@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "itkit"
-version = "3.4.0rc1"
+version = "3.4.0rc2"
 requires-python = ">= 3.10"
 description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API"
 readme = "readme.md"
@@ -33,6 +33,10 @@ dependencies = [
   "ftfy",
   "deprecated",
   "pydantic",
+  "pydicom",
+  "pynrrd",
+  "nibabel",
+  "tcia_utils",
 ]
 
 [project.optional-dependencies]
@@ -43,7 +47,17 @@ dev = [
   "pynvml",
   "pytest",
   "psutil",
-  "memory-profiler"
+  "memory-profiler",
+  "types-colorama",
+  "types-tqdm",
+  "types-openpyxl",
+  "pandas-stubs",
+  "scipy-stubs",
+  "pyright",
+  "autopep8",
+  "black",
+  "isort",
+  "mypy",
 ]
 nvidia = [
   "onnx",
@@ -53,13 +67,10 @@ nvidia = [
   "polygraphy",
   "tensorrt",
 ]
-medical_vision = [
+pathology = [
   "opensdpc",
   "openslide-python",
   "openslide-bin",
-  "pydicom",
-  "pynrrd",
-  "nibabel",
 ]
 pytorch = [
   "lightning",

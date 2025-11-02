@@ -8,8 +8,6 @@ import torch.utils.cpp_extension as cpp_extension
 import _depthwise_conv2d_implicit_gemm_C as _extension
 from depthwise_conv2d_implicit_gemm import *
 
-__all__ = ["DepthWiseConv2dImplicitGEMM"]
-
 
 class _DepthWiseConv2dImplicitGEMMFP32(torch.autograd.Function):
     @staticmethod

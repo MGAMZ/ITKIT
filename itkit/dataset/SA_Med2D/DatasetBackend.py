@@ -305,8 +305,7 @@ class SA_Med2D_Dataset_MultiSliceSample(SA_Med2D_Dataset):
                     else:
                         raise TypeError(f'Unexpected type of max_sample_per_case: {self.max_sample_per_case}')
                     try:
-                        avail_center_idx = self.sampling_from_set(
-                            avail_center_idx, max(num_samples, 1))
+                        avail_center_idx = self.sampling_from_set(avail_center_idx, max(num_samples, 1))
                     except:
                         raise RuntimeError(
                             f"Unable to Sample. "

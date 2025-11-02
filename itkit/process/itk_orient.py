@@ -16,6 +16,7 @@ class OrientProcessor(SingleFolderProcessor):
                  mp: bool = False,
                  workers: int | None = None):
         super().__init__(source_folder, dest_folder, recursive=True, mp=mp, workers=workers)
+        self.dest_folder: str
         self.orient = orient
         self.field = field
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from PyQt6 import QtCore, QtGui, QtWidgets
 from .runner import ProcessRunner, CmdChunk
@@ -208,16 +210,16 @@ class ItkCheckTab(CommandFormBase):
             ("--min-size", self.min_size.text()),
             ("--max-size", self.max_size.text()),
         ):
-            trip = self.parse_triplet_int(val)
-            if trip:
-                args += [key, *map(str, trip)]
+            trip_int = self.parse_triplet_int(val)
+            if trip_int:
+                args += [key, *map(str, trip_int)]
         for key, val in (
             ("--min-spacing", self.min_spacing.text()),
             ("--max-spacing", self.max_spacing.text()),
         ):
-            trip = self.parse_triplet_float(val)
-            if trip:
-                args += [key, *map(str, trip)]
+            trip_float = self.parse_triplet_float(val)
+            if trip_float:
+                args += [key, *map(str, trip_float)]
         if self.same_spacing.text().strip():
             parts = self.same_spacing.text().split()
             if len(parts) != 2:
@@ -244,17 +246,18 @@ class ItkResampleTab(CommandFormBase):
         self.form.addRow("source_folder", srcw)
         self.form.addRow("dest_folder", dstw)
 
-        self.spacing = self._spin_float3()
-        self.size = self._spin_int3(-1, 10**6)
-        tfw, self.target_folder = self._file_picker("Browse", mode="dir")
+        self.spacing_input = self._spin_float3()
+        self.size_input = self._spin_int3(-1, 10**6)
+        tfw, target_folder = self._file_picker("Browse", mode="dir")
+        self.target_folder: QtWidgets.QLineEdit = target_folder
         self.recursive = self._check("recursively process all samples")
         self.mp = self._check("Multi Processing")
         self.workers = QtWidgets.QSpinBox()
         self.workers.setRange(1, 512)
         self.workers.setValue(8)
 
-        self.form.addRow("spacing (Z Y X)", self.spacing)
-        self.form.addRow("size (Z Y X)", self.size)
+        self.form.addRow("spacing (Z Y X)", self.spacing_input)
+        self.form.addRow("size (Z Y X)", self.size_input)
         self.form.addRow("target-folder", tfw)
         self.form.addRow(self.recursive)
         self.form.addRow(self.mp)
@@ -271,15 +274,15 @@ class ItkResampleTab(CommandFormBase):
             self.src.text(),
             self.dst.text(),
         ]
-        spacing = self.parse_triplet_float(self.spacing.text())
-        size = self.parse_triplet_int(self.size.text())
+        spacing = self.parse_triplet_float(self.spacing_input.text())
+        size = self.parse_triplet_int(self.size_input.text())
         if spacing and size:
             pass  # allow both; script may validate
         if spacing:
             args += ["--spacing", *map(str, spacing)]
         if size:
             args += ["--size", *map(str, size)]
-        if self.target_folder.text():
+        if self.target_folder.text():  # type: ignore[attr-defined]
             args += ["--target-folder", self.target_folder.text()]
         if self.recursive.isChecked():
             args.append("--recursive")

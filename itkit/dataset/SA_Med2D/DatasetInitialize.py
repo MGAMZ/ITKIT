@@ -115,7 +115,6 @@ class DataStructurer(SA_Med2D):
         # 统计出现的label index
         return np.unique(png_array)
 
-
     def Split_ImageMaskMapJSON_into_DatasetSeperated(self):
         dict_cache = {}
         ImageMaskMapJSONPath = os.path.join(self.src_root, 'SAMed2D_v1.json')
@@ -135,7 +134,6 @@ class DataStructurer(SA_Med2D):
                         os.path.join(self.ModalityRootAfterInit, modality, dataset_name, f'{dataset_name}_img_mask_map.json'), 'w'
                     ), indent=4)
 
-
     def Split_ClassLabelMap_into_ModalitySeperated(self):
         ClassLabelMapJSONPath = os.path.join(self.src_root, 'SAMed2D_v1_class_mapping_id.json')
         source_map = orjson.loads(open(ClassLabelMapJSONPath, 'r').read())
@@ -153,9 +151,8 @@ class DataStructurer(SA_Med2D):
                 ), indent=4)
 
     @classmethod
-    def GetUniqueLabelIndex_FromPNG(cls, png_path:str) -> List[int]:
+    def GetUniqueLabelIndex_FromPNG(cls, png_path:str):
             return np.unique(cls.png_to_ndarray(png_path))
-
 
     def Filter_ClassLabelMap_to_Truely_Existed_with_ModalitySeperated(self):
         p = Pool(cpu_count())
@@ -203,7 +200,6 @@ class DataStructurer(SA_Med2D):
                     os.path.join(self.ModalityRootAfterInit, modality, f'{modality}_exist_class_map.json'), 'w'
                 ), indent=4)
 
-
     def Create_CaseSlice_Map_for_Each_Dataset(self):
         def slice_name_to_slice_index(slice_name:Union[str, List]) -> Union[str, List]:
             if isinstance(slice_name, List): 
@@ -245,7 +241,6 @@ class DataStructurer(SA_Med2D):
                           open(os.path.join(case_root, f'{dataset}_CaseSlice_map.json'), 'w'), 
                           indent=4)
 
-
     def Create_Dataset_NumSamples_Map_for_Each_Dataset(self):
         modality_num_slice_map = {'all': {}}
         for modality in tqdm(os.listdir(self.ModalityRootAfterInit), desc='Modality'):
@@ -281,7 +276,6 @@ class DataStructurer(SA_Med2D):
                     open(os.path.join(self.ModalityRootAfterInit, f'NumSlice_map.json'), 'w'), 
                     indent=4)
 
-
     def Create_AtomClassLabelMap(self):
         # This function relies on the map created by method 
         # 'Filter_ClassLabelMap_to_Truely_Existed_with_ModalitySeperated', 
@@ -307,7 +301,6 @@ class DataStructurer(SA_Med2D):
                 json.dump(atom_classes_dict, 
                           open(atom_class_map_path, 'w'), 
                           indent=4)
-
 
     def Create_UnionClass_AtomClass_Rectiry_Map(self):
         # This functions relies on atom map json, so please run 'Create_AtomClassLabelMap' first.
@@ -365,7 +358,6 @@ class DataStructurer(SA_Med2D):
                           open(rectify_map_path, 'w'),
                           indent=4)
 
-
     def Create_NumCase_AvgSlice_Map(self):
         Slices_Dict = json.loads(
             open(os.path.join(self.ModalityRootAfterInit, f'NumSlice_map.json'), 'r').read())
@@ -399,7 +391,6 @@ class DataStructurer(SA_Med2D):
         json.dump(modality_num_slice_map, 
                   open(os.path.join(self.ModalityRootAfterInit, f'NumCase_AvgSlice.json'), 'w'), 
                   indent=4)
-
 
     def Calculate_Dataset_Value_Distributions(self):
         pool = futures.ProcessPoolExecutor(20)
@@ -470,7 +461,6 @@ class DataStructurer(SA_Med2D):
             
             pbar.advance(pbar_modality)
         pbar.remove_task(pbar_modality)
-
 
     def Calculate_Dataset_Label_Distributions(self):
         def register_label(registry_dict, unique_labels:np.ndarray):
@@ -544,11 +534,9 @@ class DataStructurer(SA_Med2D):
         
         pbar.remove_task(pbar_modality)
 
-
     def Hierarchical_Folder_init(self):
         # self.init_image()
         self.init_mask()
-
 
     def init_image(self):
         print('正在获取文件列表')
@@ -574,7 +562,6 @@ class DataStructurer(SA_Med2D):
                 
         except KeyboardInterrupt:
             pdb.set_trace()
-
 
     def init_mask(self):
         def is_same(file_meta_1, file_meta_2, level):

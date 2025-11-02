@@ -20,7 +20,7 @@ class MhaDataset(BaseDataset):
         **kwargs
     ) -> None:
         super().__init__(**kwargs)
-        self.all_seriesUID = None
+        self.all_seriesUID: list[str] | None = None
         self.image_root = Path(image_root)
         self.label_root = Path(label_root)
         self.split_accordance = Path(split_accordance)
@@ -33,6 +33,7 @@ class MhaDataset(BaseDataset):
             all_seriesUID = sorted(all_seriesUID, key=lambda x: abs(int(re.search(r"\d+", x).group())))
             self.all_seriesUID = all_seriesUID
         
+        assert self.all_seriesUID is not None
         split_id_train_val = int(len(self.all_seriesUID) * self.SPLIT_RATIO[0])
         split_id_val_test = int(len(self.all_seriesUID) * (self.SPLIT_RATIO[0] + self.SPLIT_RATIO[1]))
         
@@ -107,10 +108,13 @@ class LargeVolumeDataModule(BaseDataModule):
     
     def setup(self, stage: Literal['fit', 'validate', 'test', 'predict']):
         if stage == 'fit':
+            assert self.patched_train_dataset is not None, "Patched train dataset must be provided for training."
             self.train = self.patched_train_dataset.get_self_copy(stage)
         elif stage == 'validate':
+            assert self.whole_volume_val_dataset is not None, "Whole volume val dataset must be provided for validation."
             self.val = self.whole_volume_val_dataset.get_self_copy(stage)
         elif stage in ('test', 'predict'):
+            assert self.whole_volume_test_dataset is not None, "Whole volume test dataset must be provided for testing."
             self.test = self.whole_volume_test_dataset.get_self_copy(stage)
         else:
             raise ValueError(f"Invalid stage: {stage}.")

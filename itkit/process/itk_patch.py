@@ -91,6 +91,7 @@ class PatchProcessor(DatasetProcessor):
         self.keep_empty_label_prob = keep_empty_label_prob
         self.still_save = still_save
         # Prepare global image/ and label/ output directories under destination
+        assert self.dest_folder is not None
         self.image_dir = Path(self.dest_folder) / "image"
         self.label_dir = Path(self.dest_folder) / "label"
         self.image_dir.mkdir(parents=True, exist_ok=True)
@@ -116,10 +117,12 @@ class PatchProcessor(DatasetProcessor):
                         patch_stride: int | list[int],
                         minimum_foreground_ratio: float,
                         still_save_when_no_label: bool) -> list[tuple[sitk.Image, sitk.Image | None]]:
-        # Simplified version
-        no_label = (label is None)
+        if label is not None:
+            if image.GetSize() != label.GetSize():
+                raise ValueError(f"Image ({image.GetSize()}) and label ({label.GetSize()}) must have the same size.")
+
         img_arr = sitk.GetArrayFromImage(image)
-        if no_label:
+        if label is None:
             lbl_arr = None
         else:
             lbl_arr = sitk.GetArrayFromImage(label)
@@ -155,11 +158,12 @@ class PatchProcessor(DatasetProcessor):
                 for x in x_starts:
                     img_patch_np = img_arr[z:z+pZ, y:y+pY, x:x+pX]
                     save = True
-                    if no_label:
+                    if label is None:
                         if not still_save_when_no_label:
                             save = False
                         lbl_patch_np = None
                     else:
+                        assert lbl_arr is not None
                         lbl_patch_np = lbl_arr[z:z+pZ, y:y+pY, x:x+pX]
                         fg_ratio = np.sum(lbl_patch_np > 0) / lbl_patch_np.size
                         if (fg_ratio < minimum_foreground_ratio):
@@ -168,23 +172,33 @@ class PatchProcessor(DatasetProcessor):
                             save = False
                     
                     if save:
-                        img_patch = sitk.GetImageFromArray(img_patch_np)
                         new_origin = (
                             origin[0] + x * spacing[0],
                             origin[1] + y * spacing[1],
                             origin[2] + z * spacing[2]
                         )
+                        img_patch = sitk.GetImageFromArray(img_patch_np)
                         img_patch.SetOrigin(new_origin)
                         img_patch.SetSpacing(spacing)
                         img_patch.SetDirection(direction)
                         
-                        if no_label:
+                        if label is None:
                             lbl_patch = None
                         else:
+                            assert lbl_patch_np is not None
                             lbl_patch = sitk.GetImageFromArray(lbl_patch_np)
                             lbl_patch.SetOrigin(new_origin)
                             lbl_patch.SetSpacing(spacing)
                             lbl_patch.SetDirection(direction)
+                        
+                        assert (img_patch_size := img_patch.GetSize()[::-1]) == (pZ, pY, pX), (
+                            f"Unexpected image patch shape: {img_patch_size}, expected {(pZ, pY, pX)}. "
+                            f"Current Patch origin pixel z:{z}, y:{y}, x:{x}, Series image size: {img_arr.shape}"
+                        )
+                        assert lbl_patch_np is None or (lbl_patch_size := lbl_patch.GetSize()[::-1]) == (pZ, pY, pX), (
+                            f"Unexpected label patch shape: {lbl_patch_size}, expected {(pZ, pY, pX)}"
+                            f"Current Patch origin pixel z:{z}, y:{y}, x:{x}, Series label size: {lbl_arr.shape}"
+                        )
                         
                         patches.append((img_patch, lbl_patch))
         return patches

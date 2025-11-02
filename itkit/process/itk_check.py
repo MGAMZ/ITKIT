@@ -31,8 +31,8 @@ class ValidationMixin:
         """
         self.cfg = cfg
         self.mode = mode
-        self.invalid = []  # List of (name, reasons, paths)
-        self.valid_items = []  # List of (name, paths)
+        self.invalid: list[tuple[str,str,str]] = []  # List of (name, reasons, paths)
+        self.valid_items: list[tuple[str,str]] = []  # List of (name, paths)
 
     def validate_sample_metadata(
         self, size: list[int], spacing: list[float]
@@ -238,7 +238,7 @@ class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
             self.invalid.append((name, [f"Failed to read: {str(e)}"], (img_path, lbl_path)))
             return None
 
-    def process(self, desc: str = "Checking") -> dict:
+    def process(self, desc: str = "Checking"):
         """Main processing with fast check support"""
         # Try fast check first
         try:
@@ -306,7 +306,7 @@ class SingleCheckProcessor(SingleFolderProcessor, ValidationMixin):
             self.invalid.append((name, [f"Failed to read: {str(e)}"], img_path))
             return None
 
-    def process(self, desc: str = "Checking") -> dict:
+    def process(self, desc: str = "Checking"):
         """Main processing with fast check support"""
         # Try fast check first
         series_meta = load_series_meta(self.source_folder)

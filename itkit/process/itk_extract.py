@@ -20,6 +20,7 @@ class ExtractProcessor(SingleFolderProcessor):
                  mp: bool = False,
                  workers: int | None = None):
         super().__init__(source_folder, dest_folder, recursive, mp=mp, workers=workers, task_description="Extracting labels")
+        self.dest_folder: str
         self.label_mapping = label_mapping
     
     def process_one(self, file_path: str) -> SeriesMetadata | None:

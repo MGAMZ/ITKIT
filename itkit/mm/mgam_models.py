@@ -1,6 +1,5 @@
 import pdb
 import logging
-import copy
 from abc import abstractmethod
 from tqdm import tqdm
 from collections.abc import Sequence
@@ -102,11 +101,11 @@ class mgam_Seg_Lite(BaseModel):
                  backbone: ConfigDict,
                  criterion: ConfigDict|list[ConfigDict],
                  num_classes: int,
-                 gt_sem_seg_key: str='gt_sem_seg',
-                 use_half: bool=False,
-                 binary_segment_threshold: float|None=None,
+                 gt_sem_seg_key: str = 'gt_sem_seg',
+                 use_half: bool = False,
+                 binary_segment_threshold: float|None = None,
                  inference_config: InferenceConfig | dict | None = None,
-                 allow_pbar: bool=False,
+                 allow_pbar: bool = False,
                  *args, **kwargs):
         """
         mgam_Seg_Lite is a Lite form of `mmseg` core model implementation,
