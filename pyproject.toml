@@ -99,10 +99,3 @@ itkit-app = "itkit.gui.app:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["itkit*"]
-
-[tool.mypy]
-ignore_missing_imports = true
-disable_error_code = ["misc", "override", "assignment", "union-attr", "has-type", "attr-defined", "union-attr", "var-annotated"]
-
-[tool.pyright]
-reportMissingImports = false
