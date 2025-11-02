@@ -254,7 +254,7 @@ class SingleResampleProcessor(SingleFolderProcessor, _ResampleMixin):
                  mp: bool = False,
                  workers: int | None = None,
                  target_folder: str | None = None):
-        super().__init__(source_folder, dest_folder, mp, workers, recursive)
+        super().__init__(source_folder, dest_folder, mp=mp, workers=workers, recursive=recursive)
         self.target_spacing = target_spacing
         self.target_size = target_size
         self.field = field
