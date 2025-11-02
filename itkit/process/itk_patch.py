@@ -117,10 +117,12 @@ class PatchProcessor(DatasetProcessor):
                         patch_stride: int | list[int],
                         minimum_foreground_ratio: float,
                         still_save_when_no_label: bool) -> list[tuple[sitk.Image, sitk.Image | None]]:
-        # Simplified version
-        no_label = label is None
+        if label is not None:
+            assert image.GetSize() == label.GetSize(), \
+                f"Image ({image.GetSize()}) and label ({label.GetSize()}) must have the same size."
+
         img_arr = sitk.GetArrayFromImage(image)
-        if no_label:
+        if label is None:
             lbl_arr = None
         else:
             lbl_arr = sitk.GetArrayFromImage(label)
@@ -156,7 +158,7 @@ class PatchProcessor(DatasetProcessor):
                 for x in x_starts:
                     img_patch_np = img_arr[z:z+pZ, y:y+pY, x:x+pX]
                     save = True
-                    if no_label:
+                    if label is None:
                         if not still_save_when_no_label:
                             save = False
                         lbl_patch_np = None
@@ -180,7 +182,7 @@ class PatchProcessor(DatasetProcessor):
                         img_patch.SetSpacing(spacing)
                         img_patch.SetDirection(direction)
                         
-                        if no_label:
+                        if label is None:
                             lbl_patch = None
                         else:
                             assert lbl_patch_np is not None
