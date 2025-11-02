@@ -66,7 +66,7 @@ def evaluation_dice(gt_data:np.ndarray, pred_data:np.ndarray):
     pred_class = torch.from_numpy(pred_data).cuda()
     dice = 1 - dice_loss(gt_class[None],
                          pred_class[None],
-                         weight=None, 
+                         weight=None,
                          ignore_index=None).cpu().numpy()
     return dice
 
@@ -86,11 +86,11 @@ def evaluation_area_metrics(gt_data:np.ndarray, pred_data:np.ndarray):
     return iou, recall, precision
 
 
-def evaluation_hausdorff_distance_3D(gt, 
-                                     pred, 
-                                     percentile:int=95, 
-                                     interpolation_ratio:float|None=None):
-    from monai.metrics import compute_hausdorff_distance
+def evaluation_hausdorff_distance_3D(gt,
+                                     pred,
+                                     percentile: int = 95,
+                                     interpolation_ratio: float | None = None):
+    from monai.metrics.hausdorff_distance import compute_hausdorff_distance
     from ..utils.DeviceSide import get_max_vram_gpu_id
     
     selected_device_id = get_max_vram_gpu_id()
