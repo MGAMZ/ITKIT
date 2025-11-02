@@ -1,9 +1,7 @@
 import argparse
 import pytest
-import os
-import tempfile
-import shutil
 from pathlib import Path
+
 import SimpleITK as sitk
 import numpy as np
 
