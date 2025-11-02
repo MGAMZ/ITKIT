@@ -170,12 +170,12 @@ class PatchProcessor(DatasetProcessor):
                             save = False
                     
                     if save:
-                        img_patch = sitk.GetImageFromArray(img_patch_np)
                         new_origin = (
                             origin[0] + x * spacing[0],
                             origin[1] + y * spacing[1],
                             origin[2] + z * spacing[2]
                         )
+                        img_patch = sitk.GetImageFromArray(img_patch_np)
                         img_patch.SetOrigin(new_origin)
                         img_patch.SetSpacing(spacing)
                         img_patch.SetDirection(direction)
@@ -188,6 +188,15 @@ class PatchProcessor(DatasetProcessor):
                             lbl_patch.SetOrigin(new_origin)
                             lbl_patch.SetSpacing(spacing)
                             lbl_patch.SetDirection(direction)
+                        
+                        assert (img_patch_size := img_patch.GetSize()[::-1]) == (pZ, pY, pX), (
+                            f"Unexpected image patch shape: {img_patch_size}, expected {(pZ, pY, pX)}. "
+                            f"Current Patch origin pixel z:{z}, y:{y}, x:{x}"
+                        )
+                        assert lbl_patch_np is None or (lbl_patch_size := lbl_patch.GetSize()[::-1]) == (pZ, pY, pX), (
+                            f"Unexpected label patch shape: {lbl_patch_size}, expected {(pZ, pY, pX)}"
+                            f"Current Patch origin pixel z:{z}, y:{y}, x:{x}"
+                        )
                         
                         patches.append((img_patch, lbl_patch))
         return patches
