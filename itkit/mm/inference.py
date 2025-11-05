@@ -58,8 +58,7 @@ class Inferencer_Seg3D(Inferencer):
 
         return seg_logits, sem_seg_map
 
-    @staticmethod
-    def _batched_argmax(inputs:Tensor) -> Tensor:
+    def _batched_argmax(self, inputs:Tensor) -> Tensor:
         assert inputs.ndim == 5, f"Input tensor must be (N, C, Z, Y, X), got: {format(inputs.shape)}."
         N, C, Z, Y, X = inputs.shape
         
@@ -68,7 +67,8 @@ class Inferencer_Seg3D(Inferencer):
                             desc="Batched ArgMax",
                             dynamic_ncols=True,
                             leave=False,
-                            mininterval=1):
+                            mininterval=1,
+                            disable=not self.allow_tqdm):
             end_z = min(start_z + Inferencer_Seg3D.ARGMAX_BATCH_SIZE, Z)
             batch_sem_seg_map = inputs[:, :, start_z:end_z].cuda().argmax(dim=1).to(torch.uint8)
             sem_seg_map[:, start_z:end_z].copy_(batch_sem_seg_map, non_blocking=True)
