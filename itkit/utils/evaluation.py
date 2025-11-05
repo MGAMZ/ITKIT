@@ -242,7 +242,7 @@ if __name__ == '__main__':
     )
     
     # Execute evaluation by specifying three directories
-    results = evaluator.executor(
+    evaluator.executor(
         img_dir=args.img_dir,
         gt_dir=args.gt_dir,
         pred_dir=args.pred_dir,
