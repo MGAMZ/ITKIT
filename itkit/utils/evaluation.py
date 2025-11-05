@@ -1,4 +1,4 @@
-import os, pdb
+import os, pdb, argparse
 import multiprocessing as mp
 from pathlib import Path
 from tqdm import tqdm
@@ -218,19 +218,33 @@ class Evaluator:
         print(f"Total samples evaluated: {len(results_list)}")
 
 
+def parse_arg():
+    parser = argparse.ArgumentParser(description="Evaluate segmentation results.")
+    parser.add_argument('-i', '--img-dir', type=str)
+    parser.add_argument('-g', '--gt-dir', type=str)
+    parser.add_argument('-p', '--pred-dir', type=str)
+    parser.add_argument('-s', '--save-path', type=str, default='evaluation_results.xlsx')
+    parser.add_argument('-n', '--num-classes', type=int)
+    parser.add_argument('-c', '--class-names', type=str, nargs='*', default=None)
+    parser.add_argument('-w', '--workers', type=int, default=None)
+    return parser.parse_args()
+
+
 # Example usage
 if __name__ == '__main__':
+    args = parse_arg()
+    
     # Example: Evaluate a set of predictions
     evaluator = Evaluator(
-        num_classes=3,
-        workers=4,
-        class_names=['Background', 'Organ1', 'Organ2']
+        num_classes=args.num_classes,
+        workers=args.workers,
+        class_names=args.class_names
     )
     
     # Execute evaluation by specifying three directories
     results = evaluator.executor(
-        img_dir='path/to/images_folder',
-        gt_dir='path/to/ground_truth_folder',
-        pred_dir='path/to/predictions_folder',
-        save_path='evaluation_results.xlsx'
+        img_dir=args.img_dir,
+        gt_dir=args.gt_dir,
+        pred_dir=args.pred_dir,
+        save_path=args.save_path
     )
