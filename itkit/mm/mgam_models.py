@@ -432,7 +432,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             inputs (Tensor): The input tensor with shape (N, C, Z, Y, X).
             data_samples (Sequence[BaseDataElement], optional): The seg data samples.
                 It usually includes information such as `metainfo`.
-                
+
         Returns:
             Sequence[BaseDataElement]: Segmentation results of the input images.
                 Each SegDataSample usually contains:
@@ -486,18 +486,6 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         except torch.OutOfMemoryError as e:
             print_log("OOM during slide inference, trying cpu accumulate.", 'current', logging.WARNING)
             return _predict(force_cpu=True)
-
-    def _forward(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
-        """Network forward process.
-
-        Args:
-            inputs (Tensor): The input tensor with shape (N, C, Z, Y, X).
-            data_samples (Sequence[BaseDataElement], optional): The seg data samples.
-            
-        Returns:
-            Tensor: Output tensor from backbone
-        """
-        return self.backbone(inputs)
 
     @torch.inference_mode()
     def inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None, force_cpu:bool=False) -> Tensor:
@@ -652,13 +640,11 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             for j, (z_slice, y_slice, x_slice) in enumerate(batch_slices):
                 preds[:, :, z_slice, y_slice, x_slice] += patch_cache[j:j+1]
                 count_mat[:, :, z_slice, y_slice, x_slice] += 1
-            
-        # 使用tensor操作进行断言检查，避免tensor到boolean转换
+        
         min_count = torch.min(count_mat)
         assert min_count.item() > 0, "There are areas not covered by sliding windows"
         seg_logits = (preds / count_mat).to(dtype=torch.float16)
         
-        # Crop back to original size if padding was applied
         if need_padding:
             assert pad is not None, "Missing padding info, cannot crop back to original size"
             pad_x_left, pad_x_right, pad_y_top, pad_y_bottom, pad_z_front, pad_z_back = pad
@@ -668,3 +654,16 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                                    pad_x_left:x_padded-pad_x_right]
         
         return seg_logits
+
+    def _forward(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
+        """Network forward process.
+
+        Args:
+            inputs (Tensor): The input tensor with shape (N, C, Z, Y, X).
+            data_samples (Sequence[BaseDataElement], optional): The seg data samples.
+            
+        Returns:
+            Tensor: Output tensor from backbone
+        """
+        return self.backbone(inputs)
+
