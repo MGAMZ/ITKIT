@@ -102,6 +102,7 @@ include = ["itkit*"]
 
 [tool.mypy]
 python_version = "3.13"
+ignore_missing_imports = true
 report_deprecated_as_note = true
 warn_redundant_casts = true
 warn_unused_ignores = true
@@ -111,6 +112,7 @@ no_warn_no_return = true
 allow_redefinition = true
 
 [tool.pyright]
+pythonVersion = "3.13"
 include = ["itkit/process"]
 exclude = [
   "**/__pycache__/**",
