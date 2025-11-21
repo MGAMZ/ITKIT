@@ -1,0 +1,13 @@
+{
+  "include": [
+    "itkit/process"
+  ],
+  "exclude": [
+    "**/__pycache__/**",
+    "**/.venv/**",
+    "**/.git/**",
+    "build/**",
+    "dist/**",
+    "**/*.egg-info/**"
+  ],
+}
