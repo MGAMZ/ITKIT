@@ -99,3 +99,25 @@ itkit-app = "itkit.gui.app:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["itkit*"]
+
+[tool.mypy]
+python_version = "3.13"
+report_deprecated_as_note = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unused_configs = true
+warn_unreachable = true
+no_warn_no_return = true
+allow_redefinition = true
+
+[tool.pyright]
+include = ["itkit/process"]
+exclude = [
+  "**/__pycache__/**",
+  "**/.venv/**",
+  "**/.git/**",
+  "build/**",
+  "dist/**",
+  "**/*.egg-info/**"
+]
+reportMissingImports = false
