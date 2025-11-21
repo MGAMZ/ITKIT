@@ -85,6 +85,8 @@ class LoadFromMHA(BaseLoadBiomedicalData):
         if self.resample_size is not None:
             mha = sitk_resample_to_size(mha, self.resample_size, field, interp_method=sitk.sitkLinear if field == "image" else None)
         # mha.GetSize(): [X, Y, Z]
+        if not isinstance(mha, sitk.Image):
+            raise TypeError(f"Error during `sitk_resample`: {mha}")
         mha_array = sitk.GetArrayFromImage(mha)  # [Z, Y, X]
         return mha_array
 

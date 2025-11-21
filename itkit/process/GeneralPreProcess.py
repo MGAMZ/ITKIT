@@ -788,7 +788,7 @@ class SampleAugment(BaseTransform):
             results = t(results)
         return results
     
-    def transform(self, results: dict) -> list[dict[str, Any]]:
+    def transform(self, results: dict): # pyright: ignore[reportIncompatibleMethodOverride]
         samples = []
         for _ in range(self.num_samples):
             samples.append(self.get_one_sample(results.copy()))

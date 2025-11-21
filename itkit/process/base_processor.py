@@ -312,7 +312,7 @@ class DatasetProcessor(BaseITKProcessor):
     def __init__(self, 
                  source_folder: str,
                  dest_folder: str | None = None,
-                 *args, **kwargs):
+                 **kwargs):
         """
         Initializes the DatasetProcessor.
 
@@ -326,7 +326,7 @@ class DatasetProcessor(BaseITKProcessor):
         """
         self.source_folder = source_folder
         self.dest_folder = dest_folder
-        super().__init__(meta_path=self.source_meta_path, *args, **kwargs)
+        super().__init__(meta_path=self.source_meta_path, **kwargs)
 
     def get_items_to_process(self) -> list[tuple[str, str]]:
         """
@@ -357,7 +357,7 @@ class DatasetProcessor(BaseITKProcessor):
         argparser.add_argument('--workers', type=int, default=None, help="Number of worker processes")
         argparser.add_argument('--recursive', action='store_true', help="Recursively search for files in subdirectories")
         args = argparser.parse_args()
-        return cls(args.source_folder, args.dest_folder, args.mp, args.workers, args.recursive)
+        return cls(args.source_folder, args.dest_folder, mp=args.mp, workers=args.workers, recursive=args.recursive)
 
     @property
     def source_meta_path(self) -> Path:
