@@ -51,7 +51,7 @@ class Inferencer_Seg3D(Inferencer):
         inputs = inputs.astype(np.float16 if self.fp16 else np.float32)
         tensor_input = torch.from_numpy(inputs[None, None])
         torch.cuda.empty_cache()
-        
+
         with torch.autocast('cuda'):
             seg_logits = self.model.slide_inference(tensor_input) # [N,C,Z,Y,X]
         sem_seg_map = self._batched_argmax(seg_logits) # [N,C,Z,Y,X] -> [N,Z,Y,X]
@@ -74,5 +74,3 @@ class Inferencer_Seg3D(Inferencer):
             sem_seg_map[:, start_z:end_z].copy_(batch_sem_seg_map, non_blocking=True)
 
         return sem_seg_map # [N, Z, Y, X]
-
-
