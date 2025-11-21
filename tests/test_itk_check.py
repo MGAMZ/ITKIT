@@ -64,6 +64,12 @@ def run_check_processor(source_folder, cfg, mode='check', output_dir=None, mp=Fa
 class TestCheckProcessor:
     """Test suite for CheckProcessor"""
 
+    def _get_valid_items(self, processor):
+        return [r for r in processor.results if r.is_valid]
+
+    def _get_invalid_items(self, processor):
+        return [r for r in processor.results if not r.is_valid]
+
     def test_dataset_check_mode(self):
         """Test dataset mode with check operation"""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -78,8 +84,11 @@ class TestCheckProcessor:
             cfg = create_default_cfg(min_size=[50, 100, 100], max_spacing=[2.0, 1.0, 1.0])
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor.valid_items) == 2
-            assert len(processor.invalid) == 2
+            valid_items = self._get_valid_items(processor)
+            invalid_items = self._get_invalid_items(processor)
+            
+            assert len(valid_items) == 2
+            assert len(invalid_items) == 2
             assert os.path.exists(os.path.join(tmpdir, 'series_meta.json'))
 
     def test_single_check_mode(self):
@@ -95,8 +104,11 @@ class TestCheckProcessor:
             cfg = create_default_cfg(min_size=[50, 100, 100])
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor.valid_items) == 2
-            assert len(processor.invalid) == 1
+            valid_items = self._get_valid_items(processor)
+            invalid_items = self._get_invalid_items(processor)
+            
+            assert len(valid_items) == 2
+            assert len(invalid_items) == 1
             assert os.path.exists(os.path.join(tmpdir, 'series_meta.json'))
 
     def test_fast_check_with_existing_meta(self):
@@ -117,8 +129,11 @@ class TestCheckProcessor:
             
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor2.valid_items) == 1
-            assert len(processor2.invalid) == 1
+            valid_items = self._get_valid_items(processor2)
+            invalid_items = self._get_invalid_items(processor2)
+            
+            assert len(valid_items) == 1
+            assert len(invalid_items) == 1
 
     def test_delete_mode(self):
         """Test delete operation removes invalid samples"""
@@ -226,11 +241,11 @@ class TestCheckProcessor:
             
             cfg = create_default_cfg(same_spacing=(1, 2))
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            assert len(processor.valid_items) == 1
+            assert len(self._get_valid_items(processor)) == 1
             
             cfg = create_default_cfg(same_size=(1, 2))
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            assert len(processor.valid_items) == 1
+            assert len(self._get_valid_items(processor)) == 1
 
     def test_series_meta_persistence(self):
         """Test that series_meta.json is correctly saved"""
@@ -327,8 +342,11 @@ class TestCheckProcessor:
             cfg = create_default_cfg(max_size=[80, 150, 150])
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor.valid_items) == 1
-            assert len(processor.invalid) == 1
+            valid_items = self._get_valid_items(processor)
+            invalid_items = self._get_invalid_items(processor)
+            
+            assert len(valid_items) == 1
+            assert len(invalid_items) == 1
 
     def test_min_spacing_constraint(self):
         """Test minimum spacing constraint validation"""
@@ -342,8 +360,11 @@ class TestCheckProcessor:
             cfg = create_default_cfg(min_spacing=[0.5, 0.5, 0.5])
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor.valid_items) == 1
-            assert len(processor.invalid) == 1
+            valid_items = self._get_valid_items(processor)
+            invalid_items = self._get_invalid_items(processor)
+            
+            assert len(valid_items) == 1
+            assert len(invalid_items) == 1
 
     def test_corrupted_meta_json_misleads_check(self):
         """Test that corrupted series_meta.json can mislead validation results"""
@@ -359,11 +380,14 @@ class TestCheckProcessor:
             # First check: generate series_meta.json
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
+            valid_items1 = self._get_valid_items(processor1)
+            invalid_items1 = self._get_invalid_items(processor1)
+            
             # Verify initial results: sample1 valid, sample2 invalid
-            assert len(processor1.valid_items) == 1
-            assert len(processor1.invalid) == 1
-            assert processor1.valid_items[0][0] == 'sample1.mha'
-            assert processor1.invalid[0][0] == 'sample2.mha'
+            assert len(valid_items1) == 1
+            assert len(invalid_items1) == 1
+            assert valid_items1[0].name == 'sample1.mha'
+            assert invalid_items1[0].name == 'sample2.mha'
             
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             assert os.path.exists(meta_path)
@@ -381,11 +405,14 @@ class TestCheckProcessor:
             # Second check: with corrupted metadata
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
+            valid_items2 = self._get_valid_items(processor2)
+            invalid_items2 = self._get_invalid_items(processor2)
+            
             # Verify that fast check is mislead by corrupted metadata
             # Now it thinks sample2 is valid based on corrupted meta
-            assert len(processor2.valid_items) == 2
-            assert len(processor2.invalid) == 0
-            assert any(name == 'sample2.mha' for name, _ in processor2.valid_items)
+            assert len(valid_items2) == 2
+            assert len(invalid_items2) == 0
+            assert any(item.name == 'sample2.mha' for item in valid_items2)
 
     def test_partially_corrupted_meta_spacing(self):
         """Test metadata corruption on spacing values"""
@@ -400,9 +427,11 @@ class TestCheckProcessor:
             # First check: should be invalid due to high Z spacing (5.0 > 2.0)
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
+            invalid_items1 = self._get_invalid_items(processor1)
+            
             # Verify first check correctly identified invalid sample
-            assert len(processor1.invalid) == 1, f"Expected 1 invalid, got {len(processor1.invalid)}"
-            assert 'spacing' in processor1.invalid[0][1][0], f"Expected spacing error, got {processor1.invalid[0][1]}"
+            assert len(invalid_items1) == 1, f"Expected 1 invalid, got {len(invalid_items1)}"
+            assert 'spacing' in invalid_items1[0].reasons[0], f"Expected spacing error, got {invalid_items1[0].reasons}"
             
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             assert os.path.exists(meta_path), "series_meta.json should be created"
@@ -423,11 +452,14 @@ class TestCheckProcessor:
             # Second check: fast path should use corrupted metadata and be fooled
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
+            valid_items2 = self._get_valid_items(processor2)
+            invalid_items2 = self._get_invalid_items(processor2)
+            
             # Now fast check thinks it's valid based on corrupted metadata
-            assert len(processor2.valid_items) == 1, \
-                f"Expected 1 valid based on corrupted meta, got {len(processor2.valid_items)}"
-            assert len(processor2.invalid) == 0, \
-                f"Expected 0 invalid based on corrupted meta, got {len(processor2.invalid)}"
+            assert len(valid_items2) == 1, \
+                f"Expected 1 valid based on corrupted meta, got {len(valid_items2)}"
+            assert len(invalid_items2) == 0, \
+                f"Expected 0 invalid based on corrupted meta, got {len(invalid_items2)}"
             
             # Demonstrate the vulnerability: real file still has spacing[0]=5.0
             # but fast check ignored it and trusted corrupted metadata
@@ -449,7 +481,7 @@ class TestCheckProcessor:
             # First check: generate metadata
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor1.valid_items) == 2
+            assert len(self._get_valid_items(processor1)) == 2
             
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             
@@ -466,8 +498,9 @@ class TestCheckProcessor:
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
             # Only sample1 is in valid_items (sample2 skipped due to missing metadata)
-            assert len(processor2.valid_items) == 1
-            assert processor2.valid_items[0][0] == 'sample1.mha'
+            valid_items2 = self._get_valid_items(processor2)
+            assert len(valid_items2) == 1
+            assert valid_items2[0].name == 'sample1.mha'
 
     def test_meta_json_all_entries_corrupted(self):
         """Test when all metadata entries are corrupted with wrong values"""
@@ -483,8 +516,8 @@ class TestCheckProcessor:
             # First check: both should be invalid
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor1.invalid) == 2
-            assert len(processor1.valid_items) == 0
+            assert len(self._get_invalid_items(processor1)) == 2
+            assert len(self._get_valid_items(processor1)) == 0
             
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             
@@ -501,8 +534,8 @@ class TestCheckProcessor:
             # Second check: all appear valid due to corruption
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor2.valid_items) == 2
-            assert len(processor2.invalid) == 0
+            assert len(self._get_valid_items(processor2)) == 2
+            assert len(self._get_invalid_items(processor2)) == 0
 
     def test_single_folder_meta_corruption(self):
         """Test metadata corruption in single folder mode"""
@@ -518,9 +551,12 @@ class TestCheckProcessor:
             # First check
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor1.valid_items) == 1
-            assert len(processor1.invalid) == 1
-            assert processor1.invalid[0][0] == 'img2.mha'
+            valid_items1 = self._get_valid_items(processor1)
+            invalid_items1 = self._get_invalid_items(processor1)
+            
+            assert len(valid_items1) == 1
+            assert len(invalid_items1) == 1
+            assert invalid_items1[0].name == 'img2.mha'
             
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             
@@ -536,8 +572,8 @@ class TestCheckProcessor:
             # Second check with corrupted metadata
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor2.valid_items) == 2
-            assert len(processor2.invalid) == 0
+            assert len(self._get_valid_items(processor2)) == 2
+            assert len(self._get_invalid_items(processor2)) == 0
 
     def test_multiprocessing_mode(self):
         """Test multiprocessing in dataset mode"""
@@ -548,8 +584,8 @@ class TestCheckProcessor:
             cfg = create_default_cfg(min_size=[50, 50, 50])
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False, workers=2)
             
-            assert len(processor.valid_items) == 10
-            assert len(processor.invalid) == 0
+            assert len(self._get_valid_items(processor)) == 10
+            assert len(self._get_invalid_items(processor)) == 0
 
     def test_same_spacing_validation_fail(self):
         """Test same_spacing validation failure"""
@@ -560,9 +596,11 @@ class TestCheckProcessor:
             cfg = create_default_cfg(same_spacing=(1, 2))  # Y and X should be same, but 0.5 != 0.3
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor.valid_items) == 0
-            assert len(processor.invalid) == 1
-            assert 'differ' in processor.invalid[0][1][0]
+            invalid_items = self._get_invalid_items(processor)
+            
+            assert len(self._get_valid_items(processor)) == 0
+            assert len(invalid_items) == 1
+            assert 'differ' in invalid_items[0].reasons[0]
 
     def test_same_size_validation_fail(self):
         """Test same_size validation failure"""
@@ -573,9 +611,11 @@ class TestCheckProcessor:
             cfg = create_default_cfg(same_size=(0, 1))  # Z and Y: 64 != 128
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor.valid_items) == 0
-            assert len(processor.invalid) == 1
-            assert 'differ' in processor.invalid[0][1][0]
+            invalid_items = self._get_invalid_items(processor)
+            
+            assert len(self._get_valid_items(processor)) == 0
+            assert len(invalid_items) == 1
+            assert 'differ' in invalid_items[0].reasons[0]
 
     def test_corrupted_image_file(self):
         """Test handling of corrupted image files"""
@@ -587,9 +627,11 @@ class TestCheckProcessor:
             cfg = create_default_cfg()
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor.valid_items) == 0
-            assert len(processor.invalid) == 1
-            assert 'Failed to read' in processor.invalid[0][1][0]
+            invalid_items = self._get_invalid_items(processor)
+            
+            assert len(self._get_valid_items(processor)) == 0
+            assert len(invalid_items) == 1
+            assert 'Failed to read' in invalid_items[0].reasons[0]
 
     def test_skip_dimensions_with_minus_one(self):
         """Test skipping dimensions with -1 in cfg"""
@@ -600,7 +642,7 @@ class TestCheckProcessor:
             cfg = create_default_cfg(min_size=[-1, 100, 100])  # Skip Z min_size
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
-            assert len(processor.valid_items) == 1  # Z=32 <50 but skipped, Y,X ok
+            assert len(self._get_valid_items(processor)) == 1  # Z=32 <50 but skipped, Y,X ok
 
     def test_empty_series_meta_json(self):
         """Test fast check with empty series_meta.json"""
@@ -617,8 +659,8 @@ class TestCheckProcessor:
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
             # Empty meta means no cached data, so no valid items from fast check
-            assert len(processor.valid_items) == 0
-            assert len(processor.invalid) == 0
+            assert len(self._get_valid_items(processor)) == 0
+            assert len(self._get_invalid_items(processor)) == 0
 
     def test_invalid_json_meta(self):
         """Test with invalid JSON in series_meta.json"""
@@ -635,8 +677,8 @@ class TestCheckProcessor:
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             
             # Should remove corrupted meta and perform full check
-            assert len(processor.valid_items) == 1
-            assert len(processor.invalid) == 0
+            assert len(self._get_valid_items(processor)) == 1
+            assert len(self._get_invalid_items(processor)) == 0
             # Meta should be recreated
             assert os.path.exists(meta_path)
 
@@ -651,7 +693,7 @@ class TestCheckProcessor:
             # In code, it prints error and returns, so no exception, but for test, check that no operation happens
             processor.process()
             # Since no output_dir, should not create anything
-            assert len(processor.valid_items) == 1  # Would be valid if processed
+            assert len(self._get_valid_items(processor)) == 1  # Would be valid if processed
             assert not os.path.exists(os.path.join(tmpdir, 'output'))  # No output dir created
 
     def test_symlink_mode_no_output_dir(self):
@@ -663,5 +705,5 @@ class TestCheckProcessor:
             cfg = create_default_cfg()
             processor = CheckProcessor(tmpdir, cfg, 'symlink', mp=False)
             processor.process()  # Should print error and not crash
-            assert len(processor.valid_items) == 1  # Would be valid if processed
+            assert len(self._get_valid_items(processor)) == 1  # Would be valid if processed
             assert not os.path.exists(os.path.join(tmpdir, 'output'))  # No output dir created
