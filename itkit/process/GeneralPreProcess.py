@@ -1,5 +1,5 @@
-from typing import Any
-import random, pdb, math, warnings
+from typing import Any, cast
+import random, pdb, math
 from numbers import Number
 from collections.abc import Sequence
 from functools import partial
@@ -232,7 +232,7 @@ class RandomRoll(BaseTransform):
     def __init__(
         self,
         axis: int | list[int],
-        gap: float | list[float],
+        gap: int | list[int],
         erase: bool = False,
         pad_val: int = 0,
         seg_pad_val: int = 0,
@@ -248,15 +248,15 @@ class RandomRoll(BaseTransform):
         """
         if isinstance(axis, int):
             axis = [axis]
-        if isinstance(gap, (int, float)):
+        if isinstance(gap, int):
             gap = [gap]
 
         assert len(axis) == len(
             gap
         ), f"axis ({len(axis)}) and gap ({len(gap)}) should have the same length"
 
-        self.axis: list[int] = axis
-        self.gap: list[float] = gap
+        self.axis = axis
+        self.gap = gap
         self.erase = erase
         self.pad_val = pad_val
         self.seg_pad_val = seg_pad_val
@@ -746,7 +746,11 @@ class Resample(BaseTransform):
         self.field = field
     
     def transform(self, results: dict):
-        results[self.field] = F.interpolate(results[self.field][None, None], size=self.size, mode=self.mode).squeeze()
+        results[self.field] = F.interpolate(
+            results[self.field][None, None],
+            size=[int(round(dim)) for dim in self.size],
+            mode=self.mode,
+        ).squeeze()
         return results
 
 
@@ -784,7 +788,7 @@ class SampleAugment(BaseTransform):
             results = t(results)
         return results
     
-    def transform(self, results: dict):
+    def transform(self, results: dict) -> list[dict[str, Any]]:
         samples = []
         for _ in range(self.num_samples):
             samples.append(self.get_one_sample(results.copy()))
@@ -838,8 +842,8 @@ class RandomRotate3D(BaseTransform):
         def _map_single_channel(vol3: np.ndarray) -> np.ndarray:
             mapped = map_coordinates(
                 vol3,
-                coords_list,
-                order=order,
+                tuple(coords_list),
+                order=cast(Literal[0, 1, 2, 3, 4, 5], order),
                 mode="constant",
                 cval=self.pad_val,
                 prefilter=self.resample_prefilter,
@@ -910,7 +914,7 @@ class RandomRotate3D_GPU:
         theta = torch.cat([M, t.view(3, 1)], dim=1)  # [3,4]
         theta = theta.unsqueeze(0).expand(N, 3, 4).contiguous()
 
-        return F.affine_grid(theta, size=(N, C, Z, Y, X), align_corners=True)  # [N,Z,Y,X,3]
+        return F.affine_grid(theta, size=[N, C, Z, Y, X], align_corners=True)  # [N,Z,Y,X,3]
 
     def warp(self, x:torch.Tensor, grid:torch.Tensor, interp_mode:str):
         if x.ndim != 5:
