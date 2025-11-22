@@ -144,7 +144,7 @@ def sitk_resample_to_size(
     
     return sitk.Resample(
         image1=image,
-        size=new_size, # pyright:ignore[reportArgumentType]
+        size=new_size, # type: ignore
         interpolator=interp_method or INTERPOLATOR(field),
         outputSpacing=new_spacing,
         outputPixelType=PIXEL_TYPE(field),
