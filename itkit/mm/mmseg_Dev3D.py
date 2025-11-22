@@ -839,7 +839,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         size_divisor: int | None = None,
         pad_val: int | float = 0,
         seg_pad_val: int | float = 255,
-        rot3D_angle: Sequence|None = None,
+        rot3D_angle: Sequence | None = None,
         test_cfg: dict | None = None,
         non_blocking: bool = True,
     ):

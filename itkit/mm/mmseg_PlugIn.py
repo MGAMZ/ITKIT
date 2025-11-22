@@ -394,7 +394,7 @@ class MonaiSegMetrics(BaseMetric):
         Convert 3D label map to one-hot format.
 
         Args:
-            label_map (torch.Tensor): Label map with shape [Z, Y, X].
+            label_map (torch.Tensor): Label map with shape [N, Z, Y, X].
             num_classes (int): Number of classes.
             ignore_index (int): Index to ignore.
 
@@ -404,9 +404,9 @@ class MonaiSegMetrics(BaseMetric):
 
         # Clip labels to valid range
         label_map_clipped = torch.clamp(label_map, 0, num_classes - 1)
-
-        # Convert to one-hot: [Z, Y, X] -> [Z, Y, X, C]
+        
+        # Convert to one-hot: [N, Z, Y, X] -> [N, Z, Y, X, C]
         onehot = torch.nn.functional.one_hot(label_map_clipped.long(), num_classes)
-
-        # Permute to channel-first: [Z, Y, X, C] -> [C, Z, Y, X] -> [1, C, Z, Y, X]
-        return onehot.permute(3, 0, 1, 2).unsqueeze(0).to(torch.uint8)
+        
+        # Permute to channel-first: [N, Z, Y, X, C] -> [N, C, Z, Y, X]
+        return onehot.permute(0, 4, 1, 2, 3).unsqueeze(0).to(torch.uint8)
