@@ -1,3 +1,10 @@
+"""
+General Rule:
+Before entering the neural network,
+the channel dimension order should align with
+[Z,Y,X] or [D,H,W]
+"""
+
 import math
 import pdb
 import random
@@ -16,13 +23,6 @@ from mmengine.registry import TRANSFORMS
 from scipy.ndimage import gaussian_filter, map_coordinates
 from scipy.spatial.transform import Rotation as R
 from torch.nn import functional as F
-
-"""
-General Rule:
-Before entering the neural network,
-the channel dimension order should align with
-[Z,Y,X] or [D,H,W]
-"""
 
 
 def SetWindow(array:np.ndarray|torch.Tensor, window_width:int, window_level:int):

@@ -109,7 +109,7 @@ class DSNet(BaseDecodeHead):
         """
 
         seg_label = self._stack_batch_gt(batch_data_samples).squeeze(1)
-        loss = dict()
+        loss = {}
 
         if not isinstance(self.loss_decode, nn.ModuleList):
             losses_decode = [self.loss_decode]

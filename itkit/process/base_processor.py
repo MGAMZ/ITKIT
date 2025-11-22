@@ -1,15 +1,3 @@
-import argparse
-import os
-import pdb
-from abc import abstractmethod
-from multiprocessing import Pool, cpu_count
-from pathlib import Path
-from typing import Any
-
-from tqdm import tqdm
-
-from .metadata_models import MetadataManager, SeriesMetadata
-
 """
 Abstract base classes for creating data processing pipelines in ITK.
 
@@ -58,6 +46,18 @@ How to Implement a New Processor:
 3. Call the `process()` method on an instance of your new processor to run
    the entire pipeline.
 """
+
+import argparse
+import os
+import pdb
+from abc import abstractmethod
+from multiprocessing import Pool, cpu_count
+from pathlib import Path
+from typing import Any
+
+from tqdm import tqdm
+
+from .metadata_models import MetadataManager, SeriesMetadata
 
 
 class BaseITKProcessor:

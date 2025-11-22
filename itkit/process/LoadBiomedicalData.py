@@ -1,3 +1,10 @@
+"""
+General Rule:
+Before entering the neural network,
+the channel dimension order should align with
+[Z,Y,X] or [D,H,W]
+"""
+
 import pdb
 from collections.abc import Sequence
 from typing import Literal
@@ -9,13 +16,6 @@ import SimpleITK as sitk
 from mmcv.transforms import BaseTransform
 
 from itkit.io.sitk_toolkit import sitk_resample_to_size, sitk_resample_to_spacing
-
-"""
-General Rule:
-Before entering the neural network,
-the channel dimension order should align with
-[Z,Y,X] or [D,H,W]
-"""
 
 
 class BaseLoadBiomedicalData(BaseTransform):

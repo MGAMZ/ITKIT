@@ -103,7 +103,7 @@ class VolumeData(BaseDataElement):
         new_data = self.__class__(metainfo=self.metainfo)
         if isinstance(item, tuple):
             assert len(item) == 3, "Only support to slice Z, Y, and X dimensions"
-            tmp_item: list[slice] = list()
+            tmp_item: list[slice] = []
             for index, single_item in enumerate(item[::-1]):
                 if isinstance(single_item, int):
                     tmp_item.insert(0,slice(single_item, None, self.shape[-index - 1])) # type: ignore
@@ -480,7 +480,7 @@ class BaseDecodeHead_3D(BaseDecodeHead):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
-        losses = dict()
+        losses = {}
 
         # list of Tensor: [B, C, Z, Y, X]
         seg_logits = self.forward(inputs)
@@ -769,7 +769,7 @@ class PackSeg3DInputs(PackSegInputs):
             - 'data_sample' (obj:`Seg3DDataSample`): The annotation info of the
                 sample.
         """
-        packed_results = dict()
+        packed_results = {}
         if "img" in results:
             img = results["img"]
             if len(img.shape) < 4:

@@ -97,7 +97,7 @@ class IoUMetric_PerClass(IoUMetric):
                 for criterion, criterion_value in per_class_eval_metrics.items()
             }
         )
-        metrics = dict()
+        metrics = {}
         for key, val in class_avged_metrics.items():
             if key == "aAcc":
                 metrics[key] = val
@@ -193,7 +193,7 @@ class PackSegInputs(BaseTransform):
             - 'data_sample' (obj:`SegDataSample`): The annotation info of the
                 sample.
         """
-        packed_results = dict()
+        packed_results = {}
         if "img" in results:
             img = results["img"]
             if len(img.shape) < 3:
@@ -363,7 +363,7 @@ class MonaiSegMetrics(BaseMetric):
         class_avged_metrics['Recall'] = np.round(mean_recall, 2)
         class_avged_metrics['Precision'] = np.round(mean_precision, 2)
 
-        metrics = dict()
+        metrics = {}
         for key, val in class_avged_metrics.items():
             metrics['m' + key] = val
 
