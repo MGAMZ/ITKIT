@@ -1,4 +1,3 @@
-import pdb
 from collections.abc import Sequence
 
 from torch.utils.data.dataloader import default_collate

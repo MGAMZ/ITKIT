@@ -1,6 +1,5 @@
 import argparse
 import os
-import pdb
 
 import pandas as pd
 from tcia_utils import nbia

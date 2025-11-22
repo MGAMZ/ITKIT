@@ -4,8 +4,6 @@ Implemented by Yiqin Zhang ~ MGAM.
 Used for Rose Thyroid Cell Count project.
 """
 
-import pdb
-from functools import partial
 
 import torch
 from mmengine.model import BaseModule

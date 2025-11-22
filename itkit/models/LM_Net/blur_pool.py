@@ -11,8 +11,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .padding import get_padding
-
 
 class BlurPool2d(nn.Module):
     r"""Creates a module that computes blurs and downsample a given feature map.

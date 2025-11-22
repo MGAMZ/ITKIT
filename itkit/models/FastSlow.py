@@ -9,7 +9,6 @@ This is the implementation of our research.
 
 import math
 import os
-import pdb
 from itertools import permutations
 from typing import Literal
 
@@ -26,7 +25,6 @@ from mmengine.config import ConfigDict
 from mmengine.dist import master_only
 from mmengine.evaluator import BaseMetric
 from mmengine.model import BaseModule
-from mmengine.visualization import Visualizer
 from mmpretrain.registry import MODELS
 from mmpretrain.structures import DataSample
 from torch import Tensor, nn

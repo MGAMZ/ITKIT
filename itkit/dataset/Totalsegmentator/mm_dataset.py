@@ -1,5 +1,4 @@
 import os
-import pdb
 
 import orjson
 import pandas as pd
@@ -17,7 +16,7 @@ class TotalsegmentatorIndexer:
 
     def __init__(self, data_root: str):
         self.data_root = data_root
-        self.index_file = os.path.join(self.data_root, f'index.json')
+        self.index_file = os.path.join(self.data_root, 'index.json')
 
         if not os.path.exists(self.index_file):
             self.generate_index_json_file()

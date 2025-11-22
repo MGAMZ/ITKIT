@@ -1,6 +1,3 @@
-import os
-import pdb
-from collections.abc import Callable
 from functools import partial
 from typing import Literal
 
@@ -8,7 +5,6 @@ import mmengine
 import torch
 from mmcv.transforms import BaseTransform
 from mmengine.dist import all_gather, get_rank
-from mmengine.evaluator.metric import BaseMetric
 from mmengine.model import BaseModule
 from mmpretrain.models.selfsup.mocov3 import CosineEMA
 from mmpretrain.registry import MODELS

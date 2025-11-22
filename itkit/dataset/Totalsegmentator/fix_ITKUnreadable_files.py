@@ -1,7 +1,6 @@
 import argparse
 import functools
 import multiprocessing as mp
-import os
 from pathlib import Path
 
 import nibabel as nib

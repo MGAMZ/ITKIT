@@ -1,6 +1,5 @@
 import logging
 import os
-import pdb
 import random
 
 import colorama
@@ -8,7 +7,6 @@ import colorama
 colorama.init()
 from abc import abstractmethod
 from collections.abc import Iterable, Sequence
-from typing import Dict, List, Tuple
 from warnings import warn
 
 import numpy as np
@@ -169,7 +167,7 @@ class SA_Med2D_Dataset(SA_Med2D, BaseSegDataset):
         used_case_names = self.split_dataset(self.case_slice_map, self.split)
         # 可选 Cases-Wise Filtering
         if (self.split != 'test') and (self.activate_case_ratio is not None) and (self.activate_case_ratio<1.0):
-            assert 0<self.activate_case_ratio<=1, f'activate_case_ratio must be in (0, 1].'
+            assert 0<self.activate_case_ratio<=1, 'activate_case_ratio must be in (0, 1].'
             target_num_used_cases = int(len(used_case_names) * self.activate_case_ratio)
             if target_num_used_cases == 0:
                 target_num_used_cases = 1
@@ -250,7 +248,7 @@ class SA_Med2D_Dataset_MultiSliceSample(SA_Med2D_Dataset):
         assert slice_gap >= 1 and isinstance(slice_gap, int),\
             f'slice_gap must be positive and int, but got {slice_gap}'
         assert num_images_per_sample%2==1 and num_labels_per_sample%2==1,\
-            f"only singular num of slice is available."
+            "only singular num of slice is available."
 
         # 由于label在mmseg的数据流中是(H,W)的定义，且有专用的封装格式，同时处理batch和num_slice_per_sample会给Preprocessor的实现带来困难，较为复杂
         # 故多个Label输入的情况，会产生警告。

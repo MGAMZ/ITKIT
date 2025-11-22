@@ -1,5 +1,4 @@
 import logging
-import pdb
 from abc import abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -482,7 +481,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
 
         try:
             return _predict()
-        except torch.OutOfMemoryError as e:
+        except torch.OutOfMemoryError:
             print_log("OOM during slide inference, trying cpu accumulate.", 'current', logging.WARNING)
             return _predict(force_cpu=True)
 

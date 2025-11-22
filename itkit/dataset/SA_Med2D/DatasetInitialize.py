@@ -2,20 +2,16 @@ import json
 import os
 import pdb
 import random
-import re
 import shutil
 from collections.abc import Iterable, Sequence
 from concurrent import futures
 from concurrent.futures import Future
-from genericpath import isfile
 from multiprocessing import Pool, cpu_count
-from textwrap import indent
-from typing import Dict, List, Union
 
 import cv2
 import numpy as np
 import orjson
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import ArrayLike
 from PIL import Image
 from rich.progress import Progress
 from tqdm import tqdm
@@ -274,7 +270,7 @@ class DataStructurer(SA_Med2D):
                     open(os.path.join(dataset_root, f'{modality}_NumSlice_map.json'), 'w'),
                     indent=4)
         json.dump(modality_num_slice_map,
-                    open(os.path.join(self.ModalityRootAfterInit, f'NumSlice_map.json'), 'w'),
+                    open(os.path.join(self.ModalityRootAfterInit, 'NumSlice_map.json'), 'w'),
                     indent=4)
 
     def Create_AtomClassLabelMap(self):
@@ -361,7 +357,7 @@ class DataStructurer(SA_Med2D):
 
     def Create_NumCase_AvgSlice_Map(self):
         Slices_Dict = json.loads(
-            open(os.path.join(self.ModalityRootAfterInit, f'NumSlice_map.json')).read())
+            open(os.path.join(self.ModalityRootAfterInit, 'NumSlice_map.json')).read())
         modality_num_slice_map = {'_Num_Cases': {}, '_Avg_Slices_Per_Case': {}}
 
         for modality in tqdm(os.listdir(self.ModalityRootAfterInit), desc='Modality'):
@@ -390,7 +386,7 @@ class DataStructurer(SA_Med2D):
                       open(os.path.join(dataset_root, f'{modality}_NumCase_AvgSlice.json'), 'w'),
                       indent=4)
         json.dump(modality_num_slice_map,
-                  open(os.path.join(self.ModalityRootAfterInit, f'NumCase_AvgSlice.json'), 'w'),
+                  open(os.path.join(self.ModalityRootAfterInit, 'NumCase_AvgSlice.json'), 'w'),
                   indent=4)
 
     def Calculate_Dataset_Value_Distributions(self):
@@ -547,7 +543,7 @@ class DataStructurer(SA_Med2D):
 
         # 图像合并
         try:
-            for index in tqdm(range(num_image), desc=f'Processing Images', dynamic_ncols=True, miniters=1000, mininterval=2):
+            for index in tqdm(range(num_image), desc='Processing Images', dynamic_ncols=True, miniters=1000, mininterval=2):
                 file_meta_now = self.analyze_file_name(image_list[index])
                 # 确定目标路径
                 save_root = os.path.join(self.ModalityRootAfterInit,

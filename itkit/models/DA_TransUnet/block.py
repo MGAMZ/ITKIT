@@ -1,32 +1,15 @@
-import math
 from collections import OrderedDict
 from os.path import join as pjoin
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch.autograd import Variable
 from torch.nn import (
-    AdaptiveAvgPool2d,
-    AdaptiveMaxPool2d,
-    AvgPool2d,
-    BCELoss,
     Conv2d,
-    CrossEntropyLoss,
-    Dropout,
-    Embedding,
-    Linear,
-    MaxPool2d,
     Module,
-    NLLLoss,
     Parameter,
-    ReLU,
-    Sequential,
-    Sigmoid,
     Softmax,
 )
-from torch.nn import functional as F
 
 
 def np2th(weights, conv=False):

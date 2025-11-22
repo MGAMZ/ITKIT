@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import pdb
 from pathlib import Path
 
 import numpy as np

@@ -1,7 +1,6 @@
 import glob
 import logging
 import os
-import pdb
 import re
 
 import torch
@@ -73,7 +72,7 @@ class experiment:
     def _direct_to_test(self):
         # Check if is at multi-GPU mode
         if os.getenv('LOCAL_RANK') is not None:
-            print(f"Running with torchrun. Test mode requires single GPU mode.")
+            print("Running with torchrun. Test mode requires single GPU mode.")
 
         # Override configurations for testing.
         self.modify_cfg_to_skip_train()

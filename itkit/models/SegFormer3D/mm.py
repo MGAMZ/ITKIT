@@ -1,17 +1,14 @@
-import pdb
 from warnings import warn
 
 import torch
 from mmengine.model import BaseModule
 from torch import nn
 
-from ...mm.mgam_models import mgam_Seg3D_Lite
 from ...mm.mmseg_Dev3D import BaseDecodeHead_3D
 from .SegFormer3D import (
     PatchEmbedding,
     SegFormerDecoderHead,
     TransformerBlock,
-    cube_root,
 )
 
 

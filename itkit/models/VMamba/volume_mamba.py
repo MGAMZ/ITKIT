@@ -11,7 +11,6 @@ This file is intentionally light-touch and does not modify vmamba.py.
 """
 
 import math
-import pdb
 
 import torch
 import torch.nn as nn

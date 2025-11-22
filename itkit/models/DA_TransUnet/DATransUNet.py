@@ -6,30 +6,14 @@ from os.path import join as pjoin
 import numpy as np
 import torch
 import torch.nn as nn
-from cv2 import threshold
 from scipy import ndimage
-from torch.autograd import Variable
 from torch.nn import (
-    AdaptiveAvgPool2d,
-    AdaptiveMaxPool2d,
-    AvgPool2d,
-    BCELoss,
     Conv2d,
-    CrossEntropyLoss,
     Dropout,
-    Embedding,
     LayerNorm,
     Linear,
-    MaxPool2d,
-    Module,
-    NLLLoss,
-    Parameter,
-    ReLU,
-    Sequential,
-    Sigmoid,
     Softmax,
 )
-from torch.nn import functional as F
 from torch.nn.modules.utils import _pair
 
 from . import configs as configs
@@ -490,7 +474,6 @@ CONFIGS = {
 }
 
 
-import pdb
 from collections.abc import Sequence
 
 from mmengine.model import BaseModule

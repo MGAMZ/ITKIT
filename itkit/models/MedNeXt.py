@@ -1,4 +1,3 @@
-import pdb
 from collections.abc import Sequence
 
 import numpy as np
@@ -1075,7 +1074,6 @@ def vis_act_map(x_res_0:Tensor, x_res_1:Tensor, x_res_2:Tensor,
 # HACK Use for t-SNE analysis
 def vis_tSNE(x_res_0:Tensor, x_res_1:Tensor, x_res_2:Tensor, x_res_3:Tensor, x:Tensor):
     import matplotlib.pyplot as plt
-    import numpy as np
     from sklearn.manifold import TSNE
 
     x_res_0 = x_res_0.detach().mean(dim=(2,3)).cpu().numpy()

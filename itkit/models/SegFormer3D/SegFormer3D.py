@@ -11,7 +11,6 @@
 Modified to support arbitrary DWH input and optimized using SDPA.
 """
 
-import pdb
 from collections.abc import Sequence
 
 import matplotlib.pyplot as plt
@@ -540,8 +539,6 @@ def forward_test():
 def profiling_test():
     import os
     from datetime import datetime
-
-    import pandas as pd
 
     # Configuration
     input_shape = (2, 1, 80, 80, 80) # B, C, D, W, H

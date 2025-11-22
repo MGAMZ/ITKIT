@@ -7,13 +7,11 @@ import math
 
 import torch
 import torch.nn as nn
-import torchsummary
 
 # from resnet import resnet34
 # import resnet
 from torch.nn import functional as F
 from torch.nn import init
-from torchvision import models
 
 from .attention import CAM_Module, PAM_Module
 from .gap import *

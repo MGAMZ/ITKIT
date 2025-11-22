@@ -1,14 +1,8 @@
 from collections import OrderedDict
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-# from .nattencuda import NEWNeighborhoodAttention
-# from .nattencuda import NeighborhoodAttention
-from einops import rearrange, repeat
-from einops.layers.torch import Rearrange
 
 #from depthwise_conv2d_implicit_gemm import DepthWiseConv2dImplicitGEMM
 #from .involution_cuda import involution
@@ -21,7 +15,11 @@ from torch.nn.modules.utils import _pair
 from torchvision.ops.deform_conv import *
 from torchvision.ops.ps_roi_pool import *
 
-from .blur_pool import BlurPool2d
+# from .nattencuda import NEWNeighborhoodAttention
+# from .nattencuda import NeighborhoodAttention
+
+
+
 
 
 class OverlapPatchEmbed(nn.Module):

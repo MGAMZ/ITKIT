@@ -1,19 +1,15 @@
 import math
-import pdb
 import re
-import time
 from collections.abc import Callable
 from functools import partial
-from typing import Dict, List, Optional, Tuple, Type, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint as checkpoint
 from einops import rearrange, repeat
-from mamba_ssm.ops.selective_scan_interface import selective_scan_fn, selective_scan_ref
-from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+from mamba_ssm.ops.selective_scan_interface import selective_scan_fn
+from timm.models.layers import DropPath, trunc_normal_
 
 DropPath.__repr__ = lambda self: f"timm.DropPath({self.drop_prob})"
 

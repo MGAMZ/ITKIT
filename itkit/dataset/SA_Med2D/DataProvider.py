@@ -1,7 +1,5 @@
 import os
-import pdb
 from collections import OrderedDict
-from typing import Dict, List, Tuple, Type
 
 import cv2
 import numpy as np
@@ -400,7 +398,7 @@ class ClassRectify(BaseTransform):
             if seg_map.max() > self.max_cls_idx:
                 raise ValueError(f"Class index {seg_map.max()} is larger than valid maximum {self.max_cls_idx}")
             results['gt_seg_map'] = seg_map
-        except ValueError as e:
+        except ValueError:
             print(Fore.RED
                   + f"\n\nEncounter exception value after ClassRectify: {seg_map.max()},"
                     f"expected max value: {self.max_cls_idx}\n"

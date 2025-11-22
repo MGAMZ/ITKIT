@@ -1,4 +1,3 @@
-import pdb
 from abc import abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -8,8 +7,6 @@ import pytorch_lightning as pl
 import torch
 from deprecated import deprecated
 from torch import Tensor
-
-from ..utils.profiler import snapshot_memory
 
 
 @dataclass
@@ -147,10 +144,10 @@ class SegmentationBase(pl.LightningModule):
                 metrics[f'Recall_{class_name}'] = intersection / (target_mask.float().sum() + self.eps)
                 metrics[f'Precision_{class_name}'] = intersection / (pred_mask.float().sum() + self.eps)
 
-            metrics[f"IoU_Avg"] = torch.mean(torch.stack([metrics[f'IoU_{class_name}'] for class_name in self.class_names]))
-            metrics[f"Dice_Avg"] = torch.mean(torch.stack([metrics[f'Dice_{class_name}'] for class_name in self.class_names]))
-            metrics[f"Recall_Avg"] = torch.mean(torch.stack([metrics[f'Recall_{class_name}'] for class_name in self.class_names]))
-            metrics[f"Precision_Avg"] = torch.mean(torch.stack([metrics[f'Precision_{class_name}'] for class_name in self.class_names]))
+            metrics["IoU_Avg"] = torch.mean(torch.stack([metrics[f'IoU_{class_name}'] for class_name in self.class_names]))
+            metrics["Dice_Avg"] = torch.mean(torch.stack([metrics[f'Dice_{class_name}'] for class_name in self.class_names]))
+            metrics["Recall_Avg"] = torch.mean(torch.stack([metrics[f'Recall_{class_name}'] for class_name in self.class_names]))
+            metrics["Precision_Avg"] = torch.mean(torch.stack([metrics[f'Precision_{class_name}'] for class_name in self.class_names]))
 
         else:
             assert self.binary_segment_threshold is not None, "Binary segmentation requires a threshold"
@@ -161,10 +158,10 @@ class SegmentationBase(pl.LightningModule):
             intersection = (pred_mask & target_mask).float().sum()
             union = (pred_mask | target_mask).float().sum()
 
-            metrics[f'IoU'] = intersection / (union + self.eps)
-            metrics[f'Dice'] = 2 * intersection / (pred_mask.float().sum() + target_mask.float().sum() + self.eps)
-            metrics[f'Recall'] = intersection / (target_mask.float().sum() + self.eps)
-            metrics[f'Precision'] = intersection / (pred_mask.float().sum() + self.eps)
+            metrics['IoU'] = intersection / (union + self.eps)
+            metrics['Dice'] = 2 * intersection / (pred_mask.float().sum() + target_mask.float().sum() + self.eps)
+            metrics['Recall'] = intersection / (target_mask.float().sum() + self.eps)
+            metrics['Precision'] = intersection / (pred_mask.float().sum() + self.eps)
 
         return metrics
 

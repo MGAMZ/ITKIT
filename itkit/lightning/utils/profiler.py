@@ -2,7 +2,6 @@ import gc
 import json
 import os
 from datetime import datetime
-from typing import Optional
 
 import psutil
 import torch
@@ -32,41 +31,41 @@ class MemorySnapshotter:
         """
         print(f"📸 [MemorySnapshot] Starting snapshot: {tag}")
 
-        print(f"  [1/6] Initializing snapshot metadata...")
+        print("  [1/6] Initializing snapshot metadata...")
         snapshot = {
             "timestamp": datetime.now().isoformat(),
             "tag": tag,
         }
 
-        print(f"  [2/6] Collecting RAM info...")
+        print("  [2/6] Collecting RAM info...")
         snapshot["ram"] = self._get_ram_info()
         print(f"        ✓ RAM: {snapshot['ram']['process_rss_mb']:.2f} MB")
 
-        print(f"  [3/6] Collecting VRAM info...")
+        print("  [3/6] Collecting VRAM info...")
         snapshot["vram"] = self._get_vram_info()
         if snapshot["vram"].get("available", True):
             total_vram = sum(v.get("allocated_mb", 0) for k, v in snapshot["vram"].items() if k != "available")
             print(f"        ✓ VRAM: {total_vram:.2f} MB allocated")
         else:
-            print(f"        ✓ VRAM: Not available")
+            print("        ✓ VRAM: Not available")
 
         if include_tensors:
-            print(f"  [4/6] Analyzing tensors (this may take a while)...")
+            print("  [4/6] Analyzing tensors (this may take a while)...")
             snapshot["tensors"] = self._get_tensor_info()
             print(f"        ✓ Found {snapshot['tensors']['total_count']} tensors, "
                   f"{snapshot['tensors']['total_size_mb']:.2f} MB total")
         else:
-            print(f"  [4/6] Skipping tensor analysis")
+            print("  [4/6] Skipping tensor analysis")
 
         if include_objects:
-            print(f"  [5/6] Analyzing Python objects (this may take a while)...")
+            print("  [5/6] Analyzing Python objects (this may take a while)...")
             snapshot["objects"] = self._get_object_info()
-            print(f"        ✓ Object analysis complete")
+            print("        ✓ Object analysis complete")
         else:
-            print(f"  [5/6] Skipping object analysis")
+            print("  [5/6] Skipping object analysis")
 
         # 保存到文件
-        print(f"  [6/6] Saving snapshot to disk...")
+        print("  [6/6] Saving snapshot to disk...")
         filename = f"{tag}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         filepath = os.path.join(self.output_dir, filename)
 
@@ -78,7 +77,7 @@ class MemorySnapshotter:
         self._save_readable_report(snapshot, filepath.replace('.json', '.txt'))
         print(f"        ✓ Report saved: {filepath.replace('.json', '.txt')}")
 
-        print(f"📸 [MemorySnapshot] Snapshot complete!\n")
+        print("📸 [MemorySnapshot] Snapshot complete!\n")
         return snapshot
 
     def _get_ram_info(self) -> dict:
@@ -123,15 +122,15 @@ class MemorySnapshotter:
 
     def _get_tensor_info(self) -> dict:
         """获取所有Tensor的详细信息"""
-        print(f"        [4.1] Running garbage collection...")
+        print("        [4.1] Running garbage collection...")
         gc.collect()
 
-        print(f"        [4.2] Collecting all objects...")
+        print("        [4.2] Collecting all objects...")
         all_objects = gc.get_objects()
         print(f"        [4.3] Total objects to scan: {len(all_objects)}")
 
         tensors = []
-        print(f"        [4.4] Scanning for tensors...")
+        print("        [4.4] Scanning for tensors...")
         scanned_count = 0
 
         for obj in all_objects:
@@ -156,7 +155,7 @@ class MemorySnapshotter:
         # 按大小排序
         tensors.sort(key=lambda x: x["size_mb"], reverse=True)
 
-        print(f"        [4.6] Computing statistics...")
+        print("        [4.6] Computing statistics...")
         # 统计信息
         total_size = sum(t["size_mb"] for t in tensors)
         cuda_tensors = [t for t in tensors if "cuda" in t["device"]]
@@ -176,17 +175,17 @@ class MemorySnapshotter:
         """获取Python对象统计信息"""
         from collections import defaultdict
 
-        print(f"        [5.1] Running garbage collection...")
+        print("        [5.1] Running garbage collection...")
         gc.collect()
 
-        print(f"        [5.2] Collecting all objects...")
+        print("        [5.2] Collecting all objects...")
         all_objects = gc.get_objects()
         print(f"        [5.3] Total objects to analyze: {len(all_objects)}")
 
         type_counts = defaultdict(int)
         type_sizes = defaultdict(int)
 
-        print(f"        [5.4] Analyzing object types and sizes...")
+        print("        [5.4] Analyzing object types and sizes...")
         analyzed_count = 0
 
         for obj in all_objects:
@@ -201,7 +200,7 @@ class MemorySnapshotter:
             except Exception:
                 continue
 
-        print(f"        [5.5] Sorting results...")
+        print("        [5.5] Sorting results...")
         # 按数量排序
         top_by_count = sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[:20]
         top_by_size = sorted(type_sizes.items(), key=lambda x: x[1], reverse=True)[:20]
@@ -225,11 +224,11 @@ class MemorySnapshotter:
     def _save_readable_report(self, snapshot: dict, filepath: str):
         """保存人类可读的文本报告"""
         with open(filepath, 'w') as f:
-            f.write(f"=" * 80 + "\n")
-            f.write(f"Memory Snapshot Report\n")
+            f.write("=" * 80 + "\n")
+            f.write("Memory Snapshot Report\n")
             f.write(f"Tag: {snapshot['tag']}\n")
             f.write(f"Timestamp: {snapshot['timestamp']}\n")
-            f.write(f"=" * 80 + "\n\n")
+            f.write("=" * 80 + "\n\n")
 
             # RAM信息
             f.write("📊 RAM Usage:\n")

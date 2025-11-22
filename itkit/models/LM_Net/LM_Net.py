@@ -1,10 +1,6 @@
-import pdb
-
-import torch
 import torch.nn as nn
 
 #from .nonlocal_block import NONLocalBlock2D
-from .blur_pool import BlurPool2d
 from .modules import *
 
 #from SoftPool import SoftPool2d

@@ -1,6 +1,3 @@
-import os
-import pdb
-
 import pydicom
 import SimpleITK as sitk
 

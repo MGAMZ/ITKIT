@@ -5,10 +5,7 @@ the channel dimension order should align with
 [Z,Y,X] or [D,H,W]
 """
 
-import pdb
-from collections.abc import Sequence
 from typing import Literal
-from warnings import deprecated
 
 import cv2
 import numpy as np

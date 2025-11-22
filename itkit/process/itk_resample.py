@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import pdb
 from collections.abc import Sequence
 from enum import Enum
 from pathlib import Path
@@ -390,7 +389,7 @@ def validate_and_prepare_args(args):
     if target_specified:
         print(f"  Mode: TARGET_IMAGE from {args.target_folder}")
     else:
-        print(f"  Mode: SPACING_SIZE")
+        print("  Mode: SPACING_SIZE")
         print(f"  Spacing: {target_spacing} | Size: {target_size}")
     print(f"  Recursive: {args.recursive} | Multiprocessing: {args.mp} | Workers: {args.workers}")
 

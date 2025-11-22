@@ -104,7 +104,7 @@ def convert_case(case_dir, dest_root, spacing=None, size=None):
             os.makedirs(os.path.dirname(output_image_path), exist_ok=True)
             sitk.WriteImage(image, output_image_path, useCompression=True)
 
-        except Exception as e:
+        except Exception:
             pass
 
 

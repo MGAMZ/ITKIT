@@ -4,7 +4,6 @@ from string import Template
 import cupy
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.autograd import Function
 from torch.nn.modules.utils import _pair
 
