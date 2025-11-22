@@ -1,12 +1,14 @@
 import json
-import tempfile
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
-import pytest
+
 import numpy as np
+import pytest
 import SimpleITK as sitk
-from itkit.process.itk_patch import parse_patch_size, PatchProcessor
+
+from itkit.process.itk_patch import PatchProcessor, parse_patch_size
 
 
 @pytest.fixture

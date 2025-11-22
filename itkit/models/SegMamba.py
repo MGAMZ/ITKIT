@@ -20,13 +20,14 @@ https://github.com/ge-xing/SegMamba/blob/main/model_segmamba/segmamba.py
 """
 
 from __future__ import annotations
-import torch.nn as nn
-import torch 
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from mamba_ssm import Mamba
 from monai.networks.blocks.dynunet_block import UnetOutBlock
 from monai.networks.blocks.unetr_block import UnetrBasicBlock, UnetrUpBlock
-from mamba_ssm import Mamba
-import torch.nn.functional as F 
+
 
 class LayerNorm(nn.Module):
     r""" LayerNorm that supports two data formats: channels_last (default) or channels_first.

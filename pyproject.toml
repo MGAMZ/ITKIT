@@ -124,3 +124,7 @@ exclude = [
   "**/*.egg-info/**"
 ]
 reportMissingImports = false
+
+[tool.isort]
+profile = "black"
+src_paths = ["itkit"]

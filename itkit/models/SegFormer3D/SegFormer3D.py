@@ -14,10 +14,10 @@ Modified to support arbitrary DWH input and optimized using SDPA.
 import pdb
 from collections.abc import Sequence
 
-import torch
-from torch import nn
-import torch.nn.functional as F
 import matplotlib.pyplot as plt
+import torch
+import torch.nn.functional as F
+from torch import nn
 
 
 class SelfAttention(nn.Module):
@@ -539,9 +539,10 @@ def forward_test():
 
 def profiling_test():
     import os
-    import pandas as pd
     from datetime import datetime
-    
+
+    import pandas as pd
+
     # Configuration
     input_shape = (2, 1, 80, 80, 80) # B, C, D, W, H
     num_classes = 3

@@ -1,13 +1,24 @@
-import os
 import argparse
 import multiprocessing
-from typing_extensions import Sequence
-from tqdm import tqdm
+import os
+
 import numpy as np
 import SimpleITK as sitk
+from tqdm import tqdm
+from typing_extensions import Sequence
 
-from itkit.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size, nii_to_sitk, merge_masks
-from itkit.dataset.Totalsegmentator.meta import CLASS_INDEX_MAP, CLASS_MERGE, generate_reduced_class_map_and_label_map, SUBSETS
+from itkit.dataset.Totalsegmentator.meta import (
+    CLASS_INDEX_MAP,
+    CLASS_MERGE,
+    SUBSETS,
+    generate_reduced_class_map_and_label_map,
+)
+from itkit.io.sitk_toolkit import (
+    merge_masks,
+    nii_to_sitk,
+    sitk_resample_to_size,
+    sitk_resample_to_spacing,
+)
 
 
 def extract_subset_segmentations(

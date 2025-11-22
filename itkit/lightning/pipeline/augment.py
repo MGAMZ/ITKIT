@@ -1,13 +1,12 @@
 import random
-from typing import Dict, List, Tuple
-from typing_extensions import Literal
 from collections.abc import Callable, Sequence
+from typing import Dict, List, Tuple
 
 import numpy as np
+from typing_extensions import Literal
 
-from .base import BaseTransform
 from ...process.GeneralPreProcess import RandomRotate3D as mm_RandomRotate3D
-
+from .base import BaseTransform
 
 
 class RandomPatch3D(BaseTransform):

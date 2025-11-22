@@ -1,10 +1,9 @@
 import pdb
 
 import torch
+from mmengine.model import BaseModule
 from torch import Tensor
 from torch.nn import L1Loss, MSELoss
-
-from mmengine.model import BaseModule
 
 
 class PixelReconstructionLoss(BaseModule):

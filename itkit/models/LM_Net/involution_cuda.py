@@ -1,13 +1,12 @@
-from torch.autograd import Function
-import torch
-from torch.nn.modules.utils import _pair
-import torch.nn.functional as F
-import torch.nn as nn
-
 from collections import namedtuple
-import cupy
 from string import Template
 
+import cupy
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.autograd import Function
+from torch.nn.modules.utils import _pair
 
 Stream = namedtuple('Stream', ['ptr'])
 

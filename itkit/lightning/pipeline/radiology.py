@@ -1,7 +1,7 @@
 import numpy as np
-from .base import BaseTransform
 
-from ...io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size
+from ...io.sitk_toolkit import sitk_resample_to_size, sitk_resample_to_spacing
+from .base import BaseTransform
 
 
 class WindowNorm(BaseTransform):

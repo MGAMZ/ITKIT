@@ -1,11 +1,14 @@
-import os, re, pdb
+import os
+import pdb
+import re
 from copy import deepcopy
 from pathlib import Path
-from tqdm import tqdm
-from deprecated import deprecated
 from typing import Literal
 
-from .base import BaseDataset, BaseDataModule
+from deprecated import deprecated
+from tqdm import tqdm
+
+from .base import BaseDataModule, BaseDataset
 
 
 class MhaDataset(BaseDataset):

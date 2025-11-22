@@ -1,13 +1,14 @@
 import os
 import pdb
 from typing import Dict, List, OrderedDict, Tuple, Type
-from colorama import Fore, Style
 
 import cv2
 import numpy as np
 import torch
+from colorama import Fore, Style
 from mmcv.transforms import BaseTransform
 from mmengine.logging import MMLogger, print_log
+
 # mmseg可视化Hook设定
 from mmseg.datasets.transforms import LoadBiomedicalImageFromFile
 from mmseg.engine.hooks import SegVisualizationHook
@@ -15,8 +16,6 @@ from mmseg.evaluation.metrics import IoUMetric
 from prettytable import PrettyTable
 
 from .DatasetBackend import DatasetBackend_GlobalProxy
-
-
 
 
 class SegVisualizationHook_SA_Med2D(SegVisualizationHook):

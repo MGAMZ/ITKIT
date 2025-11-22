@@ -3,11 +3,11 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
-from deprecated import deprecated
 
-import torch
-from torch import Tensor
 import pytorch_lightning as pl
+import torch
+from deprecated import deprecated
+from torch import Tensor
 
 from ..utils.profiler import snapshot_memory
 

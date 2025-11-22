@@ -8,12 +8,12 @@ https://doi.org/10.1007/978-3-031-43901-8_46
 https://github.dev/JCruan519/EGE-UNet
 """
 
-import torch
-from torch import nn
-import torch.nn.functional as F
-
-from timm.models.layers import trunc_normal_
 import math
+
+import torch
+import torch.nn.functional as F
+from timm.models.layers import trunc_normal_
+from torch import nn
 
 
 class DepthWiseConv2d(nn.Module):

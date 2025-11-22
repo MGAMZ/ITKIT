@@ -8,12 +8,11 @@ import pdb
 from functools import partial
 
 import torch
-from torchvision.models import vgg16
-from torch import nn
-
 from mmengine.model import BaseModule
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead, accuracy
 from mmseg.utils import SampleList
+from torch import nn
+from torchvision.models import vgg16
 
 
 class DDCB(BaseModule):

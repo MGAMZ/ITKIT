@@ -1,11 +1,13 @@
-import os, pdb, argparse
+import argparse
 import multiprocessing as mp
+import os
+import pdb
 from pathlib import Path
-from tqdm import tqdm
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import SimpleITK as sitk
+from tqdm import tqdm
 
 
 def get_meta_info(itk_image:sitk.Image):
@@ -35,8 +37,12 @@ def calculate_quantitative_metrics(img_itk:sitk.Image,
     Returns:
         dict: Metrics for each class, keys are metric names with class indices
     """
-    from sklearn.metrics import precision_recall_fscore_support, jaccard_score, accuracy_score
-    
+    from sklearn.metrics import (
+        accuracy_score,
+        jaccard_score,
+        precision_recall_fscore_support,
+    )
+
     # Convert SimpleITK images to numpy arrays
     gt_array = sitk.GetArrayFromImage(gt_itk).flatten()
     pred_array = sitk.GetArrayFromImage(pred_itk).flatten()

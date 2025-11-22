@@ -1,5 +1,6 @@
 import os
 import sys
+
 import pytest
 
 
@@ -23,8 +24,9 @@ def test_start_and_close_gui(monkeypatch):
     pytest.importorskip("PyQt6", reason="PyQt6 not installed")
 
     # Import the app module under test
-    from itkit.gui import app as itkit_app
     from PyQt6 import QtWidgets
+
+    from itkit.gui import app as itkit_app
 
     # Create application instance if none exists
     app = QtWidgets.QApplication.instance()

@@ -1,12 +1,17 @@
 import os
 import pdb
-from tqdm import tqdm
 
 import orjson
 import pandas as pd
+from tqdm import tqdm
 
 from ..base import mgam_SemiSup_3D_Mha, mgam_SeriesPatched_Structure
-from .meta import CLASS_INDEX_MAP, generate_subset_class_map_and_label_map, generate_reduced_class_map_and_label_map
+from .meta import (
+    CLASS_INDEX_MAP,
+    generate_reduced_class_map_and_label_map,
+    generate_subset_class_map_and_label_map,
+)
+
 
 class TotalsegmentatorIndexer:
 

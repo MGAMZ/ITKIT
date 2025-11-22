@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 import os
 
+import _depthwise_conv2d_implicit_gemm_C as _extension
 import torch
 import torch.nn as nn
 import torch.utils.cpp_extension as cpp_extension
-
-import _depthwise_conv2d_implicit_gemm_C as _extension
 from depthwise_conv2d_implicit_gemm import *
 
 

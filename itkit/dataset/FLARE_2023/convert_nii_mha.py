@@ -1,12 +1,14 @@
 import os
-from tqdm import tqdm
+
 import numpy as np
+from tqdm import tqdm
+
 from itkit.dataset.base_convert import format_from_nnUNet
 from itkit.io.sitk_toolkit import (
     sitk,
-    sitk_resample_to_spacing,
-    sitk_resample_to_size,
     sitk_resample_to_image,
+    sitk_resample_to_size,
+    sitk_resample_to_spacing,
 )
 
 

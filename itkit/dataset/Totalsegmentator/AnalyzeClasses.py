@@ -1,10 +1,10 @@
-import os
 import argparse
-from tqdm import tqdm
+import os
 from multiprocessing import Pool, cpu_count
 
-import SimpleITK as sitk
 import pandas as pd
+import SimpleITK as sitk
+from tqdm import tqdm
 
 from itkit.dataset.Totalsegmentator import TSD_CLASS_INDEX_MAP as CLASS_INDEX_MAP
 

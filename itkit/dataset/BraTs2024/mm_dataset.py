@@ -1,9 +1,10 @@
-import os, pdb
+import os
+import pdb
 from collections.abc import Sequence
-from typing_extensions import Literal
 
 import numpy as np
 from mmcv.transforms import BaseTransform
+from typing_extensions import Literal
 
 from ..base import mgam_BaseSegDataset
 from .meta import BraTs2024_MODALITIES

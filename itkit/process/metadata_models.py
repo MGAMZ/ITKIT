@@ -1,4 +1,5 @@
-import pdb, json
+import json
+import pdb
 from pathlib import Path
 
 import numpy as np

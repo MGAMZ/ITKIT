@@ -1,14 +1,18 @@
-import os, re, pdb, json, logging
+import json
+import logging
+import os
+import pdb
+import re
 from abc import abstractmethod
 from collections.abc import Generator, Iterable
+
+from deprecated import deprecated
+from mmengine.dataset import BaseDataset, ConcatDataset
+from mmengine.logging import MMLogger, print_log
+from mmengine.registry import DATASETS
+from mmseg.datasets.basesegdataset import BaseSegDataset
 from tqdm import tqdm
 from typing_extensions import Literal
-from deprecated import deprecated
-
-from mmengine.registry import DATASETS
-from mmengine.logging import print_log, MMLogger
-from mmengine.dataset import ConcatDataset, BaseDataset
-from mmseg.datasets.basesegdataset import BaseSegDataset
 
 
 class mgam_BaseSegDataset(BaseSegDataset):

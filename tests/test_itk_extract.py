@@ -1,7 +1,8 @@
 import os
 import tempfile
-import pytest
+
 import numpy as np
+import pytest
 import SimpleITK as sitk
 
 from itkit.process.itk_extract import ExtractProcessor, parse_label_mappings
@@ -281,9 +282,10 @@ class TestExtractProcessor:
 class TestParseArgs:
     def test_parse_args_basic(self):
         """Test basic argument parsing"""
-        from itkit.process.itk_extract import parse_args
         import sys
         from unittest.mock import patch
+
+        from itkit.process.itk_extract import parse_args
         
         test_args = ['script.py', 'source', 'dest', '1:0', '2:1']
         with patch.object(sys, 'argv', test_args):
@@ -297,9 +299,10 @@ class TestParseArgs:
 
     def test_parse_args_with_options(self):
         """Test argument parsing with all options"""
-        from itkit.process.itk_extract import parse_args
         import sys
         from unittest.mock import patch
+
+        from itkit.process.itk_extract import parse_args
         
         test_args = ['script.py', 'source', 'dest', '1:0', '-r', '--mp', '--workers', '4']
         with patch.object(sys, 'argv', test_args):
@@ -312,10 +315,11 @@ class TestParseArgs:
 class TestMainIntegration:
     def test_main_integration_success(self, temp_dir):
         """Integration test for main function with valid inputs"""
-        from itkit.process.itk_extract import main
         import sys
         from unittest.mock import patch
-        
+
+        from itkit.process.itk_extract import main
+
         # Create source files
         source = os.path.join(temp_dir, 'source')
         dest = os.path.join(temp_dir, 'dest')
@@ -341,10 +345,11 @@ class TestMainIntegration:
 
     def test_main_config_save_error_handling(self, temp_dir):
         """Test main function handles config save errors gracefully"""
-        from itkit.process.itk_extract import main
         import sys
         from unittest.mock import patch
-        
+
+        from itkit.process.itk_extract import main
+
         # Create source files
         source = os.path.join(temp_dir, 'source')
         dest = os.path.join(temp_dir, 'dest')

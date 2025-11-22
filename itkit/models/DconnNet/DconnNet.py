@@ -5,17 +5,21 @@ Created on Wed Apr 10 09:57:49 2019
 @author: Fsl
 """
 import math
-from .attention import CAM_Module,PAM_Module
+
 import torch
-from torchvision import models
 import torch.nn as nn
-from .resnet import resnet34
+import torchsummary
+
 # from resnet import resnet34
 # import resnet
 from torch.nn import functional as F
-import torchsummary
 from torch.nn import init
+from torchvision import models
+
+from .attention import CAM_Module, PAM_Module
 from .gap import *
+from .resnet import resnet34
+
 up_kwargs = {'mode': 'bilinear', 'align_corners': True}
 
 
@@ -372,6 +376,8 @@ class ConvBnRelu(nn.Module):
 
 # MGAM: 2024.06.07
 from mmengine.model import BaseModule
+
+
 class MM_DconnNet(BaseModule, DconnNet):
     def __init__(self, **kwargs):
         BaseModule.__init__(self)
@@ -382,6 +388,8 @@ class MM_DconnNet(BaseModule, DconnNet):
 
 
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
+
+
 class MM_DconnNet_Decoder(BaseDecodeHead):
     def __init__(self, **kwargs):
         kwargs['in_channels'] = [64,64,128,256]

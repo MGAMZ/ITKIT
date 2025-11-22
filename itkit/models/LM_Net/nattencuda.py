@@ -4,15 +4,15 @@ Neighborhood Attention PyTorch Module (CUDA only)
 This source code is licensed under the license found in the
 LICENSE file in the root directory of this source tree.
 """
-import torch
-from torch import nn
-from torch.nn.functional import pad
-from torch.nn.init import trunc_normal_
-from torch.autograd import Function
-from torch.cuda.amp import custom_fwd, custom_bwd
-from torch.utils.cpp_extension import load, is_ninja_available
 import os
 
+import torch
+from torch import nn
+from torch.autograd import Function
+from torch.cuda.amp import custom_bwd, custom_fwd
+from torch.nn.functional import pad
+from torch.nn.init import trunc_normal_
+from torch.utils.cpp_extension import is_ninja_available, load
 
 if is_ninja_available():
     this_dir = os.path.dirname(os.path.realpath(__file__))

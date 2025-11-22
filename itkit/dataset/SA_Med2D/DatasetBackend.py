@@ -2,12 +2,15 @@ import logging
 import os
 import pdb
 import random
-import colorama
-colorama.init()
-from warnings import warn
-from abc import abstractmethod
-from typing import Dict, List, Tuple, Iterable, Sequence
 
+import colorama
+
+colorama.init()
+from abc import abstractmethod
+from typing import Dict, Iterable, List, Sequence, Tuple
+from warnings import warn
+
+import numpy as np
 import orjson
 import tqdm
 from mmengine.logging import print_log
@@ -15,8 +18,6 @@ from mmengine.utils import ManagerMixin
 from mmseg.datasets import BaseSegDataset
 
 from .DatasetInitialize import SA_Med2D
-import numpy as np
-
 
 DATASET_ROOT_LINUX = '/file1/mgam_datasets/SA-Med2D-20M/CaseSeperated/'
 DATASET_ROOT_MNT = '/file1/mgam_datasets/SA-Med2D-20M/CaseSeperated/'

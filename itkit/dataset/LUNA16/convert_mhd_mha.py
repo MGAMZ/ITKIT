@@ -1,5 +1,7 @@
 import os
+
 from ..base_convert import StandardFileFormatter
+
 
 class LUNA16_formatter(StandardFileFormatter):
     def tasks(self) -> list:

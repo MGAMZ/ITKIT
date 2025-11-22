@@ -1,8 +1,9 @@
 
 from mmengine.model import BaseModule
-
-from .SwinUMamba import VSSMEncoder, UNetResDecoder
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
+
+from .SwinUMamba import UNetResDecoder, VSSMEncoder
+
 
 class MM_SwinUMamba_backbone(BaseModule):
     def __init__(self, 

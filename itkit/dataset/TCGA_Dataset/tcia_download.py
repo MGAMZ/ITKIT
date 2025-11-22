@@ -1,11 +1,10 @@
+import argparse
 import os
 import pdb
-import argparse
-from tqdm import tqdm
 
 import pandas as pd
-
 from tcia_utils import nbia
+from tqdm import tqdm
 
 
 def download_meta(manifest_path:str, output_dir:str, retry:int):

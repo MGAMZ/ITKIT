@@ -1,16 +1,17 @@
-import os
 import argparse
 import glob
 import multiprocessing as mp
-from tqdm import tqdm
+import os
 from functools import partial
 
 import SimpleITK as sitk
+from tqdm import tqdm
 
 from itkit.io.sitk_toolkit import (
-    sitk_resample_to_spacing, 
-    sitk_resample_to_size, 
-    sitk_resample_to_image)
+    sitk_resample_to_image,
+    sitk_resample_to_size,
+    sitk_resample_to_spacing,
+)
 
 BraTs2024_MODALITIES = ["t1c", "t1n", "t2f", "t2w"]
 

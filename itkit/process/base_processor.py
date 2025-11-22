@@ -1,13 +1,14 @@
-import os, pdb
 import argparse
+import os
+import pdb
 from abc import abstractmethod
 from multiprocessing import Pool, cpu_count
-from tqdm import tqdm
 from pathlib import Path
 from typing import Any
 
-from .metadata_models import MetadataManager, SeriesMetadata
+from tqdm import tqdm
 
+from .metadata_models import MetadataManager, SeriesMetadata
 
 """
 Abstract base classes for creating data processing pipelines in ITK.

@@ -8,24 +8,22 @@ from typing import Any
 import cv2
 import numpy as np
 import torch
-from torch import Tensor
-from torch.nn import functional as F
-
 from mmcv.transforms import to_tensor
 from mmengine.runner import Runner
 from mmengine.structures.base_data_element import BaseDataElement
-from mmseg.engine.hooks import SegVisualizationHook
 from mmseg.datasets.transforms import PackSegInputs
+from mmseg.engine.hooks import SegVisualizationHook
 from mmseg.models.data_preprocessor import SegDataPreProcessor
-from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
 from mmseg.models.losses.accuracy import accuracy
+from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
+from mmseg.structures.seg_data_sample import PixelData, SegDataSample
 from mmseg.visualization.local_visualizer import SegLocalVisualizer
-from mmseg.structures.seg_data_sample import SegDataSample, PixelData
+from torch import Tensor
+from torch.nn import functional as F
 
 from ..criterions.segment import DiceLoss_3D
 from ..process.GeneralPreProcess import RandomRotate3D_GPU
-
 
 
 class VolumeData(BaseDataElement):

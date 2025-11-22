@@ -1,41 +1,39 @@
+import copy
+import datetime
+import json
+import logging
 import os
 import os.path as osp
 import pdb
-import datetime
-import logging
-import json
-import copy
 from functools import partial
 from numbers import Number
-from typing_extensions import Sequence
 
-import torch
-import pandas as pd
 import numpy as np
-from torch import nn
-from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
-
+import pandas as pd
+import torch
+from mmengine._strategy.fsdp import FSDPStrategy
 from mmengine.dataset.sampler import DefaultSampler
-from mmengine.runner import (
-    Runner,
-    IterBasedTrainLoop,
-    FlexibleRunner,
-    find_latest_checkpoint,
-)
-from mmengine.runner.runner import ConfigType
+from mmengine.dataset.utils import default_collate
 from mmengine.hooks import LoggerHook
 from mmengine.hooks import RuntimeInfoHook as _RuntimeInfoHook
-from mmengine.logging import print_log, MMLogger
-from mmengine.optim import AmpOptimWrapper, DefaultOptimWrapperConstructor
+from mmengine.logging import MMLogger, print_log
 from mmengine.model.wrappers import (
     MMDistributedDataParallel,
     MMFullyShardedDataParallel,
 )
-from mmengine.dataset.utils import default_collate
-from mmengine._strategy.fsdp import FSDPStrategy
+from mmengine.optim import AmpOptimWrapper, DefaultOptimWrapperConstructor
+from mmengine.runner import (
+    FlexibleRunner,
+    IterBasedTrainLoop,
+    Runner,
+    find_latest_checkpoint,
+)
+from mmengine.runner.runner import ConfigType
+from torch import nn
+from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
+from typing_extensions import Sequence
 
-from ..utils.DevelopUtils import measure_time, InjectVisualize
-
+from ..utils.DevelopUtils import InjectVisualize, measure_time
 
 
 def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
@@ -138,9 +136,10 @@ class IterBasedTrainLoop_SupportProfiler(IterBasedTrainLoop):
 
         if profiler == "PyTorchProfiler":
             from torch.profiler import (
-                profile,
                 ProfilerActivity,
-                tensorboard_trace_handler)
+                profile,
+                tensorboard_trace_handler,
+            )
             self.prof = profile(
                 activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                 schedule=torch.profiler.schedule(wait=50, warmup=1, active=2),
@@ -288,11 +287,17 @@ class RemasteredFSDP(MMFullyShardedDataParallel):
         except:
             return getattr(self.module, name)
 
-from mmengine.registry import FUNCTIONS, MODEL_WRAPPERS
-from mmengine.model import BaseDataPreprocessor, is_model_wrapper
 from mmengine.device import get_device
+from mmengine.model import BaseDataPreprocessor, is_model_wrapper
 from mmengine.optim import BaseOptimWrapper, _ParamScheduler
-from torch.distributed.checkpoint.state_dict import get_state_dict, set_state_dict, StateDictOptions
+from mmengine.registry import FUNCTIONS, MODEL_WRAPPERS
+from torch.distributed.checkpoint.state_dict import (
+    StateDictOptions,
+    get_state_dict,
+    set_state_dict,
+)
+
+
 class RemasteredFSDP_Strategy(FSDPStrategy):
     def __init__(self, 
                  model_wrapper_cfg:dict|None=None, 
@@ -303,8 +308,9 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
     def _wrap_model(self, model: nn.Module) -> None:
         """warp model but not load state."""
         try:
-            from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import \
-                apply_activation_checkpointing
+            from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+                apply_activation_checkpointing,
+            )
         except ImportError:
             apply_activation_checkpointing = None
 

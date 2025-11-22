@@ -1,6 +1,7 @@
 import pdb
-import timm
 from collections.abc import Callable
+
+import timm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

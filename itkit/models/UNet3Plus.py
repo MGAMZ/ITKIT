@@ -1,10 +1,10 @@
 import pdb
-from typing_extensions import Sequence
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
+from typing_extensions import Sequence
 
 
 # 根据维度选择相应的组件

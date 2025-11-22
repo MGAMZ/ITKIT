@@ -7,37 +7,34 @@ This is the implementation of our research.
 """
 
 
+import math
 import os
 import pdb
-import math
-import torch.utils.checkpoint
-from typing_extensions import Literal
 from itertools import permutations
 
+import mpl_toolkits.mplot3d.art3d as art3d
 import numpy as np
 import torch
-import mpl_toolkits.mplot3d.art3d as art3d
-from torch import Tensor
-from torch import nn
-from torch.nn import functional as F
-from torch.nn.modules.conv import _ConvNd
+import torch.utils.checkpoint
 from matplotlib import pyplot as plt
-from matplotlib.patches import Patch
 from matplotlib.axes import Axes
 from matplotlib.gridspec import SubplotSpec
-
+from matplotlib.patches import Patch
 from mmcv.transforms import BaseTransform
 from mmengine.config import ConfigDict
-from mmengine.model import BaseModule
 from mmengine.dist import master_only
-from mmengine.visualization import Visualizer
 from mmengine.evaluator import BaseMetric
+from mmengine.model import BaseModule
+from mmengine.visualization import Visualizer
 from mmpretrain.registry import MODELS
 from mmpretrain.structures import DataSample
+from torch import Tensor, nn
+from torch.nn import functional as F
+from torch.nn.modules.conv import _ConvNd
+from typing_extensions import Literal
 
+from ..mm.mmeng_PlugIn import GeneralViser, MomentumAvgModel
 from .SelfSup import AutoEncoderSelfSup
-from ..mm.mmeng_PlugIn import MomentumAvgModel, GeneralViser
-
 
 DIM_MAP = {"1d": 1, "2d": 2, "3d": 3}
 CMAP_SEQ_COLOR = ["winter", "RdPu"]

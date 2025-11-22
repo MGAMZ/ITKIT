@@ -1,19 +1,18 @@
-import pdb
 import logging
+import pdb
 from abc import abstractmethod
-from tqdm import tqdm
 from collections.abc import Sequence
-
-import torch
-from torch import Tensor
 from dataclasses import dataclass
 
-from mmengine.logging import print_log
-from mmengine.registry import MODELS
+import torch
 from mmengine.config import ConfigDict
-from mmengine.structures import BaseDataElement, PixelData
-from mmengine.model import BaseModel
 from mmengine.dist import is_main_process
+from mmengine.logging import print_log
+from mmengine.model import BaseModel
+from mmengine.registry import MODELS
+from mmengine.structures import BaseDataElement, PixelData
+from torch import Tensor
+from tqdm import tqdm
 
 from .mmseg_Dev3D import VolumeData
 

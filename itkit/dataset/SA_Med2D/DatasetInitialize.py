@@ -6,6 +6,7 @@ import re
 import shutil
 from concurrent import futures
 from concurrent.futures import Future
+from genericpath import isfile
 from multiprocessing import Pool, cpu_count
 from textwrap import indent
 from typing import Dict, Iterable, List, Sequence, Union
@@ -13,7 +14,6 @@ from typing import Dict, Iterable, List, Sequence, Union
 import cv2
 import numpy as np
 import orjson
-from genericpath import isfile
 from numpy.typing import ArrayLike, NDArray
 from PIL import Image
 from rich.progress import Progress

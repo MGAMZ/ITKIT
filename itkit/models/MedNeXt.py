@@ -1,16 +1,15 @@
 import pdb
-from typing_extensions import Sequence
 
 import numpy as np
 import torch
-from torch import nn, Tensor
-from torch.nn import functional as F
-from torch.utils.checkpoint import checkpoint
-
 from mmengine.model import BaseModule
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
+from torch import Tensor, nn
+from torch.nn import functional as F
+from torch.utils.checkpoint import checkpoint
+from typing_extensions import Sequence
 
-from ..mm.mmseg_Dev3D import BaseDecodeHead_3D, PixelUnshuffle3D, PixelShuffle3D
+from ..mm.mmseg_Dev3D import BaseDecodeHead_3D, PixelShuffle3D, PixelUnshuffle3D
 from .utils import pad_ensure_conv_out_same_size
 
 
@@ -959,12 +958,13 @@ def grad_hist_and_pixelwise_vis_hook(module:nn.Module, grad_input:Tensor, grad_o
         grad_output: 输出的梯度（tuple）
     """
     import os
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from matplotlib.colors import Normalize
     from datetime import datetime
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from matplotlib.colors import Normalize
     from matplotlib.font_manager import FontProperties
-    
+
     # 创建保存路径
     save_dir = os.path.join("visualization")
     os.makedirs(save_dir, exist_ok=True)
@@ -1074,9 +1074,9 @@ def vis_act_map(x_res_0:Tensor, x_res_1:Tensor, x_res_2:Tensor,
 
 # HACK Use for t-SNE analysis
 def vis_tSNE(x_res_0:Tensor, x_res_1:Tensor, x_res_2:Tensor, x_res_3:Tensor, x:Tensor):
-    from sklearn.manifold import TSNE
     import matplotlib.pyplot as plt
     import numpy as np
+    from sklearn.manifold import TSNE
     
     x_res_0 = x_res_0.detach().mean(dim=(2,3)).cpu().numpy()
     x_res_1 = x_res_1.detach().mean(dim=(2,3)).cpu().numpy()
@@ -1101,8 +1101,8 @@ def vis_tSNE(x_res_0:Tensor, x_res_1:Tensor, x_res_2:Tensor, x_res_3:Tensor, x:T
 
 # HACK Use for PCA
 def vis_PCA(x_res_0:Tensor, x_res_1:Tensor, x_res_2:Tensor, x_res_3:Tensor, x:Tensor):
-    from sklearn.decomposition import PCA
     import matplotlib.pyplot as plt
+    from sklearn.decomposition import PCA
     
     x_res_0 = x_res_0.detach().mean(dim=(2,3)).cpu().numpy()
     x_res_1 = x_res_1.detach().mean(dim=(2,3)).cpu().numpy()
@@ -1128,8 +1128,9 @@ def vis_PCA(x_res_0:Tensor, x_res_1:Tensor, x_res_2:Tensor, x_res_3:Tensor, x:Te
 # HACK
 def log_grad(module:nn.Module, grad_input:Tensor, grad_output:Tensor):
     import os
-    import numpy as np
     from time import time
+
+    import numpy as np
     save_dir = "visualization/grad"
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, f"grad_{time()}.npz")
@@ -1143,8 +1144,9 @@ def log_grad(module:nn.Module, grad_input:Tensor, grad_output:Tensor):
 # HACK
 def log_act(x_res_0:Tensor, x_res_1:Tensor, x_res_2:Tensor, x_res_3:Tensor, x:Tensor):
     import os
-    import numpy as np
     from time import time
+
+    import numpy as np
     save_dir = "visualization/act"
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, f"act_{time()}.npz")

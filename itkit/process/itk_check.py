@@ -1,15 +1,18 @@
-import os, argparse, json, shutil
-from typing import Any
-from tqdm import tqdm
-from enum import Enum
+import argparse
+import json
+import os
+import shutil
 from abc import abstractmethod
 from dataclasses import dataclass
+from enum import Enum
+from typing import Any
 
 import SimpleITK as sitk
-from itkit.process.base_processor import DatasetProcessor, SingleFolderProcessor
-from itkit.process.meta_json import load_series_meta, get_series_meta_path
-from itkit.process.metadata_models import SeriesMetadata
+from tqdm import tqdm
 
+from itkit.process.base_processor import DatasetProcessor, SingleFolderProcessor
+from itkit.process.meta_json import get_series_meta_path, load_series_meta
+from itkit.process.metadata_models import SeriesMetadata
 
 DIM_MAP = {"Z": 0, "Y": 1, "X": 2}
 EPS = 1e-3

@@ -1,30 +1,42 @@
 # coding=utf-8
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import copy
 import logging
 import math
-
 from os.path import join as pjoin
 
-from cv2 import threshold
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-
-from torch.nn import CrossEntropyLoss, Dropout, Softmax, Linear, Conv2d, LayerNorm
-from torch.nn.modules.utils import _pair
+from cv2 import threshold
 from scipy import ndimage
-from . import configs as configs
-from .block import ResNetV2
-from .block import DANetHead
-
-from torch.nn import Module, Sequential, Conv2d, ReLU,AdaptiveMaxPool2d, AdaptiveAvgPool2d, \
-    NLLLoss, BCELoss, CrossEntropyLoss, AvgPool2d, MaxPool2d, Parameter, Linear, Sigmoid, Softmax, Dropout, Embedding
-from torch.nn import functional as F
 from torch.autograd import Variable
+from torch.nn import (
+    AdaptiveAvgPool2d,
+    AdaptiveMaxPool2d,
+    AvgPool2d,
+    BCELoss,
+    Conv2d,
+    CrossEntropyLoss,
+    Dropout,
+    Embedding,
+    LayerNorm,
+    Linear,
+    MaxPool2d,
+    Module,
+    NLLLoss,
+    Parameter,
+    ReLU,
+    Sequential,
+    Sigmoid,
+    Softmax,
+)
+from torch.nn import functional as F
+from torch.nn.modules.utils import _pair
+
+from . import configs as configs
+from .block import DANetHead, ResNetV2
 
 logger = logging.getLogger(__name__)
 
@@ -482,8 +494,11 @@ CONFIGS = {
 
 
 import pdb
-from typing_extensions import Sequence
+
 from mmengine.model import BaseModule
+from typing_extensions import Sequence
+
+
 class DATrans_Backbone(BaseModule):
     def __init__(self, arch:str, img_size:int|Sequence[int]=256, num_classes=21843, zero_head=False, vis=False):
         super(DATrans_Backbone, self).__init__()
@@ -506,6 +521,8 @@ class DATrans_Backbone(BaseModule):
 
 
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
+
+
 class DATrans_Head(BaseDecodeHead):
     def __init__(self, arch, num_classes, **kwargs):
         super(DATrans_Head, self).__init__(

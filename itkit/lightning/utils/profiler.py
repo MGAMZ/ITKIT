@@ -1,10 +1,12 @@
 import gc
-import torch
-import psutil
+import json
 import os
 from datetime import datetime
 from typing import Optional
-import json
+
+import psutil
+import torch
+
 
 class MemorySnapshotter:
     """内存快照工具 - 记录RAM和VRAM使用情况"""
@@ -213,6 +215,7 @@ class MemorySnapshotter:
         """估算对象大小 - 使用浅层估算避免性能问题"""
         try:
             import sys
+
             # 只计算对象本身的大小，不递归计算容器内容
             # 递归计算会导致严重的性能问题
             return sys.getsizeof(obj)

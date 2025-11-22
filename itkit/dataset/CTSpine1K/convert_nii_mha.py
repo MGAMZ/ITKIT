@@ -4,7 +4,6 @@ import pdb
 from itkit.dataset.base_convert import StandardFileFormatter
 
 
-
 class CTSpine1K_Formatter(StandardFileFormatter):
     SUBFOLDERS = ["colon", "COVID-19", "HNSCC-3DCT-RT_neck", "liver"]
     

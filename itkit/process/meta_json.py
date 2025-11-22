@@ -1,8 +1,8 @@
 """
 Utility functions for loading, computing, and saving series_meta.json
 """
-import os
 import json
+import os
 
 
 def get_series_meta_path(folder: str) -> str:

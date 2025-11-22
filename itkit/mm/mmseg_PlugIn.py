@@ -1,20 +1,23 @@
-import pdb, warnings
-from prettytable import PrettyTable
+import pdb
+import warnings
 from collections import OrderedDict
 
-import torch
 import numpy as np
-from skimage.exposure import equalize_hist
-from monai.metrics.meandice import compute_dice
-from monai.metrics.meaniou import compute_iou
-from monai.metrics.confusion_matrix import get_confusion_matrix, compute_confusion_matrix_metric
-
-from mmengine.structures import PixelData
-from mmengine.logging import print_log
+import torch
+from mmcv.transforms import BaseTransform, to_tensor
 from mmengine.evaluator import BaseMetric
+from mmengine.logging import print_log
+from mmengine.structures import PixelData
 from mmseg.evaluation.metrics import IoUMetric
 from mmseg.structures import SegDataSample
-from mmcv.transforms import BaseTransform, to_tensor
+from monai.metrics.confusion_matrix import (
+    compute_confusion_matrix_metric,
+    get_confusion_matrix,
+)
+from monai.metrics.meandice import compute_dice
+from monai.metrics.meaniou import compute_iou
+from prettytable import PrettyTable
+from skimage.exposure import equalize_hist
 
 
 class HistogramEqualization(BaseTransform):

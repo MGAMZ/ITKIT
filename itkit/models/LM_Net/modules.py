@@ -1,23 +1,27 @@
 from collections import OrderedDict
-from .blur_pool import BlurPool2d
+
 import numpy as np
-import torch.nn as nn
 import torch
-from timm.models.layers import to_2tuple, trunc_normal_,DropPath
-from torchvision.ops.deform_conv import *
-from torchvision.ops.ps_roi_pool import *
+import torch.nn as nn
 import torch.nn.functional as F
-# from .nonlocal_block import NONLocalBlock2D
-#from carafe import CARAFEPack
-from torch.nn.modules.utils import _pair
+
 # from .nattencuda import NEWNeighborhoodAttention
 # from .nattencuda import NeighborhoodAttention
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
+
 #from depthwise_conv2d_implicit_gemm import DepthWiseConv2dImplicitGEMM
 #from .involution_cuda import involution
 from natten import NeighborhoodAttention2D
+from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
+# from .nonlocal_block import NONLocalBlock2D
+#from carafe import CARAFEPack
+from torch.nn.modules.utils import _pair
+from torchvision.ops.deform_conv import *
+from torchvision.ops.ps_roi_pool import *
+
+from .blur_pool import BlurPool2d
 
 
 class OverlapPatchEmbed(nn.Module):

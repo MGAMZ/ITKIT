@@ -3,14 +3,12 @@ import os.path as osp
 import pdb
 import warnings
 from glob import glob
-from colorama import Style, Fore
-from typing_extensions import Literal
 
-import pydicom
 import numpy as np
+import pydicom
 import SimpleITK as sitk
-
-
+from colorama import Fore, Style
+from typing_extensions import Literal
 
 STANDARD_DIRECTION = [1, 0, 0, 0, 1, 0, 0, 0, 1]
 STANDARD_ORIGIN = [0, 0, 0]

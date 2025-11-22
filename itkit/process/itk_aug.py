@@ -1,9 +1,13 @@
-import os, argparse, random, pdb
+import argparse
+import os
+import pdb
+import random
 from collections.abc import Sequence
+from pathlib import Path
 
 import numpy as np
 import SimpleITK as sitk
-from pathlib import Path
+
 from itkit.io.sitk_toolkit import INTERPOLATOR
 from itkit.process.base_processor import SeparateFoldersProcessor
 from itkit.process.metadata_models import SeriesMetadata

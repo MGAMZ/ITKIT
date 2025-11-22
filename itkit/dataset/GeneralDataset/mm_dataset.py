@@ -1,10 +1,10 @@
 import os
 import pdb
-import re 
+import re
 
 import numpy as np
-from ..base import mgam_BaseSegDataset
 
+from ..base import mgam_BaseSegDataset
 
 
 class mgam_Standard_2D(mgam_BaseSegDataset):

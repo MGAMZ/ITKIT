@@ -1,22 +1,22 @@
-from typing import Any, cast
-import random, pdb, math
-from numbers import Number
+import math
+import pdb
+import random
 from collections.abc import Sequence
 from functools import partial
-from colorama import Fore, Style
-from typing_extensions import Literal
+from numbers import Number
+from typing import Any, cast
 
-import torch
-import numpy as np
-import cv2
 import albumentations as A
-from torch.nn import functional as F
-from scipy.ndimage import gaussian_filter, map_coordinates
-from scipy.spatial.transform import Rotation as R
-
+import cv2
+import numpy as np
+import torch
+from colorama import Fore, Style
 from mmcv.transforms import BaseTransform
 from mmengine.registry import TRANSFORMS
-
+from scipy.ndimage import gaussian_filter, map_coordinates
+from scipy.spatial.transform import Rotation as R
+from torch.nn import functional as F
+from typing_extensions import Literal
 
 """
 General Rule:

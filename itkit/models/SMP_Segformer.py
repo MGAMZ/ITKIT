@@ -1,9 +1,10 @@
 import pdb
 
-import torch
 import segmentation_models_pytorch as smp
-from timm.models._pretrained import PretrainedCfg
+import torch
 from timm import create_model
+from timm.models._pretrained import PretrainedCfg
+
 
 class SMP_Segformer(torch.nn.Module):
     def __init__(self,

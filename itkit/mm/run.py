@@ -1,14 +1,19 @@
-import os, sys, re, argparse, pdb
+import argparse
+import os
+import pdb
+import re
+import sys
+
 sys.path.append(os.getcwd())
-from pathlib import Path
 from bdb import BdbQuit
 from os import path as osp
-from colorama import Fore, Style
+from pathlib import Path
 
 import torch
+from colorama import Fore, Style
 from mmengine.config import DictAction
 
-from itkit.mm import MM_WORK_DIR_ROOT, MM_TEST_DIR_ROOT, MM_CONFIG_ROOT
+from itkit.mm import MM_CONFIG_ROOT, MM_TEST_DIR_ROOT, MM_WORK_DIR_ROOT
 
 SUPPORTED_MODELS = os.environ.get("supported_models", "").split(",")
 

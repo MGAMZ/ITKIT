@@ -1,8 +1,10 @@
-import pdb, logging, copy
+import copy
+import logging
+import pdb
 
 import torch
-from torch import Tensor
 from mmengine.logging import print_log
+from torch import Tensor
 
 
 class MomentumAvgModel(torch.nn.Module):

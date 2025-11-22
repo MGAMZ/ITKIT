@@ -1,14 +1,15 @@
 import os
 import pdb
+
 from typing_extensions import Literal, deprecated
+
 deprecated("`nii_toolkit` has been deprecated, use `sitk_toolkit` instead.")
 
-import numpy as np
 import nibabel as nib
+import numpy as np
 import SimpleITK as sitk
 
 from ..process.NDArray import unsafe_astype
-
 
 
 def convert_nii_sitk(nii_path:str, 

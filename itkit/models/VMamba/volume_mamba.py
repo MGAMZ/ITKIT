@@ -10,14 +10,14 @@ Components:
 This file is intentionally light-touch and does not modify vmamba.py.
 """
 
-import pdb, math
+import math
+import pdb
 
 import torch
 import torch.nn as nn
-
-from selective_scan import selective_scan_fn
 import torch.utils.checkpoint
-from vmamba import mamba_init # pyright: ignore[reportMissingImports]
+from selective_scan import selective_scan_fn
+from vmamba import mamba_init  # pyright: ignore[reportMissingImports]
 
 
 class MambaAggregator1D(nn.Module, mamba_init):

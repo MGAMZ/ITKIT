@@ -1,4 +1,7 @@
-import os, argparse, json, sys
+import argparse
+import json
+import os
+import sys
 
 import numpy as np
 import SimpleITK as sitk

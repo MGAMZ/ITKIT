@@ -1,5 +1,8 @@
-import os, pytest, random
+import os
+import random
+
 import numpy as np
+import pytest
 import SimpleITK as sitk
 
 os.environ.setdefault('MULTIPROCESSING_START_METHOD', 'spawn')

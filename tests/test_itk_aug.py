@@ -1,7 +1,9 @@
 import os
 import tempfile
+
 import pytest
 import SimpleITK as sitk
+
 from itkit.process.itk_aug import AugProcessor
 
 

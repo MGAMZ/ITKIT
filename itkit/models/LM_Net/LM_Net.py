@@ -1,9 +1,12 @@
 import pdb
-import torch.nn as nn
+
 import torch
-from .modules import *
+import torch.nn as nn
+
 #from .nonlocal_block import NONLocalBlock2D
 from .blur_pool import BlurPool2d
+from .modules import *
+
 #from SoftPool import SoftPool2d
 #from .nattencuda import NeighborhoodAttention,NEWNeighborhoodAttention
 #from .nattentorch import LegacyNeighborhoodAttention
@@ -267,6 +270,8 @@ class MyUnet(nn.Module):
 
 
 from mmengine.model import BaseModule
+
+
 class MM_LMNet_Backbone(BaseModule):
     def __init__(self, embed_dims, in_channels=3):
         super().__init__()
@@ -336,6 +341,8 @@ class MM_LMNet_Backbone(BaseModule):
 
 
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
+
+
 class MM_LMNet_Head(BaseDecodeHead):
     def __init__(self, in_channels, **kwargs):
         super().__init__(in_channels=in_channels, input_transform='multiple_select', **kwargs)

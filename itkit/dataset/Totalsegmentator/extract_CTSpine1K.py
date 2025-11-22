@@ -1,7 +1,7 @@
-import os, argparse
+import argparse
+import os
 
 from itkit.process.itk_extract import ExtractProcessor
-
 
 TSD_TO_CTSPINE1K_LABEL_MAPPING = {
     # Cervical 颈椎

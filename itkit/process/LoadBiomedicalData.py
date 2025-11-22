@@ -1,13 +1,12 @@
 import pdb
-from typing_extensions import Literal, deprecated, Sequence
 
 import cv2
 import numpy as np
 import SimpleITK as sitk
-
 from mmcv.transforms import BaseTransform
-from itkit.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size
+from typing_extensions import Literal, Sequence, deprecated
 
+from itkit.io.sitk_toolkit import sitk_resample_to_size, sitk_resample_to_spacing
 
 """
 General Rule:

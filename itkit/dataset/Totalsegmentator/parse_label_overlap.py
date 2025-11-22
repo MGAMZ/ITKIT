@@ -1,10 +1,10 @@
+import multiprocessing as mp
 import os
 import pdb
-import multiprocessing as mp
-from tqdm import tqdm
 
-import numpy as np
 import nibabel as nib
+import numpy as np
+from tqdm import tqdm
 
 
 def load_case_data(data_root:str, case_name:str):

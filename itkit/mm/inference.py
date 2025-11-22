@@ -1,14 +1,13 @@
 import pdb
 from abc import abstractmethod
-from tqdm import tqdm
 
-import torch
 import numpy as np
-from torch import Tensor
-
+import torch
 from mmengine.config import Config
 from mmengine.registry import MODELS
 from mmengine.runner import load_checkpoint
+from torch import Tensor
+from tqdm import tqdm
 
 from ..mm.mgam_models import mgam_Seg3D_Lite
 

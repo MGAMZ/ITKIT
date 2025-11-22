@@ -5,7 +5,8 @@
 ###########################################################################
 
 import torch
-from torch.nn import Module, Conv2d, Parameter, Softmax
+from torch.nn import Conv2d, Module, Parameter, Softmax
+
 torch_ver = torch.__version__[:3]
 
 

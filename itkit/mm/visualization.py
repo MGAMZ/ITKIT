@@ -1,20 +1,22 @@
-import logging, os, pdb
+import logging
+import os
+import pdb
 from abc import abstractmethod
 from collections.abc import Sequence
 
 import cv2
-import torch
 import numpy as np
-from matplotlib.figure import Figure
+import torch
 from matplotlib import pyplot as plt
-
-from mmengine.runner import Runner
+from matplotlib.figure import Figure
 from mmengine.hooks import Hook
-from mmengine.logging import print_log, MMLogger
-from mmengine.visualization.visualizer import Visualizer, master_only, BaseDataElement
+from mmengine.logging import MMLogger, print_log
+from mmengine.runner import Runner
 from mmengine.visualization.vis_backend import LocalVisBackend as _LocalVisBackend
-from mmengine.visualization.vis_backend import TensorboardVisBackend as _TensorboardVisBackend
-
+from mmengine.visualization.vis_backend import (
+    TensorboardVisBackend as _TensorboardVisBackend,
+)
+from mmengine.visualization.visualizer import BaseDataElement, Visualizer, master_only
 
 
 class LocalVisBackend(_LocalVisBackend):

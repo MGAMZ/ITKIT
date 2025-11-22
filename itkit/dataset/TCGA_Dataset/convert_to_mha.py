@@ -1,9 +1,9 @@
 import os
 import pdb
-from tqdm import tqdm
-from colorama import Style, Fore
 
 import pandas as pd
+from colorama import Fore, Style
+from tqdm import tqdm
 
 from itkit.dataset.base_convert import StandardFileFormatter
 

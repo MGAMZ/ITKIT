@@ -1,27 +1,24 @@
-from collections.abc import Callable
 import os
 import pdb
+from collections.abc import Callable
 from functools import partial
-from typing_extensions import Literal
-
-import torch
-from torch import nn, Tensor
-from torch.nn import PixelUnshuffle as PixelUnshuffle2D
-from torch.utils.checkpoint import checkpoint as torch_ckpt
 
 import mmengine
+import torch
 from mmcv.transforms import BaseTransform
-from mmengine.model import BaseModule
 from mmengine.dist import all_gather, get_rank
 from mmengine.evaluator.metric import BaseMetric
-from mmpretrain.structures import DataSample
+from mmengine.model import BaseModule
 from mmpretrain.models.selfsup.mocov3 import CosineEMA
 from mmpretrain.registry import MODELS
-
+from mmpretrain.structures import DataSample
+from torch import Tensor, nn
+from torch.nn import PixelUnshuffle as PixelUnshuffle2D
+from torch.utils.checkpoint import checkpoint as torch_ckpt
+from typing_extensions import Literal
 
 from ..mm.mmseg_Dev3D import PixelUnshuffle1D, PixelUnshuffle3D
 from .SelfSup import AutoEncoderSelfSup, VoxelData
-
 
 
 class MoCoDataSample(mmengine.structures.BaseDataElement):

@@ -1,8 +1,11 @@
-import os, argparse, pdb
-import numpy as np
-
-import SimpleITK as sitk
+import argparse
+import os
+import pdb
 from pathlib import Path
+
+import numpy as np
+import SimpleITK as sitk
+
 from itkit.process.base_processor import SingleFolderProcessor
 from itkit.process.metadata_models import SeriesMetadata
 

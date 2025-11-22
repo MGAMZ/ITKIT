@@ -1,15 +1,22 @@
-import os, pdb, argparse, json
+import argparse
+import json
+import os
+import pdb
 from collections.abc import Sequence
-from typing import Literal
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import SimpleITK as sitk
 
-from itkit.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size, sitk_resample_to_image
-from itkit.process.metadata_models import SeriesMetadata
+from itkit.io.sitk_toolkit import (
+    sitk_resample_to_image,
+    sitk_resample_to_size,
+    sitk_resample_to_spacing,
+)
 from itkit.process.base_processor import DatasetProcessor, SingleFolderProcessor
+from itkit.process.metadata_models import SeriesMetadata
 
 
 class ResamplingMode(Enum):

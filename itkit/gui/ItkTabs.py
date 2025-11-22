@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+
 from PyQt6 import QtCore, QtGui, QtWidgets
-from .runner import ProcessRunner, CmdChunk
+
+from .runner import CmdChunk, ProcessRunner
 
 
 def _style_lineedit_placeholder(line: QtWidgets.QLineEdit|QtWidgets.QPlainTextEdit, 

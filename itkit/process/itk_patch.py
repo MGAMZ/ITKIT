@@ -1,10 +1,13 @@
-import os, argparse, json, pdb
+import argparse
+import json
+import os
+import pdb
 from pathlib import Path
-from tqdm import tqdm
 
 import numpy as np
 import SimpleITK as sitk
 from pydantic import BaseModel, Field
+from tqdm import tqdm
 
 from itkit.process.base_processor import DatasetProcessor
 from itkit.process.metadata_models import SeriesMetadata

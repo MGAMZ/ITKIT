@@ -1,4 +1,7 @@
-import os, sys, signal
+import os
+import signal
+import sys
+
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 
@@ -37,12 +40,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def _build_ui(self):
         # 推迟导入，确保 QApplication 已存在再构建子控件
         from .ItkTabs import (
+            ItkAugTab,
             ItkCheckTab,
-            ItkResampleTab,
+            ItkExtractTab,
             ItkOrientTab,
             ItkPatchTab,
-            ItkAugTab,
-            ItkExtractTab,
+            ItkResampleTab,
         )
         tabs = QtWidgets.QTabWidget()
         tabs.setTabPosition(QtWidgets.QTabWidget.TabPosition.North)

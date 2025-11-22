@@ -1,19 +1,17 @@
 import os
 import pdb
-from typing_extensions import OrderedDict
 from abc import abstractmethod
 
 import numpy as np
 import torch
-from torch import nn, Tensor
-
 from mmengine.model import BaseModule
 from mmengine.registry import MODELS
-from mmengine.utils.misc import is_list_of
 from mmengine.structures import BaseDataElement
-from mmpretrain.structures import DataSample
+from mmengine.utils.misc import is_list_of
 from mmpretrain.models.selfsup.base import BaseSelfSupervisor
-
+from mmpretrain.structures import DataSample
+from torch import Tensor, nn
+from typing_extensions import OrderedDict
 
 
 class AutoEncoderSelfSup(BaseSelfSupervisor):

@@ -1,9 +1,11 @@
-import os
 import json
+import os
 import tempfile
+
+import numpy as np
 import pytest
 import SimpleITK as sitk
-import numpy as np
+
 from itkit.process.itk_check import CheckProcessor
 
 
@@ -289,7 +291,7 @@ class TestCheckProcessor:
             sitk.WriteImage(lbl, lbl_path)
             
             # Generate metadata
-            from itkit.process.metadata_models import SeriesMetadata, MetadataManager
+            from itkit.process.metadata_models import MetadataManager, SeriesMetadata
             img_meta = SeriesMetadata.from_sitk_image(img, 'test_image.mha')
             lbl_meta = SeriesMetadata.from_sitk_image(lbl, 'test_label.mha')
             

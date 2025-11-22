@@ -1,9 +1,11 @@
 import os
-import tempfile
 import subprocess
 import sys
+import tempfile
+
 import pytest
 import SimpleITK as sitk
+
 from itkit.process.itk_orient import OrientProcessor, main
 
 

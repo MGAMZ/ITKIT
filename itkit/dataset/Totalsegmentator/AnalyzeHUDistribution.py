@@ -1,13 +1,12 @@
 import os
-from tqdm import tqdm
 from multiprocessing import Pool
 
 import numpy as np
-import SimpleITK as sitk
 import pandas as pd
+import SimpleITK as sitk
+from tqdm import tqdm
 
 from itkit.dataset.Totalsegmentator.meta import CLASS_INDEX_MAP
-
 
 
 class meta_file_handler:

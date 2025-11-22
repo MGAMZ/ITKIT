@@ -1,24 +1,24 @@
-import os
 import argparse
 import datetime
-import pdb
 import json
 import multiprocessing as mp
+import os
+import pdb
 from abc import abstractmethod
 from collections.abc import Sequence
 from re import A
 from textwrap import indent
+
 from tqdm import tqdm
 
-from ..io.sitk_toolkit import (
-    sitk,
-    nii_to_sitk,
-    sitk_resample_to_spacing,
-    sitk_resample_to_size,
-    sitk_resample_to_image,
-)
 from ..io.dcm_toolkit import read_dcm_as_sitk
-
+from ..io.sitk_toolkit import (
+    nii_to_sitk,
+    sitk,
+    sitk_resample_to_image,
+    sitk_resample_to_size,
+    sitk_resample_to_spacing,
+)
 
 
 class StandardFileFormatter:

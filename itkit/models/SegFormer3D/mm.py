@@ -2,11 +2,18 @@ import pdb
 from warnings import warn
 
 import torch
-from torch import nn
 from mmengine.model import BaseModule
-from .SegFormer3D import PatchEmbedding, TransformerBlock, cube_root, SegFormerDecoderHead
-from ...mm.mmseg_Dev3D import BaseDecodeHead_3D
+from torch import nn
+
 from ...mm.mgam_models import mgam_Seg3D_Lite
+from ...mm.mmseg_Dev3D import BaseDecodeHead_3D
+from .SegFormer3D import (
+    PatchEmbedding,
+    SegFormerDecoderHead,
+    TransformerBlock,
+    cube_root,
+)
+
 
 class SegFormer3D_Encoder_MM(BaseModule):
     def __init__(

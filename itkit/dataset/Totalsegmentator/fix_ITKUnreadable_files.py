@@ -1,11 +1,11 @@
-import os
 import argparse
-import multiprocessing as mp
 import functools
+import multiprocessing as mp
+import os
 from pathlib import Path
-from tqdm import tqdm
 
 import nibabel as nib
+from tqdm import tqdm
 
 
 def fix_nifti_file(input_path, output_path):

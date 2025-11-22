@@ -1,10 +1,11 @@
 import os
 
+import numpy as np
+import pydicom
+import SimpleITK
 import SimpleITK as sitk
 from pydicom import dicomio
-import pydicom
-import numpy as np
-import SimpleITK
+
 
 def min_max_scale(img):
     max_val = np.max(img)

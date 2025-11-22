@@ -10,15 +10,14 @@
 # limitations under the License.
 
 import pdb
-from typing_extensions import Sequence
 
 import torch
 import torch.nn as nn
-
 from monai.networks.blocks import UnetrBasicBlock, UnetrPrUpBlock, UnetrUpBlock
 from monai.networks.blocks.dynunet_block import UnetOutBlock
 from monai.networks.blocks.patchembedding import PatchEmbeddingBlock
 from monai.networks.blocks.transformerblock import TransformerBlock
+from typing_extensions import Sequence
 
 
 class ViT(nn.Module):

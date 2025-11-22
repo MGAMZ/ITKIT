@@ -1,9 +1,9 @@
 import argparse
-import pytest
 from pathlib import Path
 
-import SimpleITK as sitk
 import numpy as np
+import pytest
+import SimpleITK as sitk
 
 from itkit.process import itk_resample
 from itkit.process.metadata_models import MetadataManager

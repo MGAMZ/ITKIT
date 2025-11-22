@@ -1,12 +1,12 @@
-import os, pdb
-from typing_extensions import override
-from tqdm import tqdm
+import os
+import pdb
 
-from torch import Tensor
-from tabulate import tabulate
-from pytorch_lightning.utilities.rank_zero import rank_zero_only
 from pytorch_lightning.loggers import Logger
-
+from pytorch_lightning.utilities.rank_zero import rank_zero_only
+from tabulate import tabulate
+from torch import Tensor
+from tqdm import tqdm
+from typing_extensions import override
 
 
 class TabulateLogger(Logger):
