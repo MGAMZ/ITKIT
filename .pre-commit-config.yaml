@@ -9,6 +9,14 @@ repos:
       - id: pyupgrade
         args: ["--py313-plus"]
         files: ^itkit/
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.6
+    hooks:
+      - id: ruff-check
+        types_or: [ python, pyi ]
+        args: [ --fix ]
+      # - id: ruff-format
+      #   types_or: [ python, pyi ]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
