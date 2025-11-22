@@ -290,18 +290,17 @@ class mgam_SeriesPatched_Structure(mgam_SeriesVolume):
                     print_log(f"Image folder not found: {image_folder}", MMLogger.get_current_instance(), logging.WARN)
                     continue
 
-                all_image_files = [f for f in os.listdir(image_folder) if f.endswith('.mha')]
+                # all_image_files = [f for f in os.listdir(image_folder) if f.endswith('.mha')]
+                # series_image_files = [f for f in all_image_files if f.startswith(series + '_')]
+                series_patch_files = self.precrop_meta["patch_meta"][series]["class_within_patch"].keys()
 
-                # Filter files that belong to current series
-                series_image_files = [f for f in all_image_files if f.startswith(series + '_')]
-
-                for image_filename in series_image_files:
-                    image_path = os.path.join(image_folder, image_filename)
-                    label_path = os.path.join(label_folder, image_filename)
+                for patch_filename in series_patch_files:
+                    image_path = os.path.join(image_folder, patch_filename)
+                    label_path = os.path.join(label_folder, patch_filename)
 
                     # Check if corresponding label file exists (for sup mode)
                     if self.mode == "sup" and not os.path.exists(label_path):
-                        print_log(f"Label file not found for {image_filename}: {label_path}",
+                        print_log(f"Label file not found for {patch_filename}: {label_path}",
                                   MMLogger.get_current_instance(), logging.DEBUG)
                         continue
 
