@@ -35,4 +35,6 @@ repos:
     rev: v1.18.2
     hooks:
       - id: mypy
-        files: ^itkit/process
+        args: [--python-version=3.14]
+        files: ^itkit/process/
+        additional_dependencies: [SimpleITK, numpy]
