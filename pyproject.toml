@@ -58,6 +58,7 @@ dev = [
   "black",
   "isort",
   "mypy",
+  "pyupgrade",
 ]
 nvidia = [
   "onnx",
