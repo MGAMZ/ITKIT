@@ -1,7 +1,7 @@
 import os
 import pdb
 from abc import abstractmethod
-from typing import OrderedDict
+from collections import OrderedDict
 
 import numpy as np
 import torch

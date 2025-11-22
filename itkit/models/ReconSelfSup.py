@@ -1,6 +1,7 @@
 import os
 import pdb
-from typing import Literal, Sequence
+from collections.abc import Sequence
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import torch

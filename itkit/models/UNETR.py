@@ -10,7 +10,7 @@
 # limitations under the License.
 
 import pdb
-from typing import Sequence
+from collections.abc import Sequence
 
 import torch
 import torch.nn as nn

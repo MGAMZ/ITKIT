@@ -1,5 +1,6 @@
 import pdb
-from typing import Literal, Sequence
+from collections.abc import Sequence
+from typing import Literal
 from warnings import deprecated
 
 import cv2

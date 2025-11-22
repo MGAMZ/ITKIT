@@ -447,13 +447,13 @@ class DA_Transformer(nn.Module):
                 posemb = posemb[:, 1:]
                 self.transformer.embeddings.position_embeddings.copy_(posemb)
             else:
-                logger.info("load_pretrained: resized variant: {} to {}".format(posemb.size(), posemb_new.size()))
+                logger.info(f"load_pretrained: resized variant: {posemb.size()} to {posemb_new.size()}")
                 ntok_new = posemb_new.size(1)
                 if self.classifier == "seg":
                     _, posemb_grid = posemb[:, :1], posemb[0, 1:]
                 gs_old = int(np.sqrt(len(posemb_grid)))
                 gs_new = int(np.sqrt(ntok_new))
-                print('load_pretrained: grid-size from {} to {}'.format(gs_old, gs_new))
+                print(f'load_pretrained: grid-size from {gs_old} to {gs_new}')
                 posemb_grid = posemb_grid.reshape(gs_old, gs_old, -1)
                 zoom = (gs_new / gs_old, gs_new / gs_old, 1)
                 posemb_grid = ndimage.zoom(posemb_grid, zoom, order=1)  # th2np
@@ -491,7 +491,7 @@ CONFIGS = {
 
 
 import pdb
-from typing import Sequence
+from collections.abc import Sequence
 
 from mmengine.model import BaseModule
 

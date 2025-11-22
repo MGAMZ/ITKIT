@@ -5,9 +5,9 @@ import logging
 import os
 import os.path as osp
 import pdb
+from collections.abc import Sequence
 from functools import partial
 from numbers import Number
-from typing import Sequence
 
 import numpy as np
 import pandas as pd
