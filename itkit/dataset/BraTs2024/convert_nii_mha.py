@@ -1,16 +1,17 @@
-import os
 import argparse
 import glob
 import multiprocessing as mp
-from tqdm import tqdm
+import os
 from functools import partial
 
 import SimpleITK as sitk
+from tqdm import tqdm
 
 from itkit.io.sitk_toolkit import (
-    sitk_resample_to_spacing, 
-    sitk_resample_to_size, 
-    sitk_resample_to_image)
+    sitk_resample_to_image,
+    sitk_resample_to_size,
+    sitk_resample_to_spacing,
+)
 
 BraTs2024_MODALITIES = ["t1c", "t1n", "t2f", "t2w"]
 
@@ -103,7 +104,7 @@ def convert_case(case_dir, dest_root, spacing=None, size=None):
             os.makedirs(os.path.dirname(output_image_path), exist_ok=True)
             sitk.WriteImage(image, output_image_path, useCompression=True)
 
-        except Exception as e:
+        except Exception:
             pass
 
 
@@ -129,13 +130,13 @@ def convert_brats_to_mha(input_dir, dest_root, spacing=None, size=None, use_mp=F
 
     # 多进程处理
     partial_convert_func = partial(convert_case, dest_root=dest_root, spacing=spacing, size=size)
-    
+
     if use_mp:
         with mp.Pool(mp.cpu_count()) as pool:
             with tqdm(
-                total=len(case_dirs), 
-                desc="Converting BraTs2024", 
-                dynamic_ncols=True, 
+                total=len(case_dirs),
+                desc="Converting BraTs2024",
+                dynamic_ncols=True,
                 leave=False
             ) as pbar:
                 for _ in pool.imap_unordered(partial_convert_func, case_dirs):

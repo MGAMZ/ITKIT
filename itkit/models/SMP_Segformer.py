@@ -1,9 +1,6 @@
-import pdb
-
-import torch
 import segmentation_models_pytorch as smp
-from timm.models._pretrained import PretrainedCfg
-from timm import create_model
+import torch
+
 
 class SMP_Segformer(torch.nn.Module):
     def __init__(self,
@@ -25,7 +22,7 @@ class SMP_Segformer(torch.nn.Module):
             decoder_segmentation_channels=decoder_segmentation_channels,
             pretrained_cfg_overlay=dict(file=timm_ckpt_local_path) if timm_ckpt_local_path else {},
             **kwargs)
-    
+
     def forward(self, x:torch.Tensor):
         return self.efficient_vit(x)
 

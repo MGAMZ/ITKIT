@@ -1,9 +1,10 @@
 import warnings
+
 warnings.simplefilter('once', RuntimeWarning)
-from typing_extensions import Literal
-from colorama import Fore, Style
+from typing import Literal
 
 import numpy as np
+from colorama import Fore, Style
 
 
 def unsafe_astype(

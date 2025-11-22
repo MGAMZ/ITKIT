@@ -1,8 +1,10 @@
-import os, argparse, pdb
-import numpy as np
-
-import SimpleITK as sitk
+import argparse
+import os
 from pathlib import Path
+
+import numpy as np
+import SimpleITK as sitk
+
 from itkit.process.base_processor import SingleFolderProcessor
 from itkit.process.metadata_models import SeriesMetadata
 
@@ -20,15 +22,16 @@ class OrientProcessor(SingleFolderProcessor):
         self.orient = orient
         self.field = field
 
-    def process_one(self, file_path: str) -> SeriesMetadata | None:
+    def process_one(self, args: str) -> SeriesMetadata | None:
+        file_path = args
         rel_path = os.path.relpath(file_path, self.source_folder)
         dst_path = os.path.join(self.dest_folder, rel_path)
-        
+
         # Skip if target file already exists
         if os.path.exists(dst_path):
             print(f"Target file already exists, skipping: {dst_path}")
             return None
-            
+
         try:
             img = sitk.ReadImage(file_path)
             oriented_img = sitk.DICOMOrient(img, self.orient.upper())
@@ -37,7 +40,7 @@ class OrientProcessor(SingleFolderProcessor):
         except Exception as e:
             print(f"Error processing {file_path}: {e}")
             return None
-        
+
         return SeriesMetadata(
             name=Path(dst_path).name,
             spacing=oriented_img.GetSpacing()[::-1],

@@ -1,29 +1,27 @@
-from typing import Any
-import random, pdb, math, warnings
-from numbers import Number
-from collections.abc import Sequence
-from functools import partial
-from colorama import Fore, Style
-from typing_extensions import Literal
-
-import torch
-import numpy as np
-import cv2
-import albumentations as A
-from torch.nn import functional as F
-from scipy.ndimage import gaussian_filter, map_coordinates
-from scipy.spatial.transform import Rotation as R
-
-from mmcv.transforms import BaseTransform
-from mmengine.registry import TRANSFORMS
-
-
 """
 General Rule:
 Before entering the neural network,
 the channel dimension order should align with
 [Z,Y,X] or [D,H,W]
 """
+
+import math
+import random
+from collections.abc import Sequence
+from functools import partial
+from numbers import Number
+from typing import Any, Literal, cast
+
+import albumentations as A
+import cv2
+import numpy as np
+import torch
+from colorama import Fore, Style
+from mmcv.transforms import BaseTransform
+from mmengine.registry import TRANSFORMS
+from scipy.ndimage import gaussian_filter, map_coordinates
+from scipy.spatial.transform import Rotation as R
+from torch.nn import functional as F
 
 
 def SetWindow(array:np.ndarray|torch.Tensor, window_width:int, window_level:int):
@@ -41,10 +39,10 @@ def SetWindow(array:np.ndarray|torch.Tensor, window_width:int, window_level:int)
 
 class AutoPad(BaseTransform):
     def __init__(
-        self, 
-        size: tuple[int, ...], 
+        self,
+        size: tuple[int, ...],
         dim: Literal["1d", "2d", "3d"],
-        pad_val: int = 0, 
+        pad_val: int = 0,
         pad_label_val: int = 0,
     ):
         self.dim = dim
@@ -67,7 +65,7 @@ class AutoPad(BaseTransform):
         # Handle leading dimensions that don't need padding
         for _ in range(len(current_shape) - dims_to_pad):
             pad_params.append((0, 0))
-            
+
         # Handle dimensions that need padding
         for target_size, curr_size in zip(self.size, current_shape[-dims_to_pad:]):
             if curr_size >= target_size:
@@ -77,13 +75,13 @@ class AutoPad(BaseTransform):
                 pad_1 = pad // 2
                 pad_2 = pad - pad_1
                 pad_params.append((pad_1, pad_2))
-        
+
         return tuple(pad_params)
 
     def transform(self, results: dict):
         img = results["img"]
         pad_params = self._get_pad_params(img.shape)
-        
+
         if any(p[0] > 0 or p[1] > 0 for p in pad_params):
             results["img"] = np.pad(
                 img,
@@ -91,7 +89,7 @@ class AutoPad(BaseTransform):
                 mode="constant",
                 constant_values=self.pad_val,
             )
-            
+
             for seg_field in results['seg_fields']:
                 results[seg_field] = np.pad(
                     results[seg_field],
@@ -209,7 +207,7 @@ class TypeConvert(BaseTransform):
     def __init__(self, key:str|list[str], dtype:str):
         self.key = key if isinstance(key, list) else [key]
         self.dtype = dtype
-    
+
     def transform(self, results):
         for k in self.key:
             results[k] = results[k].astype(self.dtype)
@@ -232,7 +230,7 @@ class RandomRoll(BaseTransform):
     def __init__(
         self,
         axis: int | list[int],
-        gap: float | list[float],
+        gap: int | list[int],
         erase: bool = False,
         pad_val: int = 0,
         seg_pad_val: int = 0,
@@ -248,15 +246,15 @@ class RandomRoll(BaseTransform):
         """
         if isinstance(axis, int):
             axis = [axis]
-        if isinstance(gap, (int, float)):
+        if isinstance(gap, int):
             gap = [gap]
 
         assert len(axis) == len(
             gap
         ), f"axis ({len(axis)}) and gap ({len(gap)}) should have the same length"
 
-        self.axis: list[int] = axis
-        self.gap: list[float] = gap
+        self.axis = axis
+        self.gap = gap
         self.erase = erase
         self.pad_val = pad_val
         self.seg_pad_val = seg_pad_val
@@ -335,12 +333,12 @@ class ExpandOneHot(BaseTransform):
         # eye: Identity Matrix [num_classes+1, num_classes+1]
         mask_channel = np.eye(self.num_classes + 1)[mask]
         mask_channel = np.moveaxis(mask_channel, -1, 0).astype(np.uint8)
-        
+
         if self.inplace:
             results["gt_seg_map"] = mask_channel[:-1]
         else:
             results["gt_seg_map_one_hot"] = mask_channel[:-1]  # [num_classes, ...]
-        
+
         return results
 
 
@@ -357,8 +355,8 @@ class GaussianBlur(BaseTransform):
         self.sigma = sigma
         self.amplify = amplify
         self.blur = partial(
-            cv2.GaussianBlur, 
-            ksize=(self.kernel_size, self.kernel_size), 
+            cv2.GaussianBlur,
+            ksize=(self.kernel_size, self.kernel_size),
             sigmaX=sigma)
 
     def transform(self, results: dict):
@@ -489,14 +487,14 @@ class RandomCrop3D(BaseTransform):
 
         img = results["img"]
         ann = results["gt_seg_map"]
-        
+
         ccm_check_ = None
         std_check_ = None
-        
+
         # crop the volume
         for _ in range(self.CROP_RETRY):
             crop_bbox = generate_crop_bbox(img)
-            
+
             # crop check: category max ratio
             if self.cat_max_ratio is not None and self.cat_max_ratio < 1.0:
                 seg_temp = self.crop(ann, crop_bbox)
@@ -505,17 +503,17 @@ class RandomCrop3D(BaseTransform):
                 if (len(cnt) <= 1) or ((np.max(cnt) / np.sum(cnt)) > self.cat_max_ratio):
                     ccm_check_ = np.max(cnt) / np.sum(cnt)
                     continue
-            
+
             # crop check: std threshold
             if self.std_threshold is not None:
                 img_temp = self.crop(img, crop_bbox)
                 if img_temp.std() < self.std_threshold:
                     std_check_ = img_temp.std()
                     continue
-            
+
             # when pass all check
             return crop_bbox
-        
+
         else:
             raise RuntimeError(
                 Fore.YELLOW + \
@@ -617,8 +615,8 @@ class RandomContinuousErase(BaseTransform):
         selected_size = [
                 np.random.randint(1, i) for i in self.max_size
             ] if area_size is None else area_size
-        
-        start_cord = [np.random.randint(0, image_size[i] - selected_size[i]) 
+
+        start_cord = [np.random.randint(0, image_size[i] - selected_size[i])
                       for i in range(dim)]
         end_cord = [start_cord[i] + selected_size[i]
                     for i in range(dim)]
@@ -626,7 +624,7 @@ class RandomContinuousErase(BaseTransform):
 
     def _erase_area(self, array: np.ndarray, start_cord: list[int], end_cord: list[int]):
         """Erase the information in the selected area, supports any dim"""
-        _area = [slice(start_cord[i], end_cord[i]) 
+        _area = [slice(start_cord[i], end_cord[i])
                  for i in range(len(start_cord))]
         array[tuple(_area)] = self.pad_val
         return array
@@ -641,18 +639,18 @@ class RandomContinuousErase(BaseTransform):
 
 
 class RandomAlter(RandomContinuousErase):
-    def _alter_area(self, 
-                    array: np.ndarray, 
-                    source_area: tuple[list[int], list[int]], 
+    def _alter_area(self,
+                    array: np.ndarray,
+                    source_area: tuple[list[int], list[int]],
                     target_area: tuple[list[int], list[int]]):
         """Exchange the information between two local area, supports any dim"""
         source_start, source_end = source_area
         target_start, target_end = target_area
-        _source_area = [slice(source_start[i], source_end[i]) 
+        _source_area = [slice(source_start[i], source_end[i])
                         for i in range(len(source_start))]
         _target_area = [slice(target_start[i], target_end[i])
                         for i in range(len(target_start))]
-        
+
         source = array[tuple(_source_area)]
         target = array[tuple(_target_area)]
         array[tuple(_target_area)] = source
@@ -661,11 +659,11 @@ class RandomAlter(RandomContinuousErase):
 
     def transform(self, results: dict):
         if np.random.rand(1) < self.prob:
-            # The location is always randomly determined, 
+            # The location is always randomly determined,
             # but the size is only determined when source_cord is calculated.
             # Nevertheless, the two area can't alter.
             source_cord = self._random_area(results["img"].squeeze().shape)
-            dest_cord = self._random_area(results["img"].squeeze().shape, 
+            dest_cord = self._random_area(results["img"].squeeze().shape,
                                           area_size=[source_cord[1][i] - source_cord[0][i]
                                                      for i in range(len(self.max_size))])
             results["img"] = self._alter_area(results["img"], source_cord, dest_cord)
@@ -681,15 +679,15 @@ class RandomDiscreteErase(BaseTransform):
         keys_pad_vals (Sequence[tuple[str, Number]]): The keys and values to be padded.
         min_ratio (float): The minimum ratio of the erased area.
         prob (float): The probability of performing this transformation.
-    
-    Modified Keys: 
+
+    Modified Keys:
         Specified by `keys_pad_vals`
-    
+
     Added Keys:
         ori_img (np.ndarray): The original image before erasing.
         erase_mask (np.ndarray): The mask of the erased area.
     """
-    
+
     def __init__(
         self,
         max_ratio: float,
@@ -721,16 +719,16 @@ class RandomDiscreteErase(BaseTransform):
     def transform(self, results: dict):
         results["ori_img"] = results["img"].copy()
         results["erase_mask"] = np.zeros_like(results["img"].squeeze())
-        
+
         if np.random.rand() < self.prob:
             erase_ratio = np.random.uniform(self.min_ratio, self.max_ratio)
             img_shape = results["img"].squeeze().shape
             mask = self._generate_mask(img_shape, erase_ratio)
-            
+
             results["erase_mask"] = mask
             for key, pad_val in self.keys_pad_vals:
                 results[key] = self._apply_mask(results[key], mask, pad_val)
-        
+
         return results
 
 
@@ -744,9 +742,13 @@ class Resample(BaseTransform):
         self.size = size
         self.mode = mode
         self.field = field
-    
+
     def transform(self, results: dict):
-        results[self.field] = F.interpolate(results[self.field][None, None], size=self.size, mode=self.mode).squeeze()
+        results[self.field] = F.interpolate(
+            results[self.field][None, None],
+            size=[int(round(dim)) for dim in self.size],
+            mode=self.mode,
+        ).squeeze()
         return results
 
 
@@ -755,7 +757,7 @@ class device_to(BaseTransform):
         self.key = key if isinstance(key, list) else [key]
         self.device = torch.device(device)
         self.non_blocking = non_blocking
-        
+
     def transform(self, results: dict):
         for key in self.key:
             d = results[key]
@@ -778,13 +780,13 @@ class SampleAugment(BaseTransform):
     def __init__(self, num_samples:int, pipeline: list[dict]):
         self.num_samples = num_samples
         self.transforms = [TRANSFORMS.build(t) for t in pipeline]
-    
+
     def get_one_sample(self, results: dict):
         for t in self.transforms:
             results = t(results)
         return results
-    
-    def transform(self, results: dict):
+
+    def transform(self, results: dict): # pyright: ignore[reportIncompatibleMethodOverride]
         samples = []
         for _ in range(self.num_samples):
             samples.append(self.get_one_sample(results.copy()))
@@ -838,8 +840,8 @@ class RandomRotate3D(BaseTransform):
         def _map_single_channel(vol3: np.ndarray) -> np.ndarray:
             mapped = map_coordinates(
                 vol3,
-                coords_list,
-                order=order,
+                tuple(coords_list),
+                order=cast(Literal[0, 1, 2, 3, 4, 5], order),
                 mode="constant",
                 cval=self.pad_val,
                 prefilter=self.resample_prefilter,
@@ -910,7 +912,7 @@ class RandomRotate3D_GPU:
         theta = torch.cat([M, t.view(3, 1)], dim=1)  # [3,4]
         theta = theta.unsqueeze(0).expand(N, 3, 4).contiguous()
 
-        return F.affine_grid(theta, size=(N, C, Z, Y, X), align_corners=True)  # [N,Z,Y,X,3]
+        return F.affine_grid(theta, size=[N, C, Z, Y, X], align_corners=True)  # [N,Z,Y,X,3]
 
     def warp(self, x:torch.Tensor, grid:torch.Tensor, interp_mode:str):
         if x.ndim != 5:
@@ -921,13 +923,13 @@ class RandomRotate3D_GPU:
 
 class CenterCrop3D(BaseTransform):
     def __init__(
-        self, 
-        size: list[int], 
+        self,
+        size: list[int],
         keys: list[str] = ["img", "gt_seg_map"]
     ):
         self.size = size
         self.keys = keys
-    
+
     def transform(self, results):
         for key in self.keys:
             shape = results[key].shape
@@ -938,10 +940,10 @@ class CenterCrop3D(BaseTransform):
             results[key] = results[key][mins[0]:maxs[0],
                                         mins[1]:maxs[1],
                                         mins[2]:maxs[2]]
-        
+
         if "img_shape" in results:
             results["img_shape"] = self.size
-        
+
         return results
 
 
@@ -953,16 +955,16 @@ class RandomPatch3D(BaseTransform):
     ):
         self.patch_size = patch_size
         self.keys = keys
-    
+
     def transform(self, results:dict[str, Any]):
         """Randomly crop a patch from the 3D volume
-        
+
         Args:
             results (dict): Result dict from loading pipeline.
                 - img: The image to be cropped, shape [Z, Y, X].
                 - gt_seg_map: The segmentation map to be cropped, shape[(Optional) C, Z, Y, X].
                 - img_shape: Original shape of the image.
-        
+
         Returns:
             results (dict): The cropped results.
                 - img: The cropped image, shape [pz, py, px].

@@ -6,7 +6,7 @@ from torch.nn import functional as F
 class _NonLocalBlockND(nn.Module):
     def __init__(self, in_channels, inter_channels=None, dimension=2, mode='embedded_gaussian',
                  sub_sample_factor=4, bn_layer=True):
-        super(_NonLocalBlockND, self).__init__()
+        super().__init__()
 
         assert dimension in [1, 2, 3]
         assert mode in ['embedded_gaussian', 'gaussian', 'dot_product', 'concatenation', 'concat_proper', 'concat_proper_down']
@@ -292,11 +292,8 @@ class _NonLocalBlockND(nn.Module):
 
 class NONLocalBlock2D(_NonLocalBlockND):
     def __init__(self, in_channels, inter_channels=None, mode='embedded_gaussian', sub_sample_factor=4, bn_layer=True):
-        super(NONLocalBlock2D, self).__init__(in_channels,
+        super().__init__(in_channels,
                                               inter_channels=inter_channels,
                                               dimension=2, mode=mode,
                                               sub_sample_factor=sub_sample_factor,
                                               bn_layer=bn_layer)
-
-
-

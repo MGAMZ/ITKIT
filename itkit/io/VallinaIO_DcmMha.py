@@ -1,10 +1,11 @@
 import os
 
+import numpy as np
+import pydicom
+import SimpleITK
 import SimpleITK as sitk
 from pydicom import dicomio
-import pydicom
-import numpy as np
-import SimpleITK
+
 
 def min_max_scale(img):
     max_val = np.max(img)
@@ -20,7 +21,7 @@ def get_dcm_file(dcm,do_raw):
         ri = dcm.RescaleIntercept
         rs = dcm.RescaleSlope
         pixel_array = pixel_array * np.float32(rs) + np.float32(ri)
-    
+
     if do_raw:
         return pixel_array
     wc = dcm.WindowCenter
@@ -63,10 +64,10 @@ def dcm_2_mha(dcm_path, mha_path, use_compress):
 
 
 def load_ct_from_dicom(dcm_path,do_raw, sort_by_distance=True):
-    class DcmInfo(object):
+    class DcmInfo:
         def __init__(self, dcm_path, series_instance_uid, acquisition_number, sop_instance_uid, instance_number,
                      image_orientation_patient, image_position_patient):
-            super(DcmInfo, self).__init__()
+            super().__init__()
 
             self.dcm_path = dcm_path
             self.series_instance_uid = series_instance_uid
@@ -77,7 +78,7 @@ def load_ct_from_dicom(dcm_path,do_raw, sort_by_distance=True):
             self.image_position_patient = image_position_patient
 
             self.slice_distance = self._cal_distance()
-        
+
         def _cal_distance(self):
             normal = [self.image_orientation_patient[1] * self.image_orientation_patient[5] -
                       self.image_orientation_patient[2] * self.image_orientation_patient[4],
@@ -138,18 +139,18 @@ def load_ct_from_dicom(dcm_path,do_raw, sort_by_distance=True):
     for idx, dicom_name in enumerate(dcm_series):
         #print(dicom_name)
         dicom_data =  pydicom.dcmread(dicom_name)
-        dicom_img = get_dcm_file(dicom_data, do_raw)         
+        dicom_img = get_dcm_file(dicom_data, do_raw)
         dicom_data_list.append(dicom_img)
         if idx < 2:
             pydicom_data_list.append(dicom_data)
-    
+
     if do_raw:
         dicom_array = np.array(dicom_data_list)
     else:
         dicom_array = np.array(dicom_data_list, dtype=np.uint8)
     sitk_img = SimpleITK.GetImageFromArray(dicom_array, isVector=False)
     sitk_img.SetOrigin(pydicom_data_list[0].ImagePositionPatient)
-    sitk_img.SetSpacing([pydicom_data_list[0].PixelSpacing[0], pydicom_data_list[0].PixelSpacing[1], 
+    sitk_img.SetSpacing([pydicom_data_list[0].PixelSpacing[0], pydicom_data_list[0].PixelSpacing[1],
                             np.abs(pydicom_data_list[1].ImagePositionPatient[2] - pydicom_data_list[0].ImagePositionPatient[2])])
     return sitk_img
     ##

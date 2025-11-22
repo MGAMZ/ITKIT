@@ -11,13 +11,12 @@
 Modified to support arbitrary DWH input and optimized using SDPA.
 """
 
-import pdb
 from collections.abc import Sequence
 
-import torch
-from torch import nn
-import torch.nn.functional as F
 import matplotlib.pyplot as plt
+import torch
+import torch.nn.functional as F
+from torch import nn
 
 
 class SelfAttention(nn.Module):
@@ -322,7 +321,7 @@ class SegFormerDecoderHead(nn.Module):
         dropout: float = 0.0,
     ):
         super().__init__()
-        
+
         class DecoderMapping(nn.Module):
             """Conv Embedding for Decoder"""
             def __init__(self, input_dim: int, embed_dim: int):
@@ -364,7 +363,7 @@ class SegFormerDecoderHead(nn.Module):
         )
         self.dropout = nn.Dropout(dropout)
         self.predict = nn.Conv3d(decoder_head_embedding_dim, num_classes, kernel_size=1)
-        self.upsample = nn.Upsample(scale_factor=final_upsampler_scale_factor, 
+        self.upsample = nn.Upsample(scale_factor=final_upsampler_scale_factor,
                                     mode="trilinear", align_corners=False)
 
     def forward(self, encoder_features):
@@ -471,9 +470,9 @@ class SegFormer3D(nn.Module):
 
             # HACK only for KiTS23 dataset
             class_id = ['Background', 'Kidney', 'Tumor', 'Cyst']
-            
+
             plt.figure(figsize=(20, 5))
-            
+
             for cls in range(num_classes):
                 # 针对每个类别做反向传播
                 self.zero_grad()
@@ -493,7 +492,7 @@ class SegFormer3D(nn.Module):
                 plt.imshow(cam_slice, cmap='winter', alpha=0.6)
                 plt.title(f'{class_id[cls]}')
                 plt.axis('off')
-            
+
             save_path = os.path.join(save_dir, 'KiTS23_GradCAM.png')
             plt.savefig(save_path)
             plt.close()
@@ -539,9 +538,8 @@ def forward_test():
 
 def profiling_test():
     import os
-    import pandas as pd
     from datetime import datetime
-    
+
     # Configuration
     input_shape = (2, 1, 80, 80, 80) # B, C, D, W, H
     num_classes = 3

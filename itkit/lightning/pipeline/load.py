@@ -1,7 +1,9 @@
 import numpy as np
 import SimpleITK as sitk
+
+from itkit.io.sitk_toolkit import sitk_resample_to_size, sitk_resample_to_spacing
+
 from .base import BaseTransform
-from itkit.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size
 
 
 class LoadMHAFile(BaseTransform):
@@ -50,7 +52,7 @@ class LoadMHAFile(BaseTransform):
             image_resampled = sitk_resample_to_size(
                 image_after_spacing, effective_size, **kwargs
             )
-        
+
         return image_resampled
 
     def __call__(self, sample: dict) -> dict:
@@ -59,11 +61,11 @@ class LoadMHAFile(BaseTransform):
             image_mha = self._resample_itk(image_mha, field='image')
             image_mha = sitk.DICOMOrient(image_mha, 'LPI')
             sample['image'] = sitk.GetArrayFromImage(image_mha)[None].astype(np.int16)
-        
+
         if 'label_mha_path' in sample:
             label_mha = sitk.ReadImage(sample['label_mha_path'])
             label_mha = self._resample_itk(label_mha, field='label')
             label_mha = sitk.DICOMOrient(label_mha, 'LPI')
             sample['label'] = sitk.GetArrayFromImage(label_mha).astype(np.uint8)
-        
+
         return sample

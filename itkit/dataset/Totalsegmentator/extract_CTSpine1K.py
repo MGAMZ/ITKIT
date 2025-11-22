@@ -1,7 +1,7 @@
-import os, argparse
+import argparse
+import os
 
 from itkit.process.itk_extract import ExtractProcessor
-
 
 TSD_TO_CTSPINE1K_LABEL_MAPPING = {
     # Cervical 颈椎
@@ -46,7 +46,7 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    
+
     processor = ExtractProcessor(
         source_folder = args.tsd_label,
         dest_folder = args.output_folder,

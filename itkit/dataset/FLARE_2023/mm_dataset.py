@@ -1,5 +1,6 @@
-from ..base import mgam_SemiSup_3D_Mha, mgam_SemiSup_3D_Mha, mgam_SeriesPatched_Structure
+from ..base import mgam_SemiSup_3D_Mha, mgam_SeriesPatched_Structure
 from .meta import CLASS_INDEX_MAP
+
 
 class FLARE_2023_base:
     METAINFO = dict(classes=list(CLASS_INDEX_MAP.keys()))

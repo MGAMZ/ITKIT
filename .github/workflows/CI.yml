@@ -2,11 +2,26 @@ name: CI
 
 on:
   push:
-    branches: [ v3, dev/main ]
-  pull_request:
-    branches: [ v3, dev/main ]
+    branches: [ 'v3', 'dev/**' ]
+  pull_request: {}
 
 jobs:
+  pre-commit:
+    name: pre-commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Install pre-commit
+        run: |
+          pip install pre-commit
+      - name: Run pre-commit hooks
+        run: |
+          pre-commit run --all-files
+
   test:
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.python-version == '3.14' }}
@@ -25,10 +40,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends \
-          libegl1 \
-          libgl1 \
-          libopengl0 \
-          libxkbcommon0
+          libegl1 libgl1 libopengl0 libxkbcommon0
         python -m pip install --upgrade pip
         pip install -e '.[dev,gui,medical_vision]'
     - name: Test with pytest

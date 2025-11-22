@@ -1,14 +1,12 @@
-import pdb
 from abc import abstractmethod
 from collections.abc import Callable
-from typing_extensions import Literal
+from typing import Literal
 
 import torch
-from torch.utils.data import DataLoader, Dataset, Subset
 from pytorch_lightning import LightningDataModule
+from torch.utils.data import DataLoader, Dataset, Subset
 
 from itkit.lightning.utils import multi_sample_collate
-
 
 
 class BaseDataModule(LightningDataModule):
@@ -40,9 +38,9 @@ class BaseDataModule(LightningDataModule):
             val_test_loader_args (dict):
                 arguments for the validation and test dataloaders
             override_transfer_batch_to_device (torch.device):
-                Override the device to transfer batch, 
+                Override the device to transfer batch,
                 maybe useful when wants to ignore lightning automatic data transfer after DataLoader.
-        """        
+        """
         self.train_loader_args = {**self.TRAIN_LOADER_ARGS, **train_loader_args}
         self.val_test_loader_args = {**self.VAL_TEST_LOADER_ARGS, **val_test_loader_args}
         self.override_transfer_batch_to_device = override_transfer_batch_to_device
@@ -117,11 +115,11 @@ class BaseDataset(Dataset):
         for transform in self.pipeline:
             sample = transform(sample)
         return sample
-    
+
     @abstractmethod
     def __getitem__(self, index) -> dict:
         ...
-    
+
     @abstractmethod
     def __len__(self) -> int:
         ...

@@ -1,20 +1,22 @@
-import pdb, warnings
-from prettytable import PrettyTable
+import warnings
 from collections import OrderedDict
 
-import torch
 import numpy as np
-from skimage.exposure import equalize_hist
-from monai.metrics.meandice import compute_dice
-from monai.metrics.meaniou import compute_iou
-from monai.metrics.confusion_matrix import get_confusion_matrix, compute_confusion_matrix_metric
-
-from mmengine.structures import PixelData
-from mmengine.logging import print_log
+import torch
+from mmcv.transforms import BaseTransform, to_tensor
 from mmengine.evaluator import BaseMetric
+from mmengine.logging import print_log
+from mmengine.structures import PixelData
 from mmseg.evaluation.metrics import IoUMetric
 from mmseg.structures import SegDataSample
-from mmcv.transforms import BaseTransform, to_tensor
+from monai.metrics.confusion_matrix import (
+    compute_confusion_matrix_metric,
+    get_confusion_matrix,
+)
+from monai.metrics.meandice import compute_dice
+from monai.metrics.meaniou import compute_iou
+from prettytable import PrettyTable
+from skimage.exposure import equalize_hist
 
 
 class HistogramEqualization(BaseTransform):
@@ -53,7 +55,7 @@ class HistogramEqualization(BaseTransform):
 class IoUMetric_PerClass(IoUMetric):
     def __init__(self, iou_metrics: list[str]=['mIoU', 'mDice', 'mFscore'], *args, **kwargs):
         super().__init__(iou_metrics=iou_metrics, *args, **kwargs)
-    
+
     def compute_metrics(self, results: list) -> dict[str, float]:
         """Compute the metrics from processed results.
 
@@ -86,7 +88,7 @@ class IoUMetric_PerClass(IoUMetric):
             self.nan_to_num,
             self.beta,
         )
-        
+
         # class averaged table
         class_avged_metrics = OrderedDict(
             {
@@ -94,7 +96,7 @@ class IoUMetric_PerClass(IoUMetric):
                 for criterion, criterion_value in per_class_eval_metrics.items()
             }
         )
-        metrics = dict()
+        metrics = {}
         for key, val in class_avged_metrics.items():
             if key == "aAcc":
                 metrics[key] = val
@@ -190,7 +192,7 @@ class PackSegInputs(BaseTransform):
             - 'data_sample' (obj:`SegDataSample`): The annotation info of the
                 sample.
         """
-        packed_results = dict()
+        packed_results = {}
         if "img" in results:
             img = results["img"]
             if len(img.shape) < 3:
@@ -235,11 +237,11 @@ class MonaiSegMetrics(BaseMetric):
     """
     A metric evaluator that leverages MONAI's metric computation algorithms
     to compute comprehensive segmentation metrics including Dice, IoU, Recall, and Precision.
-    
+
     This class follows the BaseMetric interface from mmengine:
     - process(): Computes per-sample metrics and stores in self.results
     - compute_metrics(): Aggregates collected results from all ranks
-    
+
     Args:
         ignore_index (int): Index that will be ignored in evaluation. Default: 255.
         include_background (bool): Whether to include the background class in metrics. Default: True.
@@ -247,7 +249,7 @@ class MonaiSegMetrics(BaseMetric):
         collect_device (str): Device for collecting results. Default: 'cpu'.
         prefix (str, optional): Prefix for metric names.
     """
-    
+
     def __init__(
         self,
         include_background: bool = True,
@@ -258,29 +260,29 @@ class MonaiSegMetrics(BaseMetric):
         super().__init__(collect_device=collect_device, prefix=prefix)
         self.include_background = include_background
         self.num_classes = num_classes
-    
+
     def process(self, data_batch: dict, data_samples: list) -> None:
         """
         Process one batch of data and data_samples.
-        
+
         Computes per-sample metrics using MONAI's functions and stores serializable results in self.results.
-        
+
         Args:
             data_batch (dict): A batch of data from the dataloader.
             data_samples (list): A batch of outputs from the model.
         """
         num_classes = self.num_classes or len(self.dataset_meta['classes'])
-        
+
         for data_sample in data_samples:
             # Extract prediction and ground truth
             seg_logits = data_sample['seg_logits']['data']  # [C, Z, Y, X]
             pred_label = data_sample['pred_sem_seg']['data']  # [Z, Y, X]
             label = data_sample['gt_sem_seg']['data'].to(pred_label)  # [Z, Y, X]
-            
+
             # Convert to one-hot format [1, C, Z, Y, X] as required by MONAI
             pred_onehot = self._to_onehot(pred_label, num_classes)
             label_onehot = self._to_onehot(label, num_classes)
-            
+
             # Compute per-sample metrics using MONAI's official functions
             # compute_dice returns [B, C], we have `B=1` so squeeze to [C]
             dice_score = compute_dice(
@@ -290,7 +292,7 @@ class MonaiSegMetrics(BaseMetric):
                 ignore_empty=True,
                 num_classes=num_classes
             ).squeeze(0)  # [C]
-            
+
             # compute_iou returns [B, C]
             iou_score = compute_iou(
                 y_pred=pred_onehot,
@@ -298,20 +300,20 @@ class MonaiSegMetrics(BaseMetric):
                 include_background=self.include_background,
                 ignore_empty=True
             ).squeeze(0)  # [C]
-            
+
             # get_confusion_matrix returns [B, C, 4] where last dim is [TP, FP, TN, FN]
             confusion_matrix = get_confusion_matrix(
                 y_pred=pred_onehot,
                 y=label_onehot,
                 include_background=self.include_background
             ).squeeze(0)  # [C, 4]
-            
+
             # Compute recall and precision from confusion matrix using MONAI's function
             # recall = TPR = TP / (TP + FN)
             recall_score = compute_confusion_matrix_metric("recall", confusion_matrix)  # [C]
             # precision = PPV = TP / (TP + FP)
             precision_score = compute_confusion_matrix_metric("precision", confusion_matrix)  # [C]
-            
+
             # Store serializable tensors in self.results (required by BaseMetric)
             self.results.append({
                 'dice': dice_score.cpu(),
@@ -319,51 +321,51 @@ class MonaiSegMetrics(BaseMetric):
                 'recall': recall_score.cpu(),
                 'precision': precision_score.cpu(),
             })
-    
+
     def compute_metrics(self, results: list) -> dict:
         """
         Compute the metrics from processed results.
-        
+
         Aggregates per-sample metrics collected from all processes.
-        
+
         Args:
             results (list): The processed results collected from all ranks.
-        
+
         Returns:
             dict: The computed metrics including mDice, mIoU, mRecall, mPrecision.
         """
         if not results:
             return {}
-        
+
         # Stack all per-sample results
         all_dice = torch.stack([r['dice'] for r in results])  # [N, C]
         all_iou = torch.stack([r['iou'] for r in results])  # [N, C]
         all_recall = torch.stack([r['recall'] for r in results])  # [N, C]
         all_precision = torch.stack([r['precision'] for r in results])  # [N, C]
-        
+
         # Compute mean across samples for each class
         dice_scores = torch.nanmean(all_dice, dim=0)  # [C]
         iou_scores = torch.nanmean(all_iou, dim=0)  # [C]
         recall_scores = torch.nanmean(all_recall, dim=0)  # [C]
         precision_scores = torch.nanmean(all_precision, dim=0)  # [C]
-        
+
         # Compute mean across classes
         mean_dice = torch.nanmean(dice_scores).item() * 100
         mean_iou = torch.nanmean(iou_scores).item() * 100
         mean_recall = torch.nanmean(recall_scores).item() * 100
         mean_precision = torch.nanmean(precision_scores).item() * 100
-        
+
         # Class averaged metrics (matching IoUMetric_PerClass format)
         class_avged_metrics = OrderedDict()
         class_avged_metrics['Dice'] = np.round(mean_dice, 2)
         class_avged_metrics['IoU'] = np.round(mean_iou, 2)
         class_avged_metrics['Recall'] = np.round(mean_recall, 2)
         class_avged_metrics['Precision'] = np.round(mean_precision, 2)
-        
-        metrics = dict()
+
+        metrics = {}
         for key, val in class_avged_metrics.items():
             metrics['m' + key] = val
-        
+
         # Per-class results (matching IoUMetric_PerClass format)
         class_names = self.dataset_meta['classes']
         per_classes_formatted_dict = OrderedDict()
@@ -372,39 +374,39 @@ class MonaiSegMetrics(BaseMetric):
         per_classes_formatted_dict['IoU'] = [format(v.item() * 100, ".2f") for v in iou_scores]
         per_classes_formatted_dict['Recall'] = [format(v.item() * 100, ".2f") for v in recall_scores]
         per_classes_formatted_dict['Precision'] = [format(v.item() * 100, ".2f") for v in precision_scores]
-        
+
         # Create pretty table for terminal display
         terminal_table = PrettyTable()
         for key, val in per_classes_formatted_dict.items():
             terminal_table.add_column(key, val)
-        
+
         # Provide per class results for logger hook
         metrics['PerClass'] = per_classes_formatted_dict
-        
+
         print_log('per class results:', 'current')
         print_log('\n' + terminal_table.get_string(), logger='current')
-        
+
         return metrics
-    
+
     def _to_onehot(
         self, label_map: torch.Tensor, num_classes: int) -> torch.Tensor:
         """
         Convert 3D label map to one-hot format.
-        
+
         Args:
             label_map (torch.Tensor): Label map with shape [Z, Y, X].
             num_classes (int): Number of classes.
             ignore_index (int): Index to ignore.
-        
+
         Returns:
             torch.Tensor: One-hot tensor with shape [1, C, Z, Y, X].
         """
-        
+
         # Clip labels to valid range
         label_map_clipped = torch.clamp(label_map, 0, num_classes - 1)
-        
+
         # Convert to one-hot: [Z, Y, X] -> [Z, Y, X, C]
         onehot = torch.nn.functional.one_hot(label_map_clipped.long(), num_classes)
-        
+
         # Permute to channel-first: [Z, Y, X, C] -> [C, Z, Y, X] -> [1, C, Z, Y, X]
         return onehot.permute(3, 0, 1, 2).unsqueeze(0).to(torch.uint8)

@@ -1,9 +1,12 @@
-import os, re, pdb, glob, logging
-from colorama import Fore, Style
+import glob
+import logging
+import os
+import re
 
 import torch
-from mmengine.logging import print_log
+from colorama import Fore, Style
 from mmengine.config import Config
+from mmengine.logging import print_log
 from mmengine.runner.checkpoint import find_latest_checkpoint
 
 from itkit.mm.mmeng_PlugIn import DynamicRunnerGenerator
@@ -25,7 +28,7 @@ class experiment:
         self.test_mode = test_mode
         self.detect_anomaly = detect_anomaly
         self.test_use_last_ckpt = test_use_last_ckpt
-        
+
         with torch.autograd.set_detect_anomaly(detect_anomaly):
             self._prepare_basic_config()
             self._main_process()
@@ -69,7 +72,7 @@ class experiment:
     def _direct_to_test(self):
         # Check if is at multi-GPU mode
         if os.getenv('LOCAL_RANK') is not None:
-            print(f"Running with torchrun. Test mode requires single GPU mode.")
+            print("Running with torchrun. Test mode requires single GPU mode.")
 
         # Override configurations for testing.
         self.modify_cfg_to_skip_train()
@@ -123,15 +126,14 @@ class experiment:
             work_dir_path = cfg.work_dir
             if not os.path.exists(os.path.join(work_dir_path, "last_checkpoint")):
                 return False
-            last_ckpt = open(os.path.join(work_dir_path, "last_checkpoint"), 'r').read()
+            last_ckpt = open(os.path.join(work_dir_path, "last_checkpoint")).read()
             last_ckpt = re.findall(r"iter_(\d+)", last_ckpt)[0].strip(r'iter_')
         else:
             target_iters = cfg.epochs
             work_dir_path = cfg.work_dir
             if not os.path.exists(os.path.join(work_dir_path, "last_checkpoint")):
                 return False
-            last_ckpt = open(os.path.join(work_dir_path, "last_checkpoint"),
-                            'r').read()
+            last_ckpt = open(os.path.join(work_dir_path, "last_checkpoint")).read()
             last_ckpt = re.findall(r"epoch_(\d+)", last_ckpt)[0].strip(r'epoch_')
         if int(last_ckpt) >= target_iters:
             return True

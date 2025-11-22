@@ -4,21 +4,18 @@ Implemented by Yiqin Zhang ~ MGAM.
 Used for Rose Thyroid Cell Count project.
 """
 
-import pdb
-from functools import partial
 
 import torch
-from torchvision.models import vgg16
-from torch import nn
-
 from mmengine.model import BaseModule
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead, accuracy
 from mmseg.utils import SampleList
+from torch import nn
+from torchvision.models import vgg16
 
 
 class DDCB(BaseModule):
     def __init__(self, in_channels, out_channels):
-        super(DDCB, self).__init__()
+        super().__init__()
         self.layer1 = nn.Sequential(
             nn.Conv2d(in_channels, 256, kernel_size=1, padding=0, dilation=1),
             nn.Conv2d(256, 64, kernel_size=3, padding=1, dilation=1),
@@ -90,7 +87,7 @@ class DSNet(BaseDecodeHead):
         x7 = self.post2(x6)
         if self.logits_resize is not None:
             x7 = nn.functional.interpolate(
-                x7, 
+                x7,
                 size=self.logits_resize,
                 mode='bilinear',
                 align_corners=False)
@@ -110,7 +107,7 @@ class DSNet(BaseDecodeHead):
         """
 
         seg_label = self._stack_batch_gt(batch_data_samples).squeeze(1)
-        loss = dict()
+        loss = {}
 
         if not isinstance(self.loss_decode, nn.ModuleList):
             losses_decode = [self.loss_decode]
@@ -123,7 +120,7 @@ class DSNet(BaseDecodeHead):
                 ignore_index=self.ignore_index)
 
         loss['acc_seg'] = accuracy(seg_logits, seg_label, ignore_index=self.ignore_index)
-        
+
         return loss
 
     def predict_by_feat(self, seg_logits: torch.Tensor, batch_img_metas: list[dict]) -> torch.Tensor:
@@ -154,7 +151,7 @@ class VGG16_DSNet(torch.nn.Module):
         x7 = self.post2(x6)
         if self.logits_resize is not None:
             x7 = nn.functional.interpolate(
-                x7, 
+                x7,
                 size=self.logits_resize,
                 mode='bilinear',
                 align_corners=False)

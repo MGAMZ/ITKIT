@@ -1,5 +1,7 @@
 import os
+
 from itkit.dataset.base_convert import StandardFileFormatter
+
 
 class FLARE2022_formatter(StandardFileFormatter):
     @property
@@ -8,18 +10,18 @@ class FLARE2022_formatter(StandardFileFormatter):
             os.path.join(self.args.data_root, "Training", "FLARE_UnlabeledCase1-1000"),
             os.path.join(self.args.data_root, "Training", "FLARE_UnlabeledCase1001-2000"),
         ]
-    
+
     @property
     def _sup_folder(self):
         return os.path.join(self.args.data_root, "Training", "FLARE_LabeledCase50")
-    
+
     @staticmethod
     def _series_id(image_path: str, label_path:str|None):
         return os.path.basename(image_path).replace("_0000.nii.gz", "").replace("Case_", "")
-    
+
     def tasks(self) -> list:
         task_list: list[tuple] = []
-        
+
         for unsup_folders in self._unsup_folders:
             for series_name in os.listdir(unsup_folders):
                 if series_name.endswith(".nii.gz"):
@@ -35,7 +37,7 @@ class FLARE2022_formatter(StandardFileFormatter):
                             self.args.size,
                         )
                     )
-        
+
         sup_img_folder = os.path.join(self._sup_folder, "images")
         sup_ann_folder = os.path.join(self._sup_folder, "labels")
         for series_name in os.listdir(sup_img_folder):
@@ -53,7 +55,7 @@ class FLARE2022_formatter(StandardFileFormatter):
                         self.args.size,
                     )
                 )
-        
+
         return task_list
 
 if __name__ == "__main__":

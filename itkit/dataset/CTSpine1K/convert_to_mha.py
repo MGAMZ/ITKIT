@@ -1,12 +1,11 @@
-import os
-import pdb
 import argparse
+import os
 import warnings
+
 warnings.filterwarnings("ignore")
 
 import SimpleITK as sitk
 from tqdm import tqdm
-
 
 
 def process_item(task):

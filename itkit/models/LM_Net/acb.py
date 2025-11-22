@@ -1,12 +1,13 @@
+import torch
 import torch.nn as nn
 import torch.nn.init as init
-import torch
+
 
 class ACBlock(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, padding_mode='zeros', deploy=False,
                  use_affine=True, reduce_gamma=False, gamma_init=None ):
-        super(ACBlock, self).__init__()
+        super().__init__()
         self.deploy = deploy
         if deploy:
             self.fused_conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=(kernel_size,kernel_size), stride=stride,
@@ -149,4 +150,3 @@ if __name__ == '__main__':
         deployout = acb(x)
         print('difference between the outputs of the training-time and converted ACB is')
         print(((deployout - out) ** 2).sum())
-

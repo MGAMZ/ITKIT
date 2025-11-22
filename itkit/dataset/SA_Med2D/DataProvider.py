@@ -1,13 +1,13 @@
 import os
-import pdb
-from typing import Dict, List, OrderedDict, Tuple, Type
-from colorama import Fore, Style
+from collections import OrderedDict
 
 import cv2
 import numpy as np
 import torch
+from colorama import Fore, Style
 from mmcv.transforms import BaseTransform
 from mmengine.logging import MMLogger, print_log
+
 # mmseg可视化Hook设定
 from mmseg.datasets.transforms import LoadBiomedicalImageFromFile
 from mmseg.engine.hooks import SegVisualizationHook
@@ -17,13 +17,11 @@ from prettytable import PrettyTable
 from .DatasetBackend import DatasetBackend_GlobalProxy
 
 
-
-
 class SegVisualizationHook_SA_Med2D(SegVisualizationHook):
-    def __init__(self, reshape_size:Tuple[int,int] , *args, **kwargs):
+    def __init__(self, reshape_size:tuple[int,int] , *args, **kwargs):
         self.reshape_size = reshape_size
         super().__init__(*args, **kwargs)
-    
+
     def _after_iter(self,
                     runner,
                     batch_idx,
@@ -65,13 +63,13 @@ class IoU_SupportsMultipleIgnoreIndex(IoUMetric):
     def __init__(self, valid_label_on_summarizer=None, **kwargs):
         if valid_label_on_summarizer is None:
             self.valid_label_on_summarizer = None
-        elif isinstance(valid_label_on_summarizer, Tuple):
+        elif isinstance(valid_label_on_summarizer, tuple):
             self.valid_label_on_summarizer = torch.tensor(valid_label_on_summarizer)
         else:
             self.valid_label_on_summarizer = 'dynamic'
         super().__init__(**kwargs)
-    
-    def compute_metrics(self, results: list) -> Dict[str, float]:
+
+    def compute_metrics(self, results: list) -> dict[str, float]:
         """Compute the metrics from processed results.
 
         Args:
@@ -97,7 +95,7 @@ class IoU_SupportsMultipleIgnoreIndex(IoUMetric):
         total_area_union:torch.Tensor = sum(results[1])
         total_area_pred_label:torch.Tensor = sum(results[2])
         total_area_label:torch.Tensor = sum(results[3])
-        
+
         if self.valid_label_on_summarizer is not None:
             # 去除没有gt的label
             if self.valid_label_on_summarizer == 'dynamic':
@@ -109,7 +107,7 @@ class IoU_SupportsMultipleIgnoreIndex(IoUMetric):
             total_area_union = torch.gather(total_area_union, 0, NonZero_Class_Index)
             total_area_pred_label = torch.gather(total_area_pred_label, 0, NonZero_Class_Index)
             total_area_label = torch.gather(total_area_label, 0, NonZero_Class_Index)
-        
+
         ret_metrics = self.total_area_to_metrics(
             total_area_intersect, total_area_union, total_area_pred_label,
             total_area_label, self.metrics, self.nan_to_num, self.beta)
@@ -125,7 +123,7 @@ class IoU_SupportsMultipleIgnoreIndex(IoUMetric):
             ret_metric: np.round(np.nanmean(ret_metric_value) * 100, 2)
             for ret_metric, ret_metric_value in ret_metrics.items()
         })
-        metrics = dict()
+        metrics = {}
         for key, val in ret_metrics_summary.items():
             if key == 'aAcc':
                 metrics[key] = val
@@ -143,7 +141,7 @@ class IoU_SupportsMultipleIgnoreIndex(IoUMetric):
         class_table_data = PrettyTable()
         for key, val in ret_metrics_class.items():
             class_table_data.add_column(key, val)
-        
+
         # provide per class results for logger hook
         metrics['PerClass'] = ret_metrics_class
 
@@ -166,30 +164,30 @@ class Load_SA_Med2D(LoadBiomedicalImageFromFile):
             png_file = png_file[..., np.newaxis]
         return png_file
 
-    def transform(self, results:Dict) -> Dict:
+    def transform(self, results:dict) -> dict:
         raise NotImplementedError
 
 
 
 class Load_SA_Med2D_SingleSlice(Load_SA_Med2D):
-    def transform(self, results:Dict) -> Dict:
+    def transform(self, results:dict) -> dict:
         if 'image' in self.load_type:
             # H W C
             image = self.load_png(os.path.join(
-                results['img_path'][0], 
+                results['img_path'][0],
                 f"image_{results['img_path'][1]}.png"))
             results['img'] = image.astype(np.uint16)
             results['img_shape'] = image.shape[:2]
             results['ori_shape'] = image.shape[:2]
-            
+
         if 'label' in self.load_type:
             # H W
             label = self.load_png(os.path.join(
-                results['seg_map_path'][0], 
+                results['seg_map_path'][0],
                 f"mask_{results['seg_map_path'][1]}.png"))
             results['gt_seg_map'] = label
             results['reduce_zero_label'] = False
-        
+
         return results
 
 
@@ -209,8 +207,8 @@ class Load_SA_Med2D_MultiSlices(Load_SA_Med2D):
         super().__init__(*args, **kwargs) # 多样本采样时，默认不支持在Load阶段进行归一化
 
 
-    def transform(self, results: Dict) -> Dict:
-        assert isinstance(results['multi_img_path'], List) and isinstance(results['multi_seg_map_path'], List), \
+    def transform(self, results: dict) -> dict:
+        assert isinstance(results['multi_img_path'], list) and isinstance(results['multi_seg_map_path'], list), \
             f"MultiSlice Load needs Multiple Paths, but got img {type(results['multi_img_path'])} and label {type(results['multi_seg_map_path'])}"
 
         # Load images if required
@@ -219,19 +217,19 @@ class Load_SA_Med2D_MultiSlices(Load_SA_Med2D):
             if self.multi_img_load:
                 for img_idx in results['multi_img_path']:
                     img_cache.append(self.load_png(os.path.join(
-                                    results['img_path'][0], 
+                                    results['img_path'][0],
                                     f"image_{img_idx}.png")))
             else:   # 仅加载Axial Image
                 img_cache.append(self.load_png(os.path.join(
-                                    results['img_path'][0], 
+                                    results['img_path'][0],
                                     f"image_{results['img_path'][1]}.png")))
-            
+
             img_cache = np.stack(img_cache, axis=0)
             S, H, W, C = img_cache.shape
             img_ndarray = np.array(img_cache).transpose(1,2,0,3).reshape(H,W,S*C) # (H,W,S*C)
             results['img'] = img_ndarray.astype(np.uint16)
             results['img']
-        
+
         # Load labels if required
         if 'label' in self.load_type:
             label_cache = []
@@ -242,25 +240,25 @@ class Load_SA_Med2D_MultiSlices(Load_SA_Med2D):
                                     f"mask_{label_idx}.png")))
             else:   # 仅加载Axial Label
                 label_cache.append(self.load_png(os.path.join(
-                                results['seg_map_path'][0], 
+                                results['seg_map_path'][0],
                                 f"mask_{results['seg_map_path'][1]}.png")))
-            
+
             label_cache = np.stack([hwc.squeeze() for hwc in label_cache], axis=0)
             assert label_cache.ndim == 3, f"Label should be 3-dim, but got {label_cache.shape}"
             results['gt_seg_map'] = label_cache
             results['reduce_zero_label'] = False    # 不可以随意更改此参数，会引起mmseg中多个行为改变
-        
+
         return results
 
 
 
 class Normalize(BaseTransform):
-    def __init__(self, mode:str, size:Tuple[int,int], **kwargs):
+    def __init__(self, mode:str, size:tuple[int,int], **kwargs):
         self.mode = mode
         self.H, self.W = size
         self._set_mask()
         super().__init__(**kwargs)
-    
+
     def _set_mask(self):
         mask = np.zeros((self.H, self.W), np.uint8)
         # 计算中心区域的起始坐标
@@ -269,8 +267,8 @@ class Normalize(BaseTransform):
         # 设置中心区域为1
         mask[H_l:H_h, W_l:W_h] = 1
         self.statistic_mask = mask
-    
-    def transform(self, results:Dict):
+
+    def transform(self, results:dict):
         # results['img']: (H, W, C)
         image:np.ndarray = results['img'].astype(np.float32)
 
@@ -287,19 +285,19 @@ class Normalize(BaseTransform):
             mean, std = cv2.meanStdDev(src=image, mask=self.statistic_mask)
             std = std.squeeze(-1)[np.newaxis, np.newaxis, ...]  # (1, 1, C)
             image = image / std
-        
+
         elif self.mode is None:
             pass
         else:
             raise NotImplementedError
-        
+
         results['img'] = image
         return results
 
 
 
 class Normalize_MultiSlice(Normalize):
-    def transform(self, results:Dict):
+    def transform(self, results:dict):
         # results['img']: (H, W, S*C) (After Optical Flow Augmentation)
         C = len(results['min']) # 统计时是按照通道数存储的，每个通道有各自的统计量
         H, W, SC = results['img'].shape
@@ -310,11 +308,11 @@ class Normalize_MultiSlice(Normalize):
             mean = np.array(results['mean'])[np.newaxis, np.newaxis, np.newaxis, :]
             std = np.array(results['std'])[np.newaxis, np.newaxis, np.newaxis, :]
             image = (image - mean) / std
-                    
+
         elif self.mode == 'instance':
             for s in range(S):
                 image[:,:,s] = cv2.normalize(image[:,:,s], None, 0, 1, cv2.NORM_MINMAX, dtype=cv2.CV_32FC3)
-        
+
         elif self.mode == 'roi':
             # image: [H,W,S,C]
             for s in range(S):
@@ -322,41 +320,41 @@ class Normalize_MultiSlice(Normalize):
                 mean, std = cv2.meanStdDev(src=image[:,:,s], mask=self.statistic_mask)
                 std = std.squeeze()[np.newaxis, np.newaxis, :]  # (1,1,C)
                 image[:,:,s] = image[:,:,s] / std   # 为防止image的背景向负方向偏移，不对mean进行修正
-        
+
         elif self.mode is None:
             pass
         else:
             raise NotImplementedError
-        
+
         results['img'] = image.astype(np.float32).reshape(H, W, SC)
         return results
 
 
 
 class ForceResize(BaseTransform):
-    def __init__(self, image_size:Tuple[int, int]=None, label_size:Tuple[int, int]=None):   # type:ignore
+    def __init__(self, image_size:tuple[int, int]=None, label_size:tuple[int, int]=None):   # type:ignore
         self.image_size = image_size
         self.label_size = label_size
-        
-    def transform(self, results:Dict):
+
+    def transform(self, results:dict):
         if self.image_size:
             # (H, W, C)
             results['img'] = cv2.resize(
-                results['img'], 
+                results['img'],
                 dsize=self.image_size,
                 interpolation=cv2.INTER_NEAREST)
             # 当通道数仅为1时，cv2.resize会把通道维度删除
             if results['img'].ndim == 2:
                 results['img'] = results['img'][..., np.newaxis]    # (H, W) -> (H, W, C)
             results['img_shape'] = self.image_size[:2]
-        
+
         if self.label_size:
             # (H, W)
             results['gt_seg_map'] = cv2.resize(
-                results['gt_seg_map'].squeeze(), 
+                results['gt_seg_map'].squeeze(),
                 dsize=self.label_size,
                 interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
-        
+
         results['img_shape'] = self.image_size
         results['ori_shape'] = self.label_size
         return results
@@ -384,12 +382,12 @@ class ClassFilter(BaseTransform):
 
 class ClassRectify(BaseTransform):
     def __init__(self):
-        proxy:Type = DatasetBackend_GlobalProxy.get_current_instance()
+        proxy:type = DatasetBackend_GlobalProxy.get_current_instance()
         self.max_cls_idx = len(proxy.atom_classes) - 1
         self.union_atom_map = proxy.union_atom_map
-        # print_log(f"Class Info Check: MaxClsIdx {self.max_cls_idx} | UnionAtomMap {self.union_atom_map}", 
+        # print_log(f"Class Info Check: MaxClsIdx {self.max_cls_idx} | UnionAtomMap {self.union_atom_map}",
         #           logger=MMLogger.get_current_instance())
-    
+
     def transform(self, results):
         try:
             seg_map = results['gt_seg_map']
@@ -400,15 +398,12 @@ class ClassRectify(BaseTransform):
             if seg_map.max() > self.max_cls_idx:
                 raise ValueError(f"Class index {seg_map.max()} is larger than valid maximum {self.max_cls_idx}")
             results['gt_seg_map'] = seg_map
-        except ValueError as e:
-            print(Fore.RED 
+        except ValueError:
+            print(Fore.RED
                   + f"\n\nEncounter exception value after ClassRectify: {seg_map.max()},"
-                    f"expected max value: {self.max_cls_idx}\n" 
+                    f"expected max value: {self.max_cls_idx}\n"
                     f"PROXY: {proxy.__dict__}\n\n"
                   + Style.RESET_ALL)
             exit(-2)
-            
+
         return results
-
-
-

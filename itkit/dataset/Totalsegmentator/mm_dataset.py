@@ -1,18 +1,22 @@
 import os
-import pdb
-from tqdm import tqdm
 
 import orjson
 import pandas as pd
+from tqdm import tqdm
 
 from ..base import mgam_SemiSup_3D_Mha, mgam_SeriesPatched_Structure
-from .meta import CLASS_INDEX_MAP, generate_subset_class_map_and_label_map, generate_reduced_class_map_and_label_map
+from .meta import (
+    CLASS_INDEX_MAP,
+    generate_reduced_class_map_and_label_map,
+    generate_subset_class_map_and_label_map,
+)
+
 
 class TotalsegmentatorIndexer:
 
     def __init__(self, data_root: str):
         self.data_root = data_root
-        self.index_file = os.path.join(self.data_root, f'index.json')
+        self.index_file = os.path.join(self.data_root, 'index.json')
 
         if not os.path.exists(self.index_file):
             self.generate_index_json_file()

@@ -1,12 +1,18 @@
-import os, argparse, json, shutil
-from tqdm import tqdm
+import argparse
+import json
+import os
+import shutil
+from abc import abstractmethod
+from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 import SimpleITK as sitk
-from itkit.process.base_processor import DatasetProcessor, SingleFolderProcessor
-from itkit.process.meta_json import load_series_meta, get_series_meta_path
-from itkit.process.metadata_models import SeriesMetadata
+from tqdm import tqdm
 
+from itkit.process.base_processor import DatasetProcessor, SingleFolderProcessor
+from itkit.process.meta_json import get_series_meta_path, load_series_meta
+from itkit.process.metadata_models import SeriesMetadata
 
 DIM_MAP = {"Z": 0, "Y": 1, "X": 2}
 EPS = 1e-3
@@ -18,9 +24,17 @@ class ProcessorType(Enum):
     DATASET = "dataset"
     SINGLE = "single"
 
+@dataclass
+class ValidationResult:
+    """Result of a validation check"""
+    name: str
+    is_valid: bool
+    reasons: list[str]
+    paths: Any  # Can be str or tuple[str, str] depending on processor
 
-class ValidationMixin:
-    """Mixin providing validation logic and operations for size/spacing checks"""
+
+class CheckMixin:
+    """Mixin providing validation logic and abstract operations"""
 
     def __init__(self, cfg: dict, mode: str):
         """Initialize validation configuration
@@ -31,8 +45,7 @@ class ValidationMixin:
         """
         self.cfg = cfg
         self.mode = mode
-        self.invalid: list[tuple[str,str,str]] = []  # List of (name, reasons, paths)
-        self.valid_items: list[tuple[str,str]] = []  # List of (name, paths)
+        self.results: list[ValidationResult] = []
 
     def validate_sample_metadata(
         self, size: list[int], spacing: list[float]
@@ -101,109 +114,84 @@ class ValidationMixin:
 
             paths = item_dict[name]
             if reasons:
-                self.invalid.append((name, reasons, paths))
                 tqdm.write(f"{name}: {'; '.join(reasons)}")
+                self.results.append(ValidationResult(name, False, reasons, paths))
             else:
-                self.valid_items.append((name, paths))
+                self.results.append(ValidationResult(name, True, [], paths))
 
     def execute_operation(self, output_dir: str | None = None):
         """Execute mode-specific operations after validation"""
+        invalid_items = [r for r in self.results if not r.is_valid]
+        valid_items = [r for r in self.results if r.is_valid]
+
         if self.mode == "delete":
-            self._operation_delete()
+            self._run_delete(invalid_items)
         elif self.mode == "symlink":
-            self._operation_symbolic_link(output_dir)
+            self._run_symlink(valid_items, output_dir)
         elif self.mode == "copy":
-            self._operation_copy(output_dir)
+            self._run_copy(valid_items, output_dir)
         else:  # check mode
-            if not self.invalid:
+            if not invalid_items:
                 print("All samples conform to the specified rules.")
             else:
-                print(f"Found {len(self.invalid)} invalid samples")
+                print(f"Found {len(invalid_items)} invalid samples")
 
-    def _operation_delete(self):
-        """Delete invalid samples"""
-        import os
-
-        for name, reasons, paths in self.invalid:
+    def _run_delete(self, items: list[ValidationResult]):
+        for item in items:
             try:
-                if isinstance(paths, tuple):  # Dataset mode: (img, lbl)
-                    img_path, lbl_path = paths
-                    os.remove(img_path)
-                    os.remove(lbl_path)
-                else:  # Single mode
-                    os.remove(paths)
+                self.op_delete(item.paths)
             except Exception as e:
-                print(f"Error deleting {name}: {e}")
-        print(f"Deleted {len(self.invalid)} invalid samples")
+                print(f"Error deleting {item.name}: {e}")
+        print(f"Deleted {len(items)} invalid samples")
 
-    def _operation_symbolic_link(self, output_dir: str | None):
-        """Symlink valid samples to output directory"""
+    def _run_symlink(self, items: list[ValidationResult], output_dir: str | None):
         if not output_dir:
             print("Error: output directory required for symlink mode")
             return
 
-        if isinstance(self.valid_items[0][1], tuple):  # Dataset mode
-            out_img_dir = os.path.join(output_dir, "image")
-            out_lbl_dir = os.path.join(output_dir, "label")
-            os.makedirs(out_img_dir, exist_ok=True)
-            os.makedirs(out_lbl_dir, exist_ok=True)
-
-            success_count = 0
-            for name, paths in self.valid_items:
-                try:
-                    img_src, lbl_src = paths
-                    os.symlink(img_src, os.path.join(out_img_dir, name))
-                    os.symlink(lbl_src, os.path.join(out_lbl_dir, name))
-                    success_count += 1
-                except Exception as e:
-                    print(f"Error symlinking {name}: {e}")
-        else:  # Single mode
-            os.makedirs(output_dir, exist_ok=True)
-            success_count = 0
-            for name, img_path in self.valid_items:
-                try:
-                    os.symlink(img_path, os.path.join(output_dir, name))
-                    success_count += 1
-                except Exception as e:
-                    print(f"Error symlinking {name}: {e}")
-
+        self.prepare_output_dir(output_dir)
+        success_count = 0
+        for item in items:
+            try:
+                self.op_symlink(item.name, item.paths, output_dir)
+                success_count += 1
+            except Exception as e:
+                print(f"Error symlinking {item.name}: {e}")
         print(f"Symlinked {success_count} valid samples to {output_dir}")
 
-    def _operation_copy(self, output_dir: str | None):
-        """Copy valid samples to output directory"""
+    def _run_copy(self, items: list[ValidationResult], output_dir: str | None):
         if not output_dir:
             print("Error: output directory required for copy mode")
             return
 
-        if isinstance(self.valid_items[0][1], tuple):  # Dataset mode
-            out_img_dir = os.path.join(output_dir, "image")
-            out_lbl_dir = os.path.join(output_dir, "label")
-            os.makedirs(out_img_dir, exist_ok=True)
-            os.makedirs(out_lbl_dir, exist_ok=True)
-
-            success_count = 0
-            for name, paths in self.valid_items:
-                try:
-                    img_src, lbl_src = paths
-                    shutil.copy(img_src, out_img_dir)
-                    shutil.copy(lbl_src, out_lbl_dir)
-                    success_count += 1
-                except Exception as e:
-                    print(f"Error copying {name}: {e}")
-        else:  # Single mode
-            os.makedirs(output_dir, exist_ok=True)
-            success_count = 0
-            for name, img_path in self.valid_items:
-                try:
-                    shutil.copy(img_path, output_dir)
-                    success_count += 1
-                except Exception as e:
-                    print(f"Error copying {name}: {e}")
-
+        self.prepare_output_dir(output_dir)
+        success_count = 0
+        for item in items:
+            try:
+                self.op_copy(item.name, item.paths, output_dir)
+                success_count += 1
+            except Exception as e:
+                print(f"Error copying {item.name}: {e}")
         print(f"Copied {success_count} valid samples to {output_dir}")
 
+    @abstractmethod
+    def op_delete(self, paths: Any):
+        pass
 
-class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
+    @abstractmethod
+    def op_symlink(self, name: str, paths: Any, output_dir: str):
+        pass
+
+    @abstractmethod
+    def op_copy(self, name: str, paths: Any, output_dir: str):
+        pass
+
+    @abstractmethod
+    def prepare_output_dir(self, output_dir: str):
+        pass
+
+
+class DatasetCheckProcessor(DatasetProcessor, CheckMixin):
     """Processor for checking image/label paired datasets"""
 
     def __init__(
@@ -216,29 +204,29 @@ class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
         workers: int | None = None,
     ):
         DatasetProcessor.__init__(self, source_folder, dest_folder=None, mp=mp, workers=workers)
-        ValidationMixin.__init__(self, cfg, mode)
+        CheckMixin.__init__(self, cfg, mode)
         self.output_dir = output_dir
 
     def process_one(self, args: tuple[str, str]) -> SeriesMetadata | None:
         """Process one image/label pair"""
         img_path, lbl_path = args
         name = os.path.basename(img_path)
-        
+
         try:
             lbl = sitk.ReadImage(lbl_path)
             size = list(lbl.GetSize()[::-1])
             spacing = list(lbl.GetSpacing()[::-1])
             reasons = self.validate_sample_metadata(size, spacing)
-            if reasons:
-                self.invalid.append((name, reasons, (img_path, lbl_path)))
-            else:
-                self.valid_items.append((name, (img_path, lbl_path)))
+
+            is_valid = len(reasons) == 0
+            self.results.append(ValidationResult(name, is_valid, reasons, (img_path, lbl_path)))
+
             return SeriesMetadata.from_sitk_image(lbl, name)
         except Exception as e:
-            self.invalid.append((name, [f"Failed to read: {str(e)}"], (img_path, lbl_path)))
+            self.results.append(ValidationResult(name, False, [f"Failed to read: {str(e)}"], (img_path, lbl_path)))
             return None
 
-    def process(self, desc: str = "Checking"):
+    def process(self, desc="Checking"):
         """Main processing with fast check support"""
         # Try fast check first
         try:
@@ -248,7 +236,8 @@ class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
             meta_path = get_series_meta_path(self.source_folder)
             os.remove(meta_path)
             series_meta = None
-            
+
+        run_full_check = False
         if series_meta is not None:
             print("Found existing series_meta.json, performing fast check.")
             items = self.get_items_to_process()
@@ -257,17 +246,37 @@ class DatasetCheckProcessor(DatasetProcessor, ValidationMixin):
         else:
             print("No series_meta.json found, performing full check.")
             super().process(desc)
+            run_full_check = True
 
         # Execute operations based on mode
         self.execute_operation(self.output_dir)
-        
-        # Save metadata to source folder in check mode
-        if not self.output_dir:
+
+        # Save metadata to source folder in check mode ONLY if full check was run
+        if not self.output_dir and run_full_check:
             meta_path = get_series_meta_path(self.source_folder)
             self.save_meta(meta_path)
 
+    def prepare_output_dir(self, output_dir: str):
+        os.makedirs(os.path.join(output_dir, "image"), exist_ok=True)
+        os.makedirs(os.path.join(output_dir, "label"), exist_ok=True)
 
-class SingleCheckProcessor(SingleFolderProcessor, ValidationMixin):
+    def op_delete(self, paths: Any):
+        img_path, lbl_path = paths
+        if os.path.exists(img_path): os.remove(img_path)
+        if os.path.exists(lbl_path): os.remove(lbl_path)
+
+    def op_symlink(self, name: str, paths: Any, output_dir: str):
+        img_src, lbl_src = paths
+        os.symlink(img_src, os.path.join(output_dir, "image", name))
+        os.symlink(lbl_src, os.path.join(output_dir, "label", name))
+
+    def op_copy(self, name: str, paths: Any, output_dir: str):
+        img_src, lbl_src = paths
+        shutil.copy(img_src, os.path.join(output_dir, "image"))
+        shutil.copy(lbl_src, os.path.join(output_dir, "label"))
+
+
+class SingleCheckProcessor(SingleFolderProcessor, CheckMixin):
     """Processor for checking single folder of images"""
 
     def __init__(
@@ -282,34 +291,35 @@ class SingleCheckProcessor(SingleFolderProcessor, ValidationMixin):
         SingleFolderProcessor.__init__(
             self, source_folder, dest_folder=None, mp=mp, workers=workers, recursive=False
         )
-        ValidationMixin.__init__(self, cfg, mode)
+        CheckMixin.__init__(self, cfg, mode)
         self.output_dir = output_dir
 
-    def process_one(self, img_path: str) -> SeriesMetadata | None:
+    def process_one(self, args) -> SeriesMetadata | None:
         """Process one image file"""
+        img_path = args
         name = os.path.basename(img_path)
-        
+
         try:
             img = sitk.ReadImage(img_path)
             size = list(img.GetSize()[::-1])
             spacing = list(img.GetSpacing()[::-1])
             reasons = self.validate_sample_metadata(size, spacing)
-            
-            if reasons:
-                self.invalid.append((name, reasons, img_path))
-            else:
-                self.valid_items.append((name, img_path))
-            
+
+            is_valid = len(reasons) == 0
+            self.results.append(ValidationResult(name, is_valid, reasons, img_path))
+
             # Always return metadata if image can be read
             return SeriesMetadata.from_sitk_image(img, name)
         except Exception as e:
-            self.invalid.append((name, [f"Failed to read: {str(e)}"], img_path))
+            self.results.append(ValidationResult(name, False, [f"Failed to read: {str(e)}"], img_path))
             return None
 
-    def process(self, desc: str = "Checking"):
+    def process(self, desc="Checking"):
         """Main processing with fast check support"""
         # Try fast check first
         series_meta = load_series_meta(self.source_folder)
+        run_full_check = False
+
         if series_meta is not None:
             print("Found existing series_meta.json, performing fast check.")
             items = self.get_items_to_process()
@@ -318,14 +328,27 @@ class SingleCheckProcessor(SingleFolderProcessor, ValidationMixin):
         else:
             print("No series_meta.json found, performing full check.")
             super().process(desc)
+            run_full_check = True
 
         # Execute operations based on mode
         self.execute_operation(self.output_dir)
-        
-        # Save metadata to source folder in check mode
-        if not self.output_dir:
+
+        # Save metadata to source folder in check mode ONLY if full check was run
+        if not self.output_dir and run_full_check:
             meta_path = get_series_meta_path(self.source_folder)
             self.save_meta(meta_path)
+
+    def prepare_output_dir(self, output_dir: str):
+        os.makedirs(output_dir, exist_ok=True)
+
+    def op_delete(self, paths: Any):
+        if os.path.exists(paths): os.remove(paths)
+
+    def op_symlink(self, name: str, paths: Any, output_dir: str):
+        os.symlink(paths, os.path.join(output_dir, name))
+
+    def op_copy(self, name: str, paths: Any, output_dir: str):
+        shutil.copy(paths, output_dir)
 
 
 def detect_processor_type(source_folder: str) -> ProcessorType:

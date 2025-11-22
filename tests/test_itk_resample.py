@@ -1,9 +1,9 @@
 import argparse
-import pytest
 from pathlib import Path
 
-import SimpleITK as sitk
 import numpy as np
+import pytest
+import SimpleITK as sitk
 
 from itkit.process import itk_resample
 from itkit.process.metadata_models import MetadataManager
@@ -95,10 +95,10 @@ class TestSingleResampleProcessor:
         metadata_manager = MetadataManager()
         for output_file in output_files:
             img = sitk.ReadImage(str(output_file))
-            
+
             # Generate expected metadata
             expected_metadata = itk_resample.SeriesMetadata.from_sitk_image(img, output_file.name)
-            
+
             metadata_manager.update(expected_metadata)
             # Validate image properties
             expected_metadata.validate_itk_image(img)
@@ -139,12 +139,12 @@ class TestSingleResampleProcessor:
         metadata_manager = MetadataManager()
         for output_file in output_files:
             img = sitk.ReadImage(str(output_file))
-            
+
             # Generate expected metadata
             target_file = Path(shared_temp_data / "label") / output_file.name
             target_img = sitk.ReadImage(str(target_file))
             expected_metadata = itk_resample.SeriesMetadata.from_sitk_image(target_img, output_file.name)
-            
+
             metadata_manager.update(expected_metadata)
             # Validate image properties
             expected_metadata.validate_itk_image(img)
@@ -185,10 +185,10 @@ class TestSingleResampleProcessor:
         metadata_manager = MetadataManager()
         for output_file in output_files:
             img = sitk.ReadImage(str(output_file))
-            
+
             # Generate expected metadata
             expected_metadata = itk_resample.SeriesMetadata.from_sitk_image(img, output_file.name)
-            
+
             metadata_manager.update(expected_metadata)
             # Validate image properties
             expected_metadata.validate_itk_image(img)

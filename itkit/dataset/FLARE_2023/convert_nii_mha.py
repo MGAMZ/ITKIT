@@ -1,12 +1,14 @@
 import os
-from tqdm import tqdm
+
 import numpy as np
+from tqdm import tqdm
+
 from itkit.dataset.base_convert import format_from_nnUNet
 from itkit.io.sitk_toolkit import (
     sitk,
-    sitk_resample_to_spacing,
-    sitk_resample_to_size,
     sitk_resample_to_image,
+    sitk_resample_to_size,
+    sitk_resample_to_spacing,
 )
 
 
@@ -65,7 +67,7 @@ class FLARE2023_formetter(format_from_nnUNet):
             if input_label_mha is not None and os.path.exists(label_path):
                 assert (input_image_mha.GetSize() == input_label_mha.GetSize()), \
                     f"Image {input_image_mha.GetSize()} and label {input_label_mha.GetSize()} size mismatch."
-                
+
                 # NOTE FLARE2023 contains partially annotated labels,
                 # if the number of unique label <= 4, the label will be deprecated.
                 lbl_arr = sitk.GetArrayFromImage(input_label_mha)
@@ -77,14 +79,14 @@ class FLARE2023_formetter(format_from_nnUNet):
                 else:
                     input_label_mha = sitk.DICOMOrient(input_label_mha, 'LPI')
                     sitk.WriteImage(input_label_mha, output_label_mha_path, useCompression=True)
-        
+
         except Exception as e:
             convertion_log["id"] = "error"
             convertion_log["error"] = str(e)
             error_info = f"SeriesUID{series_id} | " + str(e)
             convertion_log["Unknown_error_detail"] = error_info
             print(error_info)
-        
+
         return convertion_log
 
 

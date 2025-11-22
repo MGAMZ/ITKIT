@@ -1,12 +1,14 @@
 import json
-import tempfile
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
-import pytest
+
 import numpy as np
+import pytest
 import SimpleITK as sitk
-from itkit.process.itk_patch import parse_patch_size, PatchProcessor
+
+from itkit.process.itk_patch import PatchProcessor, parse_patch_size
 
 
 @pytest.fixture
@@ -164,7 +166,7 @@ class TestPatchProcessor:
         # Create dummy files
         sitk.WriteImage(sample_image, str(src / 'image' / 'test.mha'))
         sitk.WriteImage(sample_label, str(src / 'label' / 'test.mha'))
-        
+
         proc = run_patch_command(src, dst)
         assert proc.returncode == 0
         assert (dst / 'crop_meta.json').exists()
@@ -321,10 +323,10 @@ class TestPatchProcessor:
         src, dst = temp_src_dst
         sitk.WriteImage(sample_image, str(src / 'image' / 'test.mha'))
         sitk.WriteImage(sample_label, str(src / 'label' / 'test.mha'))
-        
+
         proc = run_patch_command(src, dst)
         assert proc.returncode == 0, f"Process failed: {proc.stderr}"
-        
+
         # Check crop_meta.json exists and has correct structure
         meta_path = dst / 'crop_meta.json'
         assert meta_path.exists()
@@ -334,7 +336,7 @@ class TestPatchProcessor:
         assert 'patch_meta' in meta
         assert 'test' in meta['patch_meta']
         assert meta['patch_meta']['test']['num_patches'] > 0
-        
+
         # Check that standard meta.json files also exist
         assert (dst / "meta.json").exists()
         assert (dst / "image" / "meta.json").exists()
@@ -345,6 +347,6 @@ class TestPatchProcessor:
         src, dst = temp_src_dst
         sitk.WriteImage(sample_image, str(src / 'image' / 'test.mha'))
         sitk.WriteImage(sample_label, str(src / 'label' / 'test.mha'))
-        
+
         proc = run_patch_command(src, dst, mp=True)
         assert proc.returncode == 0  # Should succeed without error

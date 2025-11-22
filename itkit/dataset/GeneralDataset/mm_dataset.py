@@ -1,10 +1,9 @@
 import os
-import pdb
-import re 
+import re
 
 import numpy as np
-from ..base import mgam_BaseSegDataset
 
+from ..base import mgam_BaseSegDataset
 
 
 class mgam_Standard_2D(mgam_BaseSegDataset):
@@ -15,7 +14,7 @@ class mgam_Standard_2D(mgam_BaseSegDataset):
         self.suffix = "." + suffix
         super().__init__(*args, **kwargs)
         self.data_root: str
-        
+
 
     def _split(self):
         all_series = [

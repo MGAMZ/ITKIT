@@ -1,22 +1,24 @@
 from collections import OrderedDict
-from .blur_pool import BlurPool2d
-import numpy as np
-import torch.nn as nn
+
 import torch
-from timm.models.layers import to_2tuple, trunc_normal_,DropPath
-from torchvision.ops.deform_conv import *
-from torchvision.ops.ps_roi_pool import *
+import torch.nn as nn
 import torch.nn.functional as F
-# from .nonlocal_block import NONLocalBlock2D
-#from carafe import CARAFEPack
-from torch.nn.modules.utils import _pair
-# from .nattencuda import NEWNeighborhoodAttention
-# from .nattencuda import NeighborhoodAttention
-from einops import rearrange, repeat
-from einops.layers.torch import Rearrange
+
 #from depthwise_conv2d_implicit_gemm import DepthWiseConv2dImplicitGEMM
 #from .involution_cuda import involution
 from natten import NeighborhoodAttention2D
+from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+
+# from .nonlocal_block import NONLocalBlock2D
+#from carafe import CARAFEPack
+from torch.nn.modules.utils import _pair
+from torchvision.ops.deform_conv import *
+from torchvision.ops.ps_roi_pool import *
+
+# from .nattencuda import NEWNeighborhoodAttention
+# from .nattencuda import NeighborhoodAttention
+
+
 
 
 
@@ -66,7 +68,7 @@ class OverlapPatchEmbed(nn.Module):
         # return embeddings
 class Mlp(nn.Module):
     def __init__(self, in_channel, mlp_channel,out_channel):
-        super(Mlp, self).__init__()
+        super().__init__()
         self.fc1 = nn.Linear(in_channel, mlp_channel)
         self.fc2 = nn.Linear(mlp_channel, out_channel)
         self.act_fn = nn.GELU()#nn.Hardswish(inplace=True)
@@ -85,7 +87,7 @@ class Mlp(nn.Module):
 
 class NoskipViTEncoder(nn.Module):
     def __init__(self, patchsize, img_size, in_channels,stride,kernel_size,head):
-        super(NoskipViTEncoder, self).__init__()
+        super().__init__()
         self.img_size=img_size
         self.patchembedding_l=OverlapPatchEmbed(patchsize, img_size, in_channels,in_channels,stride)
         self.patchembedding_s = OverlapPatchEmbed(patchsize, img_size, in_channels,in_channels,stride)
@@ -107,7 +109,7 @@ class NoskipViTEncoder(nn.Module):
         return x
 class M3Skip(nn.Module):
     def __init__(self, in_channels=[16,32,64]):
-        super(M3Skip, self).__init__()
+        super().__init__()
         self.convl=nn.Sequential(
             # nn.BatchNorm2d(in_channels[0]),
             # nn.GELU(),
@@ -157,7 +159,7 @@ class M3Skip(nn.Module):
 
 class M2Skip(nn.Module):
     def __init__(self, in_channels=[16,32],model_type='bottom'):#大,小
-        super(M2Skip, self).__init__()
+        super().__init__()
         self.model_type=model_type
         if self.model_type=='bottom':
             self.convl=nn.Sequential(
@@ -403,7 +405,7 @@ class PoolingAttention(nn.Module):
         return x
 class BottomTransformer(nn.Module):
     def __init__(self, patchsize, img_size, in_channels,expand_ratios,out_channel,stride,num_heads):
-        super(BottomTransformer, self).__init__()
+        super().__init__()
         self.patchembedding=OverlapPatchEmbed(patchsize, img_size, in_channels,in_channels,stride)
         self.norm1=nn.LayerNorm(in_channels)
         self.attention=GlobalAttention(in_channels,num_heads)
@@ -430,7 +432,7 @@ class BottomTransformer(nn.Module):
         return x
 class PoolTransformer(nn.Module):
     def __init__(self, patchsize, img_size, in_channels,out_channel,stride,num_heads,pool_ratios=[1, 2, 3, 6]):
-        super(PoolTransformer, self).__init__()
+        super().__init__()
         self.patchembedding=OverlapPatchEmbed(patchsize, img_size, in_channels,out_channel,stride)
         self.norm1=nn.LayerNorm(out_channel)
         self.attention=PoolingAttention(out_channel,num_heads,pool_ratios=pool_ratios)
@@ -456,7 +458,7 @@ class PoolTransformer(nn.Module):
 
 class NAT_Global_Transformer(nn.Module):
     def __init__(self, patchsize, img_size, in_channels,out_channel,stride,kernel_size=[3,5],num_heads=8,pool_ratios=[1, 2, 3, 6],sr_ratio=1):
-        super(NAT_Global_Transformer, self).__init__()
+        super().__init__()
         self.stride=stride
         self.patch_hw=img_size//stride#img_size//patchsize##
         self.patchembedding1=  OverlapPatchEmbed(3, img_size, in_channels,out_channel,1)
@@ -518,7 +520,7 @@ class NAT_Global_Transformer(nn.Module):
 
 class SkipAttention(nn.Module):
     def __init__(self, patchsize, img_size, in_channels,out_channel,stride,sr_ratio):
-        super(SkipAttention, self).__init__()
+        super().__init__()
         self.patchembedding=OverlapPatchEmbed(patchsize, img_size, in_channels,out_channel,stride)
         self.norm1=nn.LayerNorm(out_channel)
         self.attention=Attention(out_channel,8,sr_ratio=sr_ratio)
@@ -586,7 +588,7 @@ class PyramidPool(nn.Module):
 
 class NeighborhoodTransformer(nn.Module):
     def __init__(self, patchsize, img_size, in_channels,out_channel,stride,kernel_size=[3,5],num_heads=8):
-        super(NeighborhoodTransformer, self).__init__()
+        super().__init__()
         self.img_size=img_size
         self.patchembedding=  OverlapPatchEmbed(patchsize, img_size, in_channels,out_channel,stride,'nat')
         self.norm1=nn.LayerNorm(out_channel)
@@ -610,7 +612,7 @@ class NeighborhoodTransformer(nn.Module):
 class ReparamConv(nn.Module):
 
     def __init__(self, in_channels,expand_channels,out_channels, large_kernel_size,kernel_size,stride=1, groups=1,deploy=False):
-        super(ReparamConv, self).__init__()
+        super().__init__()
         self.large_kernel_size=large_kernel_size
         self.kernel_size=kernel_size
         self.in_channels=in_channels
@@ -776,7 +778,7 @@ class ReparamConv(nn.Module):
 class MobileBlock(nn.Module):
     '''expand + depthwise + pointwise'''
     def __init__(self, in_channels, expand_channels, out_channels,large_kernel_size,kernel_size,):
-        super(MobileBlock, self).__init__()
+        super().__init__()
         self.se = SE(expand_channels)
 
         self.expand_conv =nn.Sequential(nn.Conv2d(in_channels, expand_channels, kernel_size=1, stride=1, bias=False),
@@ -838,7 +840,7 @@ class SegMLP(nn.Module):
 
 class SegHead(nn.Module):
     def __init__(self,in_channels=[16,32,64,128]):
-        super(SegHead, self).__init__()
+        super().__init__()
         self.linear1 = SegMLP(input_dim=in_channels[0], embed_dim=in_channels[3])
         self.linear2 = SegMLP(input_dim=in_channels[1], embed_dim=in_channels[3])
         self.linear3 = SegMLP(input_dim=in_channels[2], embed_dim=in_channels[3])
@@ -868,7 +870,7 @@ class SegHead(nn.Module):
 
 class SoftPool(nn.Module):
     def __init__(self, kernel_size, stride, padding=0):
-        super(SoftPool,self).__init__()
+        super().__init__()
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
@@ -890,7 +892,7 @@ class SoftPool(nn.Module):
 
 class ResidualConv(nn.Module):
     def __init__(self, input_dim, output_dim, stride, padding):
-        super(ResidualConv, self).__init__()
+        super().__init__()
 
         self.conv_block = nn.Sequential(
             nn.BatchNorm2d(input_dim),
@@ -937,7 +939,7 @@ class DepthwiseConvolution(nn.Module):
 
 class DeformConv_V2(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1,dilation=1):
-        super(DeformConv_V2, self).__init__()
+        super().__init__()
         self.offset_conv = nn.Conv2d(in_channels,2 * kernel_size * kernel_size,
                                      kernel_size=kernel_size,stride=stride,
                                      padding=padding,dilation=dilation
@@ -968,7 +970,7 @@ class DeformConv_V2(nn.Module):
 
 class DeformRoIpoolV2(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1):
-        super(DeformRoIpoolV2, self).__init__()
+        super().__init__()
         self.offset_conv = nn.Conv2d(in_channels,2 * kernel_size * kernel_size,
                                      kernel_size=kernel_size,
                                      stride=stride,padding=padding,
@@ -999,7 +1001,7 @@ class DeformRoIpoolV2(nn.Module):
 
 class DeformConv(nn.Module):
     def __init__(self, input_dim, output_dim, stride=1, padding=[1,1],dilation=[1,1]):
-        super(DeformConv, self).__init__()
+        super().__init__()
 
         self.double_conv_l = nn.Sequential(
             nn.Conv2d(input_dim, output_dim, kernel_size=3,stride=stride,padding=padding[0],dilation=dilation[0]),
@@ -1047,7 +1049,7 @@ class Down(nn.Module):
 class ECA(nn.Module):
 
     def __init__(self, channel, k_size=3):
-        super(ECA, self).__init__()
+        super().__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.conv = nn.Conv1d(1, 1, kernel_size=k_size, padding=(k_size - 1) // 2, bias=False)
         self.sigmoid = nn.Sigmoid()
@@ -1068,7 +1070,7 @@ class PAM_Module(nn.Module):
     """ Position attention module"""
     #Ref from SAGAN
     def __init__(self, in_dim):
-        super(PAM_Module, self).__init__()
+        super().__init__()
         self.chanel_in = in_dim
 
         self.query_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim//8, kernel_size=1)
@@ -1102,7 +1104,7 @@ class PAM_Module(nn.Module):
 class CAM_Module(nn.Module):
     """ Channel attention module"""
     def __init__(self, in_dim):
-        super(CAM_Module, self).__init__()
+        super().__init__()
         self.chanel_in = in_dim
 
 
@@ -1134,7 +1136,7 @@ class CAM_Module(nn.Module):
 
 class SE(nn.Module):
     def __init__(self,input_channels,reduction=16):
-        super(SE,self).__init__()
+        super().__init__()
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.fc1 = nn.Conv2d(input_channels, input_channels//reduction, 1)
         self.fc2 = nn.Conv2d(input_channels//reduction, input_channels, 1)
@@ -1162,7 +1164,7 @@ class SE(nn.Module):
 
 class SPBlock(nn.Module):#Strip Pooling
     def __init__(self, inplanes, outplanes, norm_layer=None):
-        super(SPBlock, self).__init__()
+        super().__init__()
         midplanes = outplanes
         self.conv1 = nn.Conv2d(inplanes, midplanes, kernel_size=(3, 1), padding=(1, 0), bias=False)
 
@@ -1198,7 +1200,7 @@ class StripPooling(nn.Module):
     Reference:
     """
     def __init__(self, in_channels, pool_size, norm_layer, up_kwargs):
-        super(StripPooling, self).__init__()
+        super().__init__()
         self.pool1 = nn.AdaptiveAvgPool2d(pool_size[0])
         self.pool2 = nn.AdaptiveAvgPool2d(pool_size[1])
         self.pool3 = nn.AdaptiveAvgPool2d((1, None))
@@ -1248,7 +1250,7 @@ class StripPooling(nn.Module):
 
 class connectionfuse(nn.Module):
     def __init__(self, in_channels, out_channels):
-        super(connectionfuse, self).__init__()
+        super().__init__()
         self.conv = nn.Sequential(
                                 nn.Conv2d(in_channels, out_channels, 1),
                                 nn.BatchNorm2d(out_channels),
@@ -1262,7 +1264,7 @@ class connectionfuse(nn.Module):
 
 class My_ASPP(nn.Module):
     def __init__(self, in_dims, out_dims, rate=[1, 6, 12, 18]):
-        super(My_ASPP, self).__init__()
+        super().__init__()
 
         self.aspp_block1 = nn.Sequential(
             nn.Conv2d(in_dims, out_dims, 3, stride=1, padding=rate[0], dilation=rate[0]),
@@ -1317,7 +1319,7 @@ class My_ASPP(nn.Module):
 
 class Up(nn.Module):
     def __init__(self, input_decoder, output_dim):
-        super(Up, self).__init__()
+        super().__init__()
         self.conv_decoder = nn.Sequential(
             nn.ConvTranspose2d(input_decoder, output_dim, kernel_size=2, stride=2, padding=0),
             nn.BatchNorm2d(output_dim),
@@ -1329,7 +1331,7 @@ class Up(nn.Module):
 
 class Carafe_Up(nn.Module):
     def __init__(self, input_decoder, output_dim,compressed_channels=64,scale_factor=2):
-        super(Carafe_Up, self).__init__()
+        super().__init__()
         self.carafe_up = nn.Sequential(nn.BatchNorm2d(input_decoder),
                                        nn.ReLU(inplace=True),
 
@@ -1344,7 +1346,7 @@ class Carafe_Up(nn.Module):
 
 class MyAttentionBlock(nn.Module):
     def __init__(self, input_encoder, input_decoder, output_dim):
-        super(MyAttentionBlock, self).__init__()
+        super().__init__()
 
         # self.conv_encoder = nn.Sequential(
         #     nn.Conv2d(input_encoder, output_dim, 3, padding=1),
@@ -1374,7 +1376,7 @@ class MyAttentionBlock(nn.Module):
 
 class PPM(nn.Module):#PSP-Net
     def __init__(self, in_dim, reduction_dim, bins):
-        super(PPM, self).__init__()
+        super().__init__()
         self.features = []
         for bin in bins:
             self.features.append(nn.Sequential(

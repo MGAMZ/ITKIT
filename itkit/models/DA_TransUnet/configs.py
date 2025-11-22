@@ -1,5 +1,6 @@
 import ml_collections
 
+
 def get_b16_config():
     """Returns the ViT-B/16 configuration."""
     config = ml_collections.ConfigDict()

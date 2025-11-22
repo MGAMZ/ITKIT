@@ -1,6 +1,6 @@
-import os, pdb
+import os
 from collections.abc import Sequence
-from typing_extensions import Literal
+from typing import Literal
 
 import numpy as np
 from mmcv.transforms import BaseTransform
@@ -16,20 +16,20 @@ class BraTs2024_Dataset(mgam_BaseSegDataset):
         self.modality = modality
         if self.split == "test":
             self.split = "val"
-    
+
     def sample_iterator(self):
         image_folder = os.path.join(self.data_root, self.split, self.modality)
         label_folder = os.path.join(self.data_root, self.split, "label")
         images = os.listdir(image_folder)
         labels = os.listdir(label_folder)
-        
+
         for series in images:
             img_path = os.path.join(image_folder, series)
             if series in labels:
                 ann_path = os.path.join(label_folder, series)
             else:
                 ann_path = None
-            
+
             yield img_path, ann_path
 
 

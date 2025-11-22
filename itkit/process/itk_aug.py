@@ -1,9 +1,12 @@
-import os, argparse, random, pdb
+import argparse
+import os
+import random
 from collections.abc import Sequence
+from pathlib import Path
 
 import numpy as np
 import SimpleITK as sitk
-from pathlib import Path
+
 from itkit.io.sitk_toolkit import INTERPOLATOR
 from itkit.process.base_processor import SeparateFoldersProcessor
 from itkit.process.metadata_models import SeriesMetadata
@@ -43,7 +46,7 @@ class AugProcessor(SeparateFoldersProcessor):
     def random_3d_rotate(self, image: sitk.Image, label: sitk.Image, angle_ranges: Sequence[float]) -> tuple[sitk.Image, sitk.Image]:
         """
         Rotate one image-label pair.
-        
+
         Args:
             image (sitk.Image): The input image to rotate.
             label (sitk.Image): The corresponding label image to rotate.
@@ -51,15 +54,15 @@ class AugProcessor(SeparateFoldersProcessor):
                 The range of angles (in degrees) for random rotation.
                 Should contain three values corresponding to `Z, Y, X` axis.
         """
-        
-        radian_angles = [np.deg2rad(random.uniform(-angle_range, angle_range)) 
+
+        radian_angles = [np.deg2rad(random.uniform(-angle_range, angle_range))
                          for angle_range in angle_ranges][::-1]
         size = image.GetSize()
         spacing = image.GetSpacing()
         origin = image.GetOrigin()
-        center_point = [origin[i] + spacing[i] * size[i] / 2.0 
+        center_point = [origin[i] + spacing[i] * size[i] / 2.0
                         for i in range(3)]
-        
+
         transform = sitk.Euler3DTransform()
         transform.SetCenter(center_point)
         transform.SetRotation(radian_angles[0], radian_angles[1], radian_angles[2])
@@ -76,16 +79,16 @@ class AugProcessor(SeparateFoldersProcessor):
             INTERPOLATOR('label'),
             0
         )
-        
+
         return rotated_image, rotated_label
 
     def process_one(self, args: tuple[str, str]) -> list[SeriesMetadata] | None:
         img_path, lbl_path = args
-        
+
         # Paths
         filename = os.path.basename(img_path)
         basename = os.path.splitext(filename)[0]
-        
+
         # Read
         try:
             image = sitk.ReadImage(img_path)
@@ -93,7 +96,7 @@ class AugProcessor(SeparateFoldersProcessor):
         except Exception as e:
             print(f"Error reading {img_path} or {lbl_path}: {e}")
             return None
-        
+
         metadata_list = []
         # Multiple augmented samples from source sample.
         for i in range(self.aug_num):
@@ -123,7 +126,7 @@ class AugProcessor(SeparateFoldersProcessor):
                     include_classes=np.unique(sitk.GetArrayFromImage(rotated_label)).tolist()
                 )
                 metadata_list.append(lbl_meta)
-        
+
         return metadata_list if metadata_list else None
 
 
@@ -146,7 +149,7 @@ def main():
         os.makedirs(args.out_img_folder, exist_ok=True)
     if args.out_lbl_folder:
         os.makedirs(args.out_lbl_folder, exist_ok=True)
-    
+
     processor = AugProcessor(args.img_folder, args.lbl_folder, args.out_img_folder, args.out_lbl_folder, args.num, args.random_rot, args.mp, args.workers)
     processor.process()
 

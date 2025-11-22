@@ -2,7 +2,6 @@ from ..base import mgam_SemiSup_3D_Mha, mgam_SeriesPatched_Structure
 from .meta import CLASS_INDEX_MAP
 
 
-
 class LUNA16_base:
     METAINFO = dict(classes=list(CLASS_INDEX_MAP.keys()))
 

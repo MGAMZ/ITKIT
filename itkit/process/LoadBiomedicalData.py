@@ -1,20 +1,18 @@
-import pdb
-from typing_extensions import Literal, deprecated, Sequence
-
-import cv2
-import numpy as np
-import SimpleITK as sitk
-
-from mmcv.transforms import BaseTransform
-from itkit.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size
-
-
 """
 General Rule:
 Before entering the neural network,
 the channel dimension order should align with
 [Z,Y,X] or [D,H,W]
 """
+
+from typing import Literal
+
+import cv2
+import numpy as np
+import SimpleITK as sitk
+from mmcv.transforms import BaseTransform
+
+from itkit.io.sitk_toolkit import sitk_resample_to_size, sitk_resample_to_spacing
 
 
 class BaseLoadBiomedicalData(BaseTransform):
@@ -85,6 +83,8 @@ class LoadFromMHA(BaseLoadBiomedicalData):
         if self.resample_size is not None:
             mha = sitk_resample_to_size(mha, self.resample_size, field, interp_method=sitk.sitkLinear if field == "image" else None)
         # mha.GetSize(): [X, Y, Z]
+        if not isinstance(mha, sitk.Image):
+            raise TypeError(f"Error during `sitk_resample`: {mha}")
         mha_array = sitk.GetArrayFromImage(mha)  # [Z, Y, X]
         return mha_array
 
@@ -135,10 +135,10 @@ class LoadMaskFromMHA(LoadFromMHA):
             mask = self._process_mha(mask_mha, "label")
             if results.get("label_map", None) is not None:
                 mask = self._label_remap(mask, results["label_map"])
-            
+
             results["gt_seg_map"] = mask # output: [Z, Y, X]
             results["seg_fields"].append("gt_seg_map")
             if self.debug:
                 print(f"[LoadMaskMHA] `{mask_path}` shape: {mask.shape}")
-        
+
         return results

@@ -4,6 +4,7 @@ torch = pytest.importorskip("torch", reason="PyTorch not installed")
 
 from itkit.mm.mmseg_PlugIn import MonaiSegMetrics
 
+
 @pytest.mark.torch
 class TestMonaiSegMetrics:
 
@@ -138,38 +139,38 @@ class TestMonaiSegMetrics:
         # Test perfect match: pred == gt
         perfect_pred = torch.ones(4, 8, 8, dtype=torch.long)  # All class 1
         perfect_gt = torch.ones(4, 8, 8, dtype=torch.long)    # All class 1
-        
+
         perfect_data_sample = {
             'seg_logits': {'data': torch.randn(3, 4, 8, 8)},  # Dummy logits
             'pred_sem_seg': {'data': perfect_pred},
             'gt_sem_seg': {'data': perfect_gt}
         }
-        
+
         self.metric.process({}, [perfect_data_sample])
         perfect_results = self.metric.compute_metrics(self.metric.results)
-        
+
         # For perfect match, all metrics should be 100.0
         assert perfect_results['mDice'] == 100.0
         assert perfect_results['mIoU'] == 100.0
         assert perfect_results['mRecall'] == 100.0
         assert perfect_results['mPrecision'] == 100.0
-        
+
         # Reset results for worst case
         self.metric.results = []
-        
+
         # Test worst case: pred all background (0), gt all class 1
         worst_pred = torch.zeros(4, 8, 8, dtype=torch.long)  # All background
         worst_gt = torch.ones(4, 8, 8, dtype=torch.long)     # All class 1
-        
+
         worst_data_sample = {
             'seg_logits': {'data': torch.randn(3, 4, 8, 8)},  # Dummy logits
             'pred_sem_seg': {'data': worst_pred},
             'gt_sem_seg': {'data': worst_gt}
         }
-        
+
         self.metric.process({}, [worst_data_sample])
         worst_results = self.metric.compute_metrics(self.metric.results)
-        
+
         # For completely wrong predictions, all metrics should be 0.0
         assert worst_results['mDice'] == 0.0
         assert worst_results['mIoU'] == 0.0

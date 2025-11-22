@@ -1,8 +1,8 @@
 """
 Utility functions for loading, computing, and saving series_meta.json
 """
-import os
 import json
+import os
 
 
 def get_series_meta_path(folder: str) -> str:
@@ -15,5 +15,5 @@ def load_series_meta(folder: str) -> dict[str, dict] | None:
     path = get_series_meta_path(folder)
     if not os.path.exists(path):
         return None
-    with open(path, 'r') as f:
+    with open(path) as f:
         return json.load(f)

@@ -1,10 +1,7 @@
-import pdb
-
 import torch
+from mmengine.model import BaseModule
 from torch import Tensor
 from torch.nn import L1Loss, MSELoss
-
-from mmengine.model import BaseModule
 
 
 class PixelReconstructionLoss(BaseModule):
@@ -46,11 +43,11 @@ class HingeEmbeddingLoss(BaseModule):
     """
 
     def __init__(self,
-                 num_classes:int, 
+                 num_classes:int,
                  reduction='mean',
                  loss_weight=1.0,
                  pos_weight=1.0):
-        super(HingeEmbeddingLoss, self).__init__()
+        super().__init__()
         self.num_classes = num_classes
         self.reduction = reduction
         self.loss_weight = loss_weight
@@ -67,10 +64,10 @@ class HingeEmbeddingLoss(BaseModule):
         assert reduction_override in (None, 'none', 'mean', 'sum')
         reduction = (
             reduction_override if reduction_override else self.reduction)
-        
+
         label[label<0.5] = -1
         label[label>=0.5] = 1
-        
+
         loss_cls = self.loss(cls_score, label)
         if reduction == 'sum':
             loss_cls = loss_cls.sum()
@@ -80,5 +77,5 @@ class HingeEmbeddingLoss(BaseModule):
             pass
         else:
             raise ValueError(f"Invalid reduction: {self.reduction}")
-        
+
         return self.loss_weight * loss_cls

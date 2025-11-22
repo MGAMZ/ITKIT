@@ -1,6 +1,7 @@
 import os
 import shlex
 from dataclasses import dataclass
+
 from PyQt6 import QtCore
 
 

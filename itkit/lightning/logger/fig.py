@@ -1,10 +1,9 @@
 import os
-from typing_extensions import override
+from typing import override
 
+from matplotlib.figure import Figure
 from pytorch_lightning.loggers import Logger
 from pytorch_lightning.utilities.rank_zero import rank_zero_only
-from matplotlib.figure import Figure
-
 
 
 class FigureLogger(Logger):
@@ -55,4 +54,3 @@ class FigureLogger(Logger):
 
     def log_hyperparams(self, params, *args, **kwargs) -> None:
         ...
-

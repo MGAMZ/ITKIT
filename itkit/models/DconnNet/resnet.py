@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
 """
 Created on Wed Apr 10 09:57:49 2019
 
 @author: Fsl
 """
 
-import torch.nn as nn
 import math
+
+import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
@@ -32,7 +32,7 @@ class BasicBlock(nn.Module):
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
-        super(BasicBlock, self).__init__()
+        super().__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
         self.relu = nn.ReLU(inplace=True)
@@ -64,7 +64,7 @@ class Bottleneck(nn.Module):
     expansion = 4
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
-        super(Bottleneck, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
@@ -103,8 +103,8 @@ class ResNet(nn.Module):
 
     def __init__(self, block, layers, num_classes=1000,deep_base=False,stem_width=32, in_chans=3,):
         self.inplanes = stem_width*2 if deep_base else 64
-        
-        super(ResNet, self).__init__()
+
+        super().__init__()
         if deep_base:
             self.conv1= nn.Sequential(
                 nn.Conv2d(in_chans, stem_width, kernel_size=3, stride=2, padding=1, bias=False),
@@ -118,7 +118,7 @@ class ResNet(nn.Module):
         else:
             self.conv1 = nn.Conv2d(in_chans, 64, kernel_size=7, stride=2, padding=3,
                                    bias=False)
-        
+
         self.bn1 = nn.BatchNorm2d(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
