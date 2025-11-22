@@ -290,8 +290,6 @@ class mgam_SeriesPatched_Structure(mgam_SeriesVolume):
                     print_log(f"Image folder not found: {image_folder}", MMLogger.get_current_instance(), logging.WARN)
                     continue
 
-                # all_image_files = [f for f in os.listdir(image_folder) if f.endswith('.mha')]
-                # series_image_files = [f for f in all_image_files if f.startswith(series + '_')]
                 if series not in self.precrop_meta["patch_meta"]:
                     print_log(f"Series {series} not found in patch metadata", MMLogger.get_current_instance(), logging.WARN)
                     continue
