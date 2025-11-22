@@ -187,15 +187,17 @@ class ResampleProcessor(DatasetProcessor, _ResampleMixin):
                  workers: int | None = None,
                  target_folder: str | None = None):
         super().__init__(source_folder, dest_folder, mp=mp, workers=workers)
-        self.target_spacing = target_spacing
-        self.target_size = target_size
-        self.target_folder = target_folder
         
         # Determine resampling mode based on parameters
         if target_folder is not None:
             self.resampling_mode = ResamplingMode.TARGET_IMAGE
+            self.target_folder = target_folder
         else:
             self.resampling_mode = ResamplingMode.SPACING_SIZE
+            assert target_spacing is not None and target_size is not None, \
+                "target_spacing and target_size must be provided for SPACING_SIZE mode."
+            self.target_size = target_size
+            self.target_spacing = target_spacing
 
     def _get_target_path(self, input_path: str, field: Literal['image', 'label']) -> str | None:
         assert self.resampling_mode == ResamplingMode.TARGET_IMAGE, "Target path requested in non-target-image mode."
@@ -255,17 +257,20 @@ class SingleResampleProcessor(SingleFolderProcessor, _ResampleMixin):
                  workers: int | None = None,
                  target_folder: str | None = None):
         super().__init__(source_folder, dest_folder, mp=mp, workers=workers, recursive=recursive)
-        self.target_spacing = target_spacing
-        self.target_size = target_size
+        
         self.field = field
-        self.target_folder = target_folder
         self.dest_folder: str
         
         # Determine resampling mode based on parameters
         if target_folder is not None:
             self.resampling_mode = ResamplingMode.TARGET_IMAGE
+            self.target_folder = target_folder
         else:
             self.resampling_mode = ResamplingMode.SPACING_SIZE
+            assert target_spacing is not None and target_size is not None, \
+                "target_spacing and target_size must be provided for SPACING_SIZE mode."
+            self.target_spacing = target_spacing
+            self.target_size = target_size
 
     def _get_target_path(self, input_path: str, field: Literal['image', 'label']) -> str | None:
         assert self.resampling_mode == ResamplingMode.TARGET_IMAGE, "Target path requested in non-target-image mode."
@@ -281,11 +286,12 @@ class SingleResampleProcessor(SingleFolderProcessor, _ResampleMixin):
         
         return target_path
     
-    def process_one(self, file_path: str):
+    def process_one(self, args: str):
         """Process a single file.
         
         Skips if output file already exists.
         """
+        file_path = args
         if self.recursive:
             rel_path = os.path.relpath(file_path, self.source_folder)
             output_path = os.path.join(self.dest_folder, rel_path)

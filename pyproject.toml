@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "itkit"
-version = "3.4.0"
+version = "3.4.1"
 requires-python = ">= 3.10"
 description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API"
 readme = "readme.md"
@@ -101,7 +101,8 @@ where = ["."]
 include = ["itkit*"]
 
 [tool.mypy]
-python_version = "3.13"
+files = ["itkit/process"]
+python_version = "3.14"
 ignore_missing_imports = true
 report_deprecated_as_note = true
 warn_redundant_casts = true
@@ -112,7 +113,7 @@ no_warn_no_return = true
 allow_redefinition = true
 
 [tool.pyright]
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 include = ["itkit/process"]
 exclude = [
   "**/__pycache__/**",

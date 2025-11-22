@@ -10,16 +10,6 @@ from itkit.process.base_processor import DatasetProcessor
 from itkit.process.metadata_models import SeriesMetadata
 
 
-class ProcessOneResult(BaseModel):
-    """Result from processing one image-label pair.
-    
-    Contains both the patch-level metadata (for meta.json) and 
-    source-level metadata (for crop_meta.json).
-    """
-    patch_metadata_list: list[SeriesMetadata] = Field(default_factory=list, description="Metadata for each extracted patch")
-    source_metadata: 'PatchMetadata' = Field(..., description="Metadata about the source series")
-
-
 class PatchMetadata(BaseModel):
     """Metadata for a single source series that was patched."""
     series_id: str = Field(..., description="Source series identifier")
@@ -27,6 +17,16 @@ class PatchMetadata(BaseModel):
     num_patches: int = Field(..., description="Number of patches extracted")
     anno_available: bool = Field(True, description="Whether annotations are available")
     class_within_patch: dict[str, list[int]] = Field(default_factory=dict, description="Mapping patch filename to unique classes")
+
+
+class ProcessOneResult(BaseModel):
+    """Result from processing one image-label pair.
+    
+    Contains both the patch-level metadata (for meta.json) and 
+    source-level metadata (for crop_meta.json).
+    """
+    patch_metadata_list: list[SeriesMetadata] = Field(default_factory=list, description="Metadata for each extracted patch")
+    source_metadata: PatchMetadata = Field(..., description="Metadata about the source series")
 
 
 class CropMetadata(BaseModel):
@@ -181,26 +181,27 @@ class PatchProcessor(DatasetProcessor):
                         img_patch.SetOrigin(new_origin)
                         img_patch.SetSpacing(spacing)
                         img_patch.SetDirection(direction)
-                        
-                        if label is None:
-                            lbl_patch = None
-                        else:
-                            assert lbl_patch_np is not None
-                            lbl_patch = sitk.GetImageFromArray(lbl_patch_np)
-                            lbl_patch.SetOrigin(new_origin)
-                            lbl_patch.SetSpacing(spacing)
-                            lbl_patch.SetDirection(direction)
-                        
                         assert (img_patch_size := img_patch.GetSize()[::-1]) == (pZ, pY, pX), (
                             f"Unexpected image patch shape: {img_patch_size}, expected {(pZ, pY, pX)}. "
                             f"Current Patch origin pixel z:{z}, y:{y}, x:{x}, Series image size: {img_arr.shape}"
                         )
-                        assert lbl_patch_np is None or (lbl_patch_size := lbl_patch.GetSize()[::-1]) == (pZ, pY, pX), (
-                            f"Unexpected label patch shape: {lbl_patch_size}, expected {(pZ, pY, pX)}"
-                            f"Current Patch origin pixel z:{z}, y:{y}, x:{x}, Series label size: {lbl_arr.shape}"
-                        )
-                        
+
+                        if label is None:
+                            lbl_patch = None
+                        else:
+                            assert lbl_patch_np is not None
+                            assert lbl_arr is not None
+                            lbl_patch = sitk.GetImageFromArray(lbl_patch_np)
+                            lbl_patch.SetOrigin(new_origin)
+                            lbl_patch.SetSpacing(spacing)
+                            lbl_patch.SetDirection(direction)
+                            assert lbl_patch_np is None or (lbl_patch_size := lbl_patch.GetSize()[::-1]) == (pZ, pY, pX), (
+                                f"Unexpected label patch shape: {lbl_patch_size}, expected {(pZ, pY, pX)}"
+                                f"Current Patch origin pixel z:{z}, y:{y}, x:{x}, Series label size: {lbl_arr.shape}"
+                            )
+
                         patches.append((img_patch, lbl_patch))
+
         return patches
 
     def process_one(self, args: tuple[str, str]) -> ProcessOneResult | None:

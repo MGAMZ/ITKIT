@@ -23,9 +23,9 @@ class ExtractProcessor(SingleFolderProcessor):
         self.dest_folder: str
         self.label_mapping = label_mapping
     
-    def process_one(self, file_path: str) -> SeriesMetadata | None:
-        """Process one file"""
-        # Determine output path  
+    def process_one(self, args: str) -> SeriesMetadata | None:
+        # Determine output path
+        file_path = args
         if self.recursive:
             rel_path = os.path.relpath(file_path, self.source_folder)
             output_path = os.path.join(self.dest_folder, rel_path)

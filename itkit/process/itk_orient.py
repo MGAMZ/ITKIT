@@ -20,7 +20,8 @@ class OrientProcessor(SingleFolderProcessor):
         self.orient = orient
         self.field = field
 
-    def process_one(self, file_path: str) -> SeriesMetadata | None:
+    def process_one(self, args: str) -> SeriesMetadata | None:
+        file_path = args
         rel_path = os.path.relpath(file_path, self.source_folder)
         dst_path = os.path.join(self.dest_folder, rel_path)
         

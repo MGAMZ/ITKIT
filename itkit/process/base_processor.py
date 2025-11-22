@@ -4,6 +4,7 @@ from abc import abstractmethod
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 from pathlib import Path
+from typing import Any
 
 from .metadata_models import MetadataManager, SeriesMetadata
 
@@ -156,7 +157,7 @@ class BaseITKProcessor:
         """
 
     @abstractmethod
-    def process_one(self, args) -> list[SeriesMetadata] | SeriesMetadata | None:
+    def process_one(self, args) -> list[SeriesMetadata] | SeriesMetadata | Any | None:
         """
         Abstract method to process a single item.
 
