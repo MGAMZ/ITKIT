@@ -18,10 +18,10 @@ class TCGA_MetaParser:
     def get_series_info(self, series_uid:str):
         # Get all information for the given Series UID
         return self.df[self.df[self.META_SERIESUID_ATTR] == series_uid]
-    
+
     def get_series_uids(self, attr:str, val) -> str:
         # Get all Series UID based on the given attribute and value
-        
+
         result = self.df[self.df[attr] == val][self.META_SERIESUID_ATTR].values
         if len(result) == 0 or result[0] > 1:
             print(Fore.YELLOW, f"Series UID not found for {attr}={val}", Style.RESET_ALL)
@@ -59,9 +59,9 @@ class TCGA_Formatter(StandardFileFormatter):
             if not os.path.exists(dcms_folder):
                 print(Fore.YELLOW, f"Folder not found: {dcms_folder}", Style.RESET_ALL)
                 continue
-            
-            dcm_files = [os.path.join(dcms_folder, f) 
-                         for f in os.listdir(dcms_folder) 
+
+            dcm_files = [os.path.join(dcms_folder, f)
+                         for f in os.listdir(dcms_folder)
                          if f.lower().endswith(".dcm")]
 
             # dcm files

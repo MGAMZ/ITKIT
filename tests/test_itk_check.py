@@ -34,11 +34,11 @@ def setup_dataset_test_data(tmpdir, image_specs):
     lbl_dir = os.path.join(tmpdir, 'label')
     os.makedirs(img_dir)
     os.makedirs(lbl_dir)
-    
+
     for name, size, spacing in image_specs:
         create_test_image(os.path.join(img_dir, f'{name}.mha'), size, spacing)
         create_test_image(os.path.join(lbl_dir, f'{name}.mha'), size, spacing)
-    
+
     return img_dir, lbl_dir
 
 
@@ -82,13 +82,13 @@ class TestCheckProcessor:
                 ('invalid_spacing', (64, 128, 128), (5.0, 0.5, 0.5)),
             ]
             setup_dataset_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(min_size=[50, 100, 100], max_spacing=[2.0, 1.0, 1.0])
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             valid_items = self._get_valid_items(processor)
             invalid_items = self._get_invalid_items(processor)
-            
+
             assert len(valid_items) == 2
             assert len(invalid_items) == 2
             assert os.path.exists(os.path.join(tmpdir, 'series_meta.json'))
@@ -102,13 +102,13 @@ class TestCheckProcessor:
                 ('invalid1', (32, 64, 64), (1.0, 0.5, 0.5)),
             ]
             setup_single_folder_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(min_size=[50, 100, 100])
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             valid_items = self._get_valid_items(processor)
             invalid_items = self._get_invalid_items(processor)
-            
+
             assert len(valid_items) == 2
             assert len(invalid_items) == 1
             assert os.path.exists(os.path.join(tmpdir, 'series_meta.json'))
@@ -121,19 +121,19 @@ class TestCheckProcessor:
                 ('test2', (32, 64, 64), (1.0, 0.5, 0.5)),
             ]
             setup_dataset_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(min_size=[50, 100, 100])
-            
+
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             assert os.path.exists(meta_path)
-            
+
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             valid_items = self._get_valid_items(processor2)
             invalid_items = self._get_invalid_items(processor2)
-            
+
             assert len(valid_items) == 1
             assert len(invalid_items) == 1
 
@@ -145,10 +145,10 @@ class TestCheckProcessor:
                 ('invalid', (32, 64, 64), (1.0, 0.5, 0.5)),
             ]
             setup_dataset_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(min_size=[50, 100, 100])
             run_check_processor(tmpdir, cfg, mode='delete', mp=False)
-            
+
             assert os.path.exists(os.path.join(tmpdir, 'image', 'valid.mha'))
             assert os.path.exists(os.path.join(tmpdir, 'label', 'valid.mha'))
             assert not os.path.exists(os.path.join(tmpdir, 'image', 'invalid.mha'))
@@ -161,16 +161,16 @@ class TestCheckProcessor:
             if mode_type == "dataset":
                 src_dir = os.path.join(tmpdir, 'source')
                 out_dir = os.path.join(tmpdir, 'output')
-                
+
                 image_specs = [
                     ('valid', (64, 128, 128), (1.0, 0.5, 0.5)),
                     ('invalid', (32, 64, 64), (1.0, 0.5, 0.5)),
                 ]
                 setup_dataset_test_data(src_dir, image_specs)
-                
+
                 cfg = create_default_cfg(min_size=[50, 100, 100])
                 run_check_processor(src_dir, cfg, mode='copy', output_dir=out_dir, mp=False)
-                
+
                 assert os.path.exists(os.path.join(out_dir, 'image', 'valid.mha'))
                 assert os.path.exists(os.path.join(out_dir, 'label', 'valid.mha'))
                 assert not os.path.exists(os.path.join(out_dir, 'image', 'invalid.mha'))
@@ -178,16 +178,16 @@ class TestCheckProcessor:
                 src_dir = os.path.join(tmpdir, 'source')
                 out_dir = os.path.join(tmpdir, 'output')
                 os.makedirs(src_dir)
-                
+
                 image_specs = [
                     ('valid', (64, 128, 128), (1.0, 0.5, 0.5)),
                     ('invalid', (32, 64, 64), (1.0, 0.5, 0.5)),
                 ]
                 setup_single_folder_test_data(src_dir, image_specs)
-                
+
                 cfg = create_default_cfg(min_size=[50, 100, 100])
                 run_check_processor(src_dir, cfg, mode='copy', output_dir=out_dir, mp=False)
-                
+
                 assert os.path.exists(os.path.join(out_dir, 'valid.mha'))
                 assert not os.path.exists(os.path.join(out_dir, 'invalid.mha'))
 
@@ -198,16 +198,16 @@ class TestCheckProcessor:
             if mode_type == "dataset":
                 src_dir = os.path.join(tmpdir, 'source')
                 out_dir = os.path.join(tmpdir, 'output')
-                
+
                 image_specs = [
                     ('valid', (64, 128, 128), (1.0, 0.5, 0.5)),
                     ('invalid', (32, 64, 64), (1.0, 0.5, 0.5)),
                 ]
                 setup_dataset_test_data(src_dir, image_specs)
-                
+
                 cfg = create_default_cfg(min_size=[50, 100, 100])
                 run_check_processor(src_dir, cfg, mode='symlink', output_dir=out_dir, mp=False)
-                
+
                 valid_img = os.path.join(src_dir, 'image', 'valid.mha')
                 valid_lbl = os.path.join(src_dir, 'label', 'valid.mha')
                 out_img_link = os.path.join(out_dir, 'image', 'valid.mha')
@@ -220,16 +220,16 @@ class TestCheckProcessor:
                 src_dir = os.path.join(tmpdir, 'source')
                 out_dir = os.path.join(tmpdir, 'output')
                 os.makedirs(src_dir)
-                
+
                 image_specs = [
                     ('valid', (64, 128, 128), (1.0, 0.5, 0.5)),
                     ('invalid', (32, 64, 64), (1.0, 0.5, 0.5)),
                 ]
                 setup_single_folder_test_data(src_dir, image_specs)
-                
+
                 cfg = create_default_cfg(min_size=[50, 100, 100])
                 run_check_processor(src_dir, cfg, mode='symlink', output_dir=out_dir, mp=False)
-                
+
                 valid_path = os.path.join(src_dir, 'valid.mha')
                 out_link = os.path.join(out_dir, 'valid.mha')
                 assert os.path.islink(out_link)
@@ -240,11 +240,11 @@ class TestCheckProcessor:
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [('test', (64, 128, 128), (1.0, 0.5, 0.5))]
             setup_single_folder_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(same_spacing=(1, 2))
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             assert len(self._get_valid_items(processor)) == 1
-            
+
             cfg = create_default_cfg(same_size=(1, 2))
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
             assert len(self._get_valid_items(processor)) == 1
@@ -254,16 +254,16 @@ class TestCheckProcessor:
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [('test1', (64, 128, 128), (1.0, 0.5, 0.5))]
             setup_dataset_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg()
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             assert os.path.exists(meta_path)
-            
+
             with open(meta_path, 'r') as f:
                 meta = json.load(f)
-            
+
             assert 'test1.mha' in meta
             assert 'size' in meta['test1.mha']
             assert 'spacing' in meta['test1.mha']
@@ -279,7 +279,7 @@ class TestCheckProcessor:
             img.SetOrigin([0.1, 0.2, 0.3])
             img_path = os.path.join(tmpdir, 'test_image.mha')
             sitk.WriteImage(img, img_path)
-            
+
             # Create test label
             lbl_arr = np.zeros((10, 20, 30), dtype=np.uint8)
             lbl_arr[2:5, 5:10, 10:15] = 1
@@ -289,45 +289,45 @@ class TestCheckProcessor:
             lbl.SetOrigin([0.1, 0.2, 0.3])
             lbl_path = os.path.join(tmpdir, 'test_label.mha')
             sitk.WriteImage(lbl, lbl_path)
-            
+
             # Generate metadata
             from itkit.process.metadata_models import MetadataManager, SeriesMetadata
             img_meta = SeriesMetadata.from_sitk_image(img, 'test_image.mha')
             lbl_meta = SeriesMetadata.from_sitk_image(lbl, 'test_label.mha')
-            
+
             # Verify image metadata
             assert img_meta.name == 'test_image.mha'
             assert img_meta.spacing == (2.5, 2.0, 1.5)  # ZYX order
             assert img_meta.size == (10, 20, 30)  # ZYX order
             assert img_meta.origin == (0.3, 0.2, 0.1)  # ZYX order
             assert img_meta.include_classes is None
-            
+
             # Verify label metadata
             assert lbl_meta.name == 'test_label.mha'
             assert lbl_meta.spacing == (2.5, 2.0, 1.5)
             assert lbl_meta.size == (10, 20, 30)
             assert lbl_meta.origin == (0.3, 0.2, 0.1)
             assert set(lbl_meta.include_classes) == {0, 1, 2}
-            
+
             # Test validation
             assert img_meta.validate_itk_image(img)
             assert lbl_meta.validate_itk_image(lbl)
-            
+
             # Save and reload
             manager = MetadataManager()
             manager.update(img_meta)
             manager.update(lbl_meta)
             meta_path = os.path.join(tmpdir, 'meta.json')
             manager.save(meta_path)
-            
+
             loaded_manager = MetadataManager(meta_path)
             loaded_img_meta = loaded_manager.meta['test_image.mha']
             loaded_lbl_meta = loaded_manager.meta['test_label.mha']
-            
+
             # Verify loaded metadata matches
             assert loaded_img_meta == img_meta
             assert loaded_lbl_meta == lbl_meta
-            
+
             # Verify validation still works after reload
             assert loaded_img_meta.validate_itk_image(img)
             assert loaded_lbl_meta.validate_itk_image(lbl)
@@ -340,13 +340,13 @@ class TestCheckProcessor:
                 ('invalid', (100, 128, 128), (1.0, 0.5, 0.5)),
             ]
             setup_single_folder_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(max_size=[80, 150, 150])
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             valid_items = self._get_valid_items(processor)
             invalid_items = self._get_invalid_items(processor)
-            
+
             assert len(valid_items) == 1
             assert len(invalid_items) == 1
 
@@ -358,13 +358,13 @@ class TestCheckProcessor:
                 ('invalid', (64, 128, 128), (0.1, 0.5, 0.5)),
             ]
             setup_single_folder_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(min_spacing=[0.5, 0.5, 0.5])
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             valid_items = self._get_valid_items(processor)
             invalid_items = self._get_invalid_items(processor)
-            
+
             assert len(valid_items) == 1
             assert len(invalid_items) == 1
 
@@ -376,40 +376,40 @@ class TestCheckProcessor:
                 ('sample2', (32, 64, 64), (1.0, 0.5, 0.5)),
             ]
             setup_dataset_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(min_size=[50, 100, 100])
-            
+
             # First check: generate series_meta.json
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             valid_items1 = self._get_valid_items(processor1)
             invalid_items1 = self._get_invalid_items(processor1)
-            
+
             # Verify initial results: sample1 valid, sample2 invalid
             assert len(valid_items1) == 1
             assert len(invalid_items1) == 1
             assert valid_items1[0].name == 'sample1.mha'
             assert invalid_items1[0].name == 'sample2.mha'
-            
+
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             assert os.path.exists(meta_path)
-            
+
             # Corrupt series_meta.json: change sample2's size to look valid
             with open(meta_path, 'r') as f:
                 meta = json.load(f)
-            
+
             # Artificially inflate sample2's size to pass validation
             meta['sample2.mha']['size'] = [64, 128, 128]
-            
+
             with open(meta_path, 'w') as f:
                 json.dump(meta, f)
-            
+
             # Second check: with corrupted metadata
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             valid_items2 = self._get_valid_items(processor2)
             invalid_items2 = self._get_invalid_items(processor2)
-            
+
             # Verify that fast check is mislead by corrupted metadata
             # Now it thinks sample2 is valid based on corrupted meta
             assert len(valid_items2) == 2
@@ -423,46 +423,46 @@ class TestCheckProcessor:
             # size=(64, 128, 128) ZYX, spacing=(5.0, 0.5, 0.5) ZYX
             image_specs = [('test1', (64, 128, 128), (5.0, 0.5, 0.5))]
             setup_dataset_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(max_spacing=[2.0, 1.0, 1.0])  # [Z_max, Y_max, X_max]
-            
+
             # First check: should be invalid due to high Z spacing (5.0 > 2.0)
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             invalid_items1 = self._get_invalid_items(processor1)
-            
+
             # Verify first check correctly identified invalid sample
             assert len(invalid_items1) == 1, f"Expected 1 invalid, got {len(invalid_items1)}"
             assert 'spacing' in invalid_items1[0].reasons[0], f"Expected spacing error, got {invalid_items1[0].reasons}"
-            
+
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             assert os.path.exists(meta_path), "series_meta.json should be created"
-            
+
             # Corrupt metadata to hide the high Z spacing
             with open(meta_path, 'r') as f:
                 meta = json.load(f)
-            
+
             print(f"Original metadata: {meta['test1.mha']}")
             # Change Z spacing from 5.0 to 1.0 to make it appear valid
             meta['test1.mha']['spacing'][0] = 1.0  # Lie about Z spacing
-            
+
             with open(meta_path, 'w') as f:
                 json.dump(meta, f)
-            
+
             print(f"Corrupted metadata: {meta['test1.mha']}")
-            
+
             # Second check: fast path should use corrupted metadata and be fooled
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             valid_items2 = self._get_valid_items(processor2)
             invalid_items2 = self._get_invalid_items(processor2)
-            
+
             # Now fast check thinks it's valid based on corrupted metadata
             assert len(valid_items2) == 1, \
                 f"Expected 1 valid based on corrupted meta, got {len(valid_items2)}"
             assert len(invalid_items2) == 0, \
                 f"Expected 0 invalid based on corrupted meta, got {len(invalid_items2)}"
-            
+
             # Demonstrate the vulnerability: real file still has spacing[0]=5.0
             # but fast check ignored it and trusted corrupted metadata
             img = sitk.ReadImage(os.path.join(tmpdir, 'image', 'test1.mha'))
@@ -477,28 +477,28 @@ class TestCheckProcessor:
                 ('sample2', (80, 128, 128), (1.0, 0.5, 0.5)),
             ]
             setup_dataset_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg()
-            
+
             # First check: generate metadata
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             assert len(self._get_valid_items(processor1)) == 2
-            
+
             meta_path = os.path.join(tmpdir, 'series_meta.json')
-            
+
             # Remove sample2 from metadata
             with open(meta_path, 'r') as f:
                 meta = json.load(f)
-            
+
             del meta['sample2.mha']
-            
+
             with open(meta_path, 'w') as f:
                 json.dump(meta, f)
-            
+
             # Second check: only processes sample1 due to missing entry
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             # Only sample1 is in valid_items (sample2 skipped due to missing metadata)
             valid_items2 = self._get_valid_items(processor2)
             assert len(valid_items2) == 1
@@ -512,30 +512,30 @@ class TestCheckProcessor:
                 ('img2', (40, 80, 80), (1.0, 0.5, 0.5)),
             ]
             setup_dataset_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(min_size=[50, 100, 100])
-            
+
             # First check: both should be invalid
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             assert len(self._get_invalid_items(processor1)) == 2
             assert len(self._get_valid_items(processor1)) == 0
-            
+
             meta_path = os.path.join(tmpdir, 'series_meta.json')
-            
+
             # Corrupt all entries to appear valid
             with open(meta_path, 'r') as f:
                 meta = json.load(f)
-            
+
             for key in meta:
                 meta[key]['size'] = [100, 128, 128]  # Make all look valid
-            
+
             with open(meta_path, 'w') as f:
                 json.dump(meta, f)
-            
+
             # Second check: all appear valid due to corruption
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             assert len(self._get_valid_items(processor2)) == 2
             assert len(self._get_invalid_items(processor2)) == 0
 
@@ -547,33 +547,33 @@ class TestCheckProcessor:
                 ('img2', (30, 50, 50), (1.0, 0.5, 0.5)),
             ]
             setup_single_folder_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(min_size=[50, 100, 100])
-            
+
             # First check
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             valid_items1 = self._get_valid_items(processor1)
             invalid_items1 = self._get_invalid_items(processor1)
-            
+
             assert len(valid_items1) == 1
             assert len(invalid_items1) == 1
             assert invalid_items1[0].name == 'img2.mha'
-            
+
             meta_path = os.path.join(tmpdir, 'series_meta.json')
-            
+
             # Corrupt metadata
             with open(meta_path, 'r') as f:
                 meta = json.load(f)
-            
+
             meta['img2.mha']['size'] = [100, 128, 128]
-            
+
             with open(meta_path, 'w') as f:
                 json.dump(meta, f)
-            
+
             # Second check with corrupted metadata
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             assert len(self._get_valid_items(processor2)) == 2
             assert len(self._get_invalid_items(processor2)) == 0
 
@@ -582,10 +582,10 @@ class TestCheckProcessor:
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [(f'img{i}', (64, 128, 128), (1.0, 0.5, 0.5)) for i in range(10)]
             setup_dataset_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(min_size=[50, 50, 50])
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False, workers=2)
-            
+
             assert len(self._get_valid_items(processor)) == 10
             assert len(self._get_invalid_items(processor)) == 0
 
@@ -594,12 +594,12 @@ class TestCheckProcessor:
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [('test', (64, 128, 128), (1.0, 0.5, 0.3))]
             setup_single_folder_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(same_spacing=(1, 2))  # Y and X should be same, but 0.5 != 0.3
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             invalid_items = self._get_invalid_items(processor)
-            
+
             assert len(self._get_valid_items(processor)) == 0
             assert len(invalid_items) == 1
             assert 'differ' in invalid_items[0].reasons[0]
@@ -609,12 +609,12 @@ class TestCheckProcessor:
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [('test', (64, 128, 64), (1.0, 0.5, 0.5))]
             setup_single_folder_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(same_size=(0, 1))  # Z and Y: 64 != 128
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             invalid_items = self._get_invalid_items(processor)
-            
+
             assert len(self._get_valid_items(processor)) == 0
             assert len(invalid_items) == 1
             assert 'differ' in invalid_items[0].reasons[0]
@@ -625,12 +625,12 @@ class TestCheckProcessor:
             corrupted_path = os.path.join(tmpdir, 'corrupted.mha')
             with open(corrupted_path, 'w') as f:
                 f.write("not an image")
-            
+
             cfg = create_default_cfg()
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             invalid_items = self._get_invalid_items(processor)
-            
+
             assert len(self._get_valid_items(processor)) == 0
             assert len(invalid_items) == 1
             assert 'Failed to read' in invalid_items[0].reasons[0]
@@ -640,10 +640,10 @@ class TestCheckProcessor:
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [('test', (32, 128, 128), (1.0, 0.5, 0.5))]
             setup_single_folder_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg(min_size=[-1, 100, 100])  # Skip Z min_size
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             assert len(self._get_valid_items(processor)) == 1  # Z=32 <50 but skipped, Y,X ok
 
     def test_empty_series_meta_json(self):
@@ -651,15 +651,15 @@ class TestCheckProcessor:
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [('test', (64, 128, 128), (1.0, 0.5, 0.5))]
             setup_dataset_test_data(tmpdir, image_specs)
-            
+
             # Create empty meta
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             with open(meta_path, 'w') as f:
                 json.dump({}, f)
-            
+
             cfg = create_default_cfg(min_size=[50, 50, 50])
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             # Empty meta means no cached data, so no valid items from fast check
             assert len(self._get_valid_items(processor)) == 0
             assert len(self._get_invalid_items(processor)) == 0
@@ -669,15 +669,15 @@ class TestCheckProcessor:
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [('test', (64, 128, 128), (1.0, 0.5, 0.5))]
             setup_dataset_test_data(tmpdir, image_specs)
-            
+
             # Create invalid JSON
             meta_path = os.path.join(tmpdir, 'series_meta.json')
             with open(meta_path, 'w') as f:
                 f.write("invalid json")
-            
+
             cfg = create_default_cfg(min_size=[50, 50, 50])
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
-            
+
             # Should remove corrupted meta and perform full check
             assert len(self._get_valid_items(processor)) == 1
             assert len(self._get_invalid_items(processor)) == 0
@@ -689,7 +689,7 @@ class TestCheckProcessor:
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [('test', (64, 128, 128), (1.0, 0.5, 0.5))]
             setup_single_folder_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg()
             processor = CheckProcessor(tmpdir, cfg, 'copy', mp=False)
             # In code, it prints error and returns, so no exception, but for test, check that no operation happens
@@ -703,7 +703,7 @@ class TestCheckProcessor:
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [('test', (64, 128, 128), (1.0, 0.5, 0.5))]
             setup_single_folder_test_data(tmpdir, image_specs)
-            
+
             cfg = create_default_cfg()
             processor = CheckProcessor(tmpdir, cfg, 'symlink', mp=False)
             processor.process()  # Should print error and not crash

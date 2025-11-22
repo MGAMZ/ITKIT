@@ -15,7 +15,7 @@ class mgam_Standard_2D(mgam_BaseSegDataset):
         self.suffix = "." + suffix
         super().__init__(*args, **kwargs)
         self.data_root: str
-        
+
 
     def _split(self):
         all_series = [

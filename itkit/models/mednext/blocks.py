@@ -5,11 +5,11 @@ import torch.nn.functional as F
 
 class MedNeXtBlock(nn.Module):
 
-    def __init__(self, 
-                in_channels:int, 
-                out_channels:int, 
-                exp_r:int=4, 
-                kernel_size:int=7, 
+    def __init__(self,
+                in_channels:int,
+                out_channels:int,
+                exp_r:int=4,
+                kernel_size:int=7,
                 do_res:int=True,
                 norm_type:str = 'group',
                 n_groups:int or None = None,
@@ -27,7 +27,7 @@ class MedNeXtBlock(nn.Module):
             conv = nn.Conv2d
         elif self.dim == '3d':
             conv = nn.Conv3d
-            
+
         # First convolution layer with DepthWise Convolutions
         self.conv1 = conv(
             in_channels = in_channels,
@@ -41,12 +41,12 @@ class MedNeXtBlock(nn.Module):
         # Normalization Layer. GroupNorm is used by default.
         if norm_type=='group':
             self.norm = nn.GroupNorm(
-                num_groups=in_channels, 
+                num_groups=in_channels,
                 num_channels=in_channels
                 )
         elif norm_type=='layer':
             self.norm = LayerNorm(
-                normalized_shape=in_channels, 
+                normalized_shape=in_channels,
                 data_format='channels_first'
                 )
 
@@ -58,10 +58,10 @@ class MedNeXtBlock(nn.Module):
             stride = 1,
             padding = 0
         )
-        
+
         # GeLU activations
         self.act = nn.GELU()
-        
+
         # Third convolution (Compression) layer with Conv3D 1x1x1
         self.conv3 = conv(
             in_channels = exp_r*in_channels,
@@ -80,9 +80,9 @@ class MedNeXtBlock(nn.Module):
                 self.grn_beta = nn.Parameter(torch.zeros(1,exp_r*in_channels,1,1), requires_grad=True)
                 self.grn_gamma = nn.Parameter(torch.zeros(1,exp_r*in_channels,1,1), requires_grad=True)
 
- 
+
     def forward(self, x, dummy_tensor=None):
-        
+
         x1 = x
         x1 = self.conv1(x1)
         x1 = self.act(self.conv2(self.norm(x1)))
@@ -97,16 +97,16 @@ class MedNeXtBlock(nn.Module):
             x1 = self.grn_gamma * (x1 * nx) + self.grn_beta + x1
         x1 = self.conv3(x1)
         if self.do_res:
-            x1 = x + x1  
+            x1 = x + x1
         return x1
 
 
 class MedNeXtDownBlock(MedNeXtBlock):
 
-    def __init__(self, in_channels, out_channels, exp_r=4, kernel_size=7, 
+    def __init__(self, in_channels, out_channels, exp_r=4, kernel_size=7,
                 do_res=False, norm_type = 'group', dim='3d', grn=False):
 
-        super().__init__(in_channels, out_channels, exp_r, kernel_size, 
+        super().__init__(in_channels, out_channels, exp_r, kernel_size,
                         do_res = False, norm_type = norm_type, dim=dim,
                         grn=grn)
 
@@ -133,9 +133,9 @@ class MedNeXtDownBlock(MedNeXtBlock):
         )
 
     def forward(self, x, dummy_tensor=None):
-        
+
         x1 = super().forward(x)
-        
+
         if self.resample_do_res:
             res = self.res_conv(x)
             x1 = x1 + res
@@ -145,20 +145,20 @@ class MedNeXtDownBlock(MedNeXtBlock):
 
 class MedNeXtUpBlock(MedNeXtBlock):
 
-    def __init__(self, in_channels, out_channels, exp_r=4, kernel_size=7, 
+    def __init__(self, in_channels, out_channels, exp_r=4, kernel_size=7,
                 do_res=False, norm_type = 'group', dim='3d', grn = False):
         super().__init__(in_channels, out_channels, exp_r, kernel_size,
                          do_res=False, norm_type = norm_type, dim=dim,
                          grn=grn)
 
         self.resample_do_res = do_res
-        
+
         self.dim = dim
         if dim == '2d':
             conv = nn.ConvTranspose2d
         elif dim == '3d':
             conv = nn.ConvTranspose3d
-        if do_res:            
+        if do_res:
             self.res_conv = conv(
                 in_channels = in_channels,
                 out_channels = out_channels,
@@ -177,15 +177,15 @@ class MedNeXtUpBlock(MedNeXtBlock):
 
 
     def forward(self, x, dummy_tensor=None):
-        
+
         x1 = super().forward(x)
         # Asymmetry but necessary to match shape
-        
+
         if self.dim == '2d':
             x1 = torch.nn.functional.pad(x1, (1,0,1,0))
         elif self.dim == '3d':
             x1 = torch.nn.functional.pad(x1, (1,0,1,0,1,0))
-        
+
         if self.resample_do_res:
             res = self.res_conv(x)
             if self.dim == '2d':
@@ -201,21 +201,21 @@ class OutBlock(nn.Module):
 
     def __init__(self, in_channels, n_classes, dim):
         super().__init__()
-        
+
         if dim == '2d':
             conv = nn.ConvTranspose2d
         elif dim == '3d':
             conv = nn.ConvTranspose3d
         self.conv_out = conv(in_channels, n_classes, kernel_size=1)
-    
-    def forward(self, x, dummy_tensor=None): 
+
+    def forward(self, x, dummy_tensor=None):
         return self.conv_out(x)
 
 
 class LayerNorm(nn.Module):
-    """ LayerNorm that supports two data formats: channels_last (default) or channels_first. 
-    The ordering of the dimensions in the inputs. channels_last corresponds to inputs with 
-    shape (batch_size, height, width, channels) while channels_first corresponds to inputs 
+    """ LayerNorm that supports two data formats: channels_last (default) or channels_first.
+    The ordering of the dimensions in the inputs. channels_last corresponds to inputs with
+    shape (batch_size, height, width, channels) while channels_first corresponds to inputs
     with shape (batch_size, channels, height, width).
     """
     def __init__(self, normalized_shape, eps=1e-5, data_format="channels_last"):
@@ -225,9 +225,9 @@ class LayerNorm(nn.Module):
         self.eps = eps
         self.data_format = data_format
         if self.data_format not in ["channels_last", "channels_first"]:
-            raise NotImplementedError 
+            raise NotImplementedError
         self.normalized_shape = (normalized_shape, )
-    
+
     def forward(self, x, dummy_tensor=False):
         if self.data_format == "channels_last":
             return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
@@ -238,7 +238,7 @@ class LayerNorm(nn.Module):
             x = self.weight[:, None, None, None] * x + self.bias[:, None, None, None]
             return x
 
-         
+
 if __name__ == "__main__":
 
 

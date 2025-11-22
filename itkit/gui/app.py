@@ -68,7 +68,7 @@ def main():
     # Restore default SIGINT handler so Ctrl-C immediately terminates the process.
     # Without this, the Qt event loop may swallow SIGINT and prevent KeyboardInterrupt.
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    
+
     scr = app.primaryScreen()
     if scr is not None:
         plug = app.platformName() if hasattr(app, "platformName") else "?"
@@ -100,7 +100,7 @@ def main():
         dark.setColor(QtGui.QPalette.ColorRole.Highlight, QtGui.QColor(142, 45, 197).lighter())
         dark.setColor(QtGui.QPalette.ColorRole.HighlightedText, QtCore.Qt.GlobalColor.black)
         app.setPalette(dark)
-    
+
     win = MainWindow()
     win.show()
     sys.exit(app.exec())

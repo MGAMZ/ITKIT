@@ -7,14 +7,14 @@ class LUNA16_formatter(StandardFileFormatter):
     def tasks(self) -> list:
         labels_folder = os.path.join(self.args.data_root, 'seg-lungs-LUNA16')
         labels_list = [file
-                       for file in os.listdir(labels_folder) 
+                       for file in os.listdir(labels_folder)
                        if file.endswith('.mhd')]
-        subset_image_folder_list = ["subset{}".format(i) for i in range(10)]
+        subset_image_folder_list = [f"subset{i}" for i in range(10)]
         images_list = [os.path.join(self.args.data_root, subset_image_folder, file)
                        for subset_image_folder in subset_image_folder_list
                        for file in os.listdir(os.path.join(self.args.data_root, subset_image_folder))
                        if file.endswith('.mhd')]
-        
+
         task_list = []
         for image_path in images_list:
             series_file_name = os.path.basename(image_path)
@@ -28,7 +28,7 @@ class LUNA16_formatter(StandardFileFormatter):
                     self.args.spacing,
                     self.args.size
                 ))
-        
+
         return task_list
 
 if __name__ == "__main__":

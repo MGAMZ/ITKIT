@@ -27,7 +27,7 @@ def InjectVisualize(img, mask):
     if img.ndim == 3:
         img = img[np.newaxis, ...]
         mask = mask[np.newaxis, ...]
-    
+
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(img[0, img.shape[1]//2], cmap='gray')
     ax[1].imshow(mask[0, img.shape[1]//2], cmap='rainbow')
@@ -46,14 +46,14 @@ def InjectVisualize_2D(img1, img2):
         img1 = img1.transpose(1, 2, 0)
     if img2.ndim == 3:
         img2 = img2.transpose(1, 2, 0)
-    
+
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(img1)
     ax[1].imshow(img2)
-    
+
     # show min, max, mean, std
     ax[0].text(0, 0, f"min: {img1.min():.2f}\nmax: {img1.max():.2f}\nmean: {img1.mean():.2f}\nstd: {img1.std():.2f}", fontsize=8, color='blue', transform=ax[0].transAxes)
     ax[1].text(0, 0, f"min: {img2.min():.2f}\nmax: {img2.max():.2f}\nmean: {img2.mean():.2f}\nstd: {img2.std():.2f}", fontsize=8, color='blue', transform=ax[1].transAxes)
-    
+
     os.makedirs('./InjectVisualize', exist_ok=True)
     fig.savefig(f'./InjectVisualize/visualize_{time()}.png')

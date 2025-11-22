@@ -130,13 +130,13 @@ def convert_brats_to_mha(input_dir, dest_root, spacing=None, size=None, use_mp=F
 
     # 多进程处理
     partial_convert_func = partial(convert_case, dest_root=dest_root, spacing=spacing, size=size)
-    
+
     if use_mp:
         with mp.Pool(mp.cpu_count()) as pool:
             with tqdm(
-                total=len(case_dirs), 
-                desc="Converting BraTs2024", 
-                dynamic_ncols=True, 
+                total=len(case_dirs),
+                desc="Converting BraTs2024",
+                dynamic_ncols=True,
                 leave=False
             ) as pbar:
                 for _ in pool.imap_unordered(partial_convert_func, case_dirs):

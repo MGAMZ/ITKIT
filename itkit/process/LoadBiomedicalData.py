@@ -1,10 +1,11 @@
 import pdb
+from typing import Literal, Sequence
+from warnings import deprecated
 
 import cv2
 import numpy as np
 import SimpleITK as sitk
 from mmcv.transforms import BaseTransform
-from typing_extensions import Literal, Sequence, deprecated
 
 from itkit.io.sitk_toolkit import sitk_resample_to_size, sitk_resample_to_spacing
 
@@ -136,10 +137,10 @@ class LoadMaskFromMHA(LoadFromMHA):
             mask = self._process_mha(mask_mha, "label")
             if results.get("label_map", None) is not None:
                 mask = self._label_remap(mask, results["label_map"])
-            
+
             results["gt_seg_map"] = mask # output: [Z, Y, X]
             results["seg_fields"].append("gt_seg_map")
             if self.debug:
                 print(f"[LoadMaskMHA] `{mask_path}` shape: {mask.shape}")
-        
+
         return results

@@ -25,13 +25,13 @@ class TestOrientProcessor:
             src_dir = os.path.join(tmpdir, 'src')
             dst_dir = os.path.join(tmpdir, 'dst')
             os.makedirs(src_dir)
-            
+
             img_path = os.path.join(src_dir, 'test.mha')
             create_test_image(img_path, direction=(1, 0, 0, 0, 1, 0, 0, 0, 1))  # Identity
-            
+
             processor = OrientProcessor(src_dir, dst_dir, 'LPI', field='image', mp=False)
             processor.process()
-            
+
             dst_path = os.path.join(dst_dir, 'test.mha')
             assert os.path.exists(dst_path)
             img = sitk.ReadImage(dst_path)
@@ -46,16 +46,16 @@ class TestOrientProcessor:
             dst_dir = os.path.join(tmpdir, 'dst')
             os.makedirs(src_dir)
             os.makedirs(dst_dir)
-            
+
             img_path = os.path.join(src_dir, 'test.mha')
             create_test_image(img_path)
-            
+
             dst_path = os.path.join(dst_dir, 'test.mha')
             create_test_image(dst_path)  # Pre-create dest
-    
+
             processor = OrientProcessor(src_dir, dst_dir, 'LPI', field='image', mp=False)
             processor.process()
-            
+
             # Should not overwrite, but since it's the same, check mtime or something, but for now, just ensure no error
             assert os.path.exists(dst_path)
 
@@ -65,14 +65,14 @@ class TestOrientProcessor:
             src_dir = os.path.join(tmpdir, 'src')
             dst_dir = os.path.join(tmpdir, 'dst')
             os.makedirs(src_dir)
-            
+
             invalid_path = os.path.join(src_dir, 'invalid.mha')
             with open(invalid_path, 'w') as f:
                 f.write("not an image")
-    
+
             processor = OrientProcessor(src_dir, dst_dir, 'LPI', field='image', mp=False)
             processor.process()
-            
+
             # Should not create dest file
             dst_path = os.path.join(dst_dir, 'invalid.mha')
             assert not os.path.exists(dst_path)
@@ -83,13 +83,13 @@ class TestOrientProcessor:
             src_dir = os.path.join(tmpdir, 'src')
             dst_dir = os.path.join(tmpdir, 'dst')
             os.makedirs(src_dir)
-            
+
             for i in range(5):
                 create_test_image(os.path.join(src_dir, f'test{i}.mha'))
-    
+
             processor = OrientProcessor(src_dir, dst_dir, 'LPI', field='image', mp=True, workers=2)
             processor.process()
-            
+
             for i in range(5):
                 dst_path = os.path.join(dst_dir, f'test{i}.mha')
                 assert os.path.exists(dst_path)
@@ -126,7 +126,7 @@ class TestOrientProcessor:
             dst_dir = os.path.join(tmpdir, 'dst')
             os.makedirs(src_dir)
             create_test_image(os.path.join(src_dir, 'test.mha'))
-            
+
             original_argv = sys.argv
             sys.argv = ['itk_orient.py', src_dir, dst_dir, 'LPI']
             try:

@@ -1,6 +1,3 @@
-# coding=utf-8
-from __future__ import absolute_import, division, print_function
-
 import copy
 import logging
 import math
@@ -67,7 +64,7 @@ ACT2FN = {"gelu": torch.nn.functional.gelu, "relu": torch.nn.functional.relu, "s
 
 class Attention(nn.Module):
     def __init__(self, config, vis):
-        super(Attention, self).__init__()
+        super().__init__()
         self.vis = vis
         self.num_attention_heads = config.transformer["num_heads"]
         self.attention_head_size = int(config.hidden_size / self.num_attention_heads)
@@ -114,7 +111,7 @@ class Attention(nn.Module):
 
 class Mlp(nn.Module):
     def __init__(self, config):
-        super(Mlp, self).__init__()
+        super().__init__()
         self.fc1 = Linear(config.hidden_size, config.transformer["mlp_dim"])
         self.fc2 = Linear(config.transformer["mlp_dim"], config.hidden_size)
         self.act_fn = ACT2FN["gelu"]
@@ -141,11 +138,11 @@ class Embeddings(nn.Module):
     """Construct the embeddings from patch, position embeddings.
     """
     def __init__(self, config, img_size, in_channels=3):
-        super(Embeddings, self).__init__()
+        super().__init__()
         self.hybrid = None
         self.config = config
         img_size = _pair(img_size)
-        
+
         self.DAblock1 = DANetHead(768, 768)
 
 
@@ -153,7 +150,7 @@ class Embeddings(nn.Module):
             grid_size = config.patches["grid"]
             patch_size = (img_size[0] // 16 // grid_size[0], img_size[1] // 16 // grid_size[1])
             patch_size_real = (patch_size[0] * 16, patch_size[1] * 16)
-            n_patches = (img_size[0] // patch_size_real[0]) * (img_size[1] // patch_size_real[1])  
+            n_patches = (img_size[0] // patch_size_real[0]) * (img_size[1] // patch_size_real[1])
 #             print(patch_size_real[0])
 #             print(patch_size_real[1])
 #             print(patch_size)
@@ -175,8 +172,8 @@ class Embeddings(nn.Module):
         self.position_embeddings = nn.Parameter(torch.zeros(1, n_patches, config.hidden_size))
 
         self.dropout = Dropout(config.transformer["dropout_rate"])
-        
-        
+
+
 
 
     def forward(self, x):
@@ -196,7 +193,7 @@ class Embeddings(nn.Module):
 
 class Block(nn.Module):
     def __init__(self, config, vis):
-        super(Block, self).__init__()
+        super().__init__()
         self.hidden_size = config.hidden_size
         self.attention_norm = LayerNorm(config.hidden_size, eps=1e-6)
         self.ffn_norm = LayerNorm(config.hidden_size, eps=1e-6)
@@ -255,7 +252,7 @@ class Block(nn.Module):
 
 class Encoder(nn.Module):
     def __init__(self, config, vis):
-        super(Encoder, self).__init__()
+        super().__init__()
         self.vis = vis
         self.layer = nn.ModuleList()
         self.encoder_norm = LayerNorm(config.hidden_size, eps=1e-6)
@@ -275,7 +272,7 @@ class Encoder(nn.Module):
 
 class Transformer(nn.Module):
     def __init__(self, config, img_size, vis):
-        super(Transformer, self).__init__()
+        super().__init__()
         self.embeddings = Embeddings(config, img_size=img_size)
         self.encoder = Encoder(config, vis)
 
@@ -307,7 +304,7 @@ class Conv2dReLU(nn.Sequential):
 
         bn = nn.BatchNorm2d(out_channels)
 
-        super(Conv2dReLU, self).__init__(conv, bn, relu)
+        super().__init__(conv, bn, relu)
 
 
 class DecoderBlock(nn.Module):
@@ -337,20 +334,20 @@ class DecoderBlock(nn.Module):
         self.da = DANetHead(64, 64)
         self.da2 = DANetHead(256, 256)
         self.da3 = DANetHead(512, 512)
-            
-        
+
+
     def forward(self, x, skip=None):
         x = self.up(x)
         if skip is not None:
             if skip.size(1) and x.size(1) == 64:
-                skip = self.da(skip) 
-            
+                skip = self.da(skip)
+
             if skip.size(1) and x.size(1) == 256:
                 skip = self.da2(skip)
-                
+
             if skip.size(1) and x.size(1) == 512:
                 skip = self.da3(skip)
-                
+
             x = torch.cat([x, skip], dim=1)
         x = self.conv1(x)
         x = self.conv2(x)
@@ -389,7 +386,7 @@ class DecoderCup(nn.Module):
         else:
             skip_channels=[0,0,0,0]
 
-        blocks = [DecoderBlock(in_ch, out_ch, sk_ch) 
+        blocks = [DecoderBlock(in_ch, out_ch, sk_ch)
                   for in_ch, out_ch, sk_ch in zip(in_channels, out_channels, skip_channels)]
         self.blocks = nn.ModuleList(blocks)
 
@@ -410,7 +407,7 @@ class DecoderCup(nn.Module):
 
 class DA_Transformer(nn.Module):
     def __init__(self, config, img_size=224, num_classes=21843, zero_head=False, vis=False):
-        super(DA_Transformer, self).__init__()
+        super().__init__()
         self.num_classes = num_classes
         self.zero_head = zero_head
         self.classifier = config.classifier
@@ -450,13 +447,13 @@ class DA_Transformer(nn.Module):
                 posemb = posemb[:, 1:]
                 self.transformer.embeddings.position_embeddings.copy_(posemb)
             else:
-                logger.info("load_pretrained: resized variant: %s to %s" % (posemb.size(), posemb_new.size()))
+                logger.info("load_pretrained: resized variant: {} to {}".format(posemb.size(), posemb_new.size()))
                 ntok_new = posemb_new.size(1)
                 if self.classifier == "seg":
                     _, posemb_grid = posemb[:, :1], posemb[0, 1:]
                 gs_old = int(np.sqrt(len(posemb_grid)))
                 gs_new = int(np.sqrt(ntok_new))
-                print('load_pretrained: grid-size from %s to %s' % (gs_old, gs_new))
+                print('load_pretrained: grid-size from {} to {}'.format(gs_old, gs_new))
                 posemb_grid = posemb_grid.reshape(gs_old, gs_old, -1)
                 zoom = (gs_new / gs_old, gs_new / gs_old, 1)
                 posemb_grid = ndimage.zoom(posemb_grid, zoom, order=1)  # th2np
@@ -494,25 +491,25 @@ CONFIGS = {
 
 
 import pdb
+from typing import Sequence
 
 from mmengine.model import BaseModule
-from typing_extensions import Sequence
 
 
 class DATrans_Backbone(BaseModule):
     def __init__(self, arch:str, img_size:int|Sequence[int]=256, num_classes=21843, zero_head=False, vis=False):
-        super(DATrans_Backbone, self).__init__()
+        super().__init__()
         if isinstance(img_size, Sequence):
             assert img_size[0] == img_size[1]
             img_size = img_size[0]
         config = CONFIGS[arch]
         config.n_classes = num_classes
-        
+
         self.num_classes = num_classes
         self.zero_head = zero_head
         self.transformer = Transformer(config, img_size, vis)
         self.config = config
-    
+
     def forward(self, x):
         if x.size()[1] == 1:
             x = x.repeat(1,3,1,1)
@@ -525,13 +522,13 @@ from mmseg.models.decode_heads.decode_head import BaseDecodeHead
 
 class DATrans_Head(BaseDecodeHead):
     def __init__(self, arch, num_classes, **kwargs):
-        super(DATrans_Head, self).__init__(
+        super().__init__(
             in_channels=128,
             channels=56,
             num_classes=num_classes,
             init_cfg=None,
             **kwargs)
-        
+
         config = CONFIGS[arch]
         config.n_classes = num_classes
         self.decoder = DecoderCup(config)
@@ -541,15 +538,11 @@ class DATrans_Head(BaseDecodeHead):
             kernel_size=3,
         )
         self.config = config
-        
+
         del self.conv_seg # not using mmseg built-in cls seg conv
-    
+
     def forward(self, inputs):
         (x, features) = inputs
         x = self.decoder(x, features)
         logits = self.segmentation_head(x)
         return logits
-
-
-
-

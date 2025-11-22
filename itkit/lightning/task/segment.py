@@ -29,30 +29,30 @@ def ArgMaxBatchedCalculator(logits: Tensor,
     # Fallback to normal argmax on class dim.
     if batch_size is None:
         return logits.argmax(dim=1).to(torch.uint8)
-    
+
     # Batched argmax on last dim (e.g. for large 3D volumes)
     else:
         N, spatial_channels = logits.size(0), logits.shape[2:]
         predictions = torch.empty((N, *spatial_channels), dtype=torch.uint8, device=accumulate_device)
-        
+
         L = spatial_channels[-1]
         for start in range(0, L, batch_size):
             end = min(start + batch_size, L)
             predictions[..., start:end] = logits[..., start:end].to(
                 calculate_device).argmax(dim=1).to(dtype=torch.uint8, device=accumulate_device)
-        
+
         return predictions
 
 
 class SegmentationBase(pl.LightningModule):
     """Base Lightning module for segmentation tasks.
-    
+
     This class provides a Lightning-native implementation that maintains compatibility
     with mm-style APIs while following Lightning conventions and modern Python 3.12
     type annotations. The neural network model is now passed as a parameter, allowing
     complete decoupling of model implementation from task logic.
     """
-    
+
     def __init__(
         self,
         model: torch.nn.Module,
@@ -74,7 +74,7 @@ class SegmentationBase(pl.LightningModule):
             self.criteria = list(criterion)
         else:
             self.criteria = [criterion]
-        
+
         self.num_classes = num_classes
         self.optimizer_config = optimizer_config
         self.scheduler_config = scheduler_config
@@ -86,15 +86,15 @@ class SegmentationBase(pl.LightningModule):
         self.class_names = class_names or list(range(num_classes))
         self.eps = eps
         self.fwd_dtype = fwd_dtype
-        
+
         self.save_hyperparameters(ignore=['model', 'criterion'])
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass through the model.
-        
+
         Args:
             x: Input tensor
-            
+
         Returns:
             Output logits from model
         """
@@ -134,19 +134,19 @@ class SegmentationBase(pl.LightningModule):
         targets: shape [N, C, ...]
         """
         metrics = {}
-        
+
         if self.num_classes > 1:
             for class_idx, class_name in enumerate(self.class_names):
                 pred_mask = predictions == class_idx
                 target_mask = targets[:, class_idx].bool()
                 intersection = (pred_mask & target_mask).float().sum()
                 union = (pred_mask | target_mask).float().sum()
-                
+
                 metrics[f'IoU_{class_name}'] = intersection / (union + self.eps)
                 metrics[f'Dice_{class_name}'] = 2 * intersection / (pred_mask.float().sum() + target_mask.float().sum() + self.eps)
                 metrics[f'Recall_{class_name}'] = intersection / (target_mask.float().sum() + self.eps)
                 metrics[f'Precision_{class_name}'] = intersection / (pred_mask.float().sum() + self.eps)
-            
+
             metrics[f"IoU_Avg"] = torch.mean(torch.stack([metrics[f'IoU_{class_name}'] for class_name in self.class_names]))
             metrics[f"Dice_Avg"] = torch.mean(torch.stack([metrics[f'Dice_{class_name}'] for class_name in self.class_names]))
             metrics[f"Recall_Avg"] = torch.mean(torch.stack([metrics[f'Recall_{class_name}'] for class_name in self.class_names]))
@@ -155,51 +155,51 @@ class SegmentationBase(pl.LightningModule):
         else:
             assert self.binary_segment_threshold is not None, "Binary segmentation requires a threshold"
             class_name = self.class_names[0] if self.class_names is not None else 'binary'
-            
+
             pred_mask = (predictions > self.binary_segment_threshold)
             target_mask = (targets > self.binary_segment_threshold)
             intersection = (pred_mask & target_mask).float().sum()
             union = (pred_mask | target_mask).float().sum()
-            
+
             metrics[f'IoU'] = intersection / (union + self.eps)
             metrics[f'Dice'] = 2 * intersection / (pred_mask.float().sum() + target_mask.float().sum() + self.eps)
             metrics[f'Recall'] = intersection / (target_mask.float().sum() + self.eps)
             metrics[f'Precision'] = intersection / (pred_mask.float().sum() + self.eps)
-        
+
         return metrics
 
     def training_step(self, batch: dict[str, Any], batch_idx: int) -> Tensor:
         # HACK to reduce VRAM unknown occupation after sliding window inference (happened in validation)
         if batch_idx == 0:
             torch.cuda.empty_cache()
-        
+
         image, gt_segs = self._parse_batch(batch, self.device)
         logits: Tensor = self(image)
-        
+
         losses = self._compute_losses(logits, gt_segs)
         total_loss = torch.stack(list(losses.values())).sum()
-        
+
         with torch.no_grad():
             for loss_name, loss_value in losses.items():
                 self.log(f'train/{loss_name}', loss_value.item(), on_step=True, on_epoch=True, logger=True, sync_dist=True)
             self.log('train/total_loss', total_loss.item(), on_step=True, on_epoch=True, logger=True, sync_dist=True)
-        
+
         return total_loss
 
     def validation_step(self, batch: dict[str, Any], batch_idx: int) -> dict[str, Any]:
         image, gt_segs = self._parse_batch(batch, self.slide_window_config.patch_accumulate_device)
         logits = self.inference(image)
-        
+
         losses = self._compute_losses(logits, gt_segs)
         for loss_name, loss_value in losses.items():
             self.log(f'val/{loss_name}', loss_value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
-        
+
         predictions = self._logits_to_predictions(logits) # [N, ...]
-        
+
         metrics = self._compute_metrics(predictions, gt_segs)
         for metric_name, metric_value in metrics.items():
             self.log(f'val/{metric_name}', metric_value, on_step=False, on_epoch=True, logger=True, sync_dist=True)
-        
+
         return {'val_loss': sum(losses.values()),
                 'logits': logits,
                 'predictions': predictions,
@@ -226,27 +226,27 @@ class SegmentationBase(pl.LightningModule):
 
 class Segmentation3D(SegmentationBase):
     def slide_inference(self, inputs: Tensor) -> Tensor:
-        if (self.slide_window_config.patch_size is None or self.slide_window_config.patch_stride is None or 
+        if (self.slide_window_config.patch_size is None or self.slide_window_config.patch_stride is None or
             len(self.slide_window_config.patch_size) != 3 or len(self.slide_window_config.patch_stride) != 3):
             raise ValueError("3D inference requires 3D patch size and stride")
-        
+
         z_stride, y_stride, x_stride = self.slide_window_config.patch_stride
         z_crop, y_crop, x_crop = self.slide_window_config.patch_size
         batch_size, _, z_img, y_img, x_img = inputs.size()
         inputs_device = inputs.device
-        
+
         # Get output channels from a small forward pass
         with torch.no_grad():
             temp_input = inputs[:, :, :min(z_crop, z_img), :min(y_crop, y_img), :min(x_crop, x_img)]
             temp_output = self.forward(temp_input.to(self.device))
             out_channels = temp_output.size(1)
         del temp_input, temp_output
-        
+
         # Calculate grid numbers
         z_grids = max(z_img - z_crop + z_stride - 1, 0) // z_stride + 1
         y_grids = max(y_img - y_crop + y_stride - 1, 0) // y_stride + 1
         x_grids = max(x_img - x_crop + x_stride - 1, 0) // x_stride + 1
-        
+
         # Initialize accumulation tensors
         preds = torch.zeros(
             size = (batch_size, out_channels, z_img, y_img, x_img),
@@ -267,7 +267,7 @@ class Segmentation3D(SegmentationBase):
             device = self.slide_window_config.patch_accumulate_device,
             pin_memory = True,
         )
-        
+
         # Sliding window inference
         for z_idx in range(z_grids):
             for y_idx in range(y_grids):
@@ -281,10 +281,10 @@ class Segmentation3D(SegmentationBase):
                     z1 = max(z2 - z_crop, 0)
                     y1 = max(y2 - y_crop, 0)
                     x1 = max(x2 - x_crop, 0)
-                    
+
                     # Extract patch
                     patch = inputs[:, :, z1:z2, y1:y2, x1:x2].to(self.device, non_blocking=True)
-                    
+
                     # Forward
                     # prevent crop_logits of previous patch inference from being overlapped by next patch copy
                     # TODO **NOT SURE IF THIS STILL HAPPEN**, This is only observed when using `.copy(non_blocking=True)`.
@@ -292,7 +292,7 @@ class Segmentation3D(SegmentationBase):
                         torch.cuda.synchronize()
                     # NOTE Inconsistent dtype between Host and Device Tensor can severly impact the Device2Host transfer speed.
                     crop_logits = self.forward(patch).to(dtype=patch_cache.dtype)
-                    
+
                     # Accumulate results
                     # Device to Host's pin memory copy
                     preds[:, :, z1:z2, y1:y2, x1:x2] += patch_cache.copy_(crop_logits, non_blocking=True)
@@ -301,7 +301,7 @@ class Segmentation3D(SegmentationBase):
         # Average overlapping predictions
         assert torch.all(count_mat > 0), "Some areas not covered by sliding window"
         logits = preds / count_mat
-        
+
         # TODO Analyze post-inference VRAM usage.
         # import gc
         # for ref in gc.get_referrers(inputs):
@@ -309,7 +309,7 @@ class Segmentation3D(SegmentationBase):
         del inputs, preds, count_mat, patch_cache
         torch.cuda.empty_cache()
         # snapshot_memory("after_empty_cache", output_dir="./memory_reports")
-        
+
         return logits.to(device=inputs_device)
 
 @deprecated("Seg3D_SlideWindowTrain includes complex manual optimization logic and is deprecated."
@@ -331,7 +331,7 @@ class Seg3D_SlideWindowTrain(Segmentation3D):
             classes = torch.arange(self.num_classes, device=label_cpu.device, dtype=label_cpu.dtype)
             shape = [1, self.num_classes] + [1] * (label_cpu.ndim - 1) # [1, C, 1, 1, ...], will be auto broadcasted
             label_cpu = (label_cpu.unsqueeze(1) == classes.view(*shape)).to(torch.uint8)
-    
+
         # Calc slide window index
         batch_size, _, Z, Y, X = image_cpu.shape
         z_crop, y_crop, x_crop = self.slide_window_config.patch_size
@@ -403,7 +403,7 @@ class Seg3D_SlideWindowTrain(Segmentation3D):
                 o.zero_grad()
         else:
             opt.zero_grad()
-        
+
         loss_detached_list: list[dict] = []
         batch_patches: list[Tensor] = []
         batch_targets: list[Tensor] = []
@@ -442,10 +442,10 @@ class Seg3D_SlideWindowTrain(Segmentation3D):
                     infer_batchsize = min(infer_batchsize, max_patches_per_infer)
                 if len(batch_patches) >= infer_batchsize:
                     flush_batch()
-            
+
             # equal to `drop_last=False`
             flush_batch()
-        
+
         # optimizer step (support single optimizer or list)
         if isinstance(opt, list):
             for o in opt:

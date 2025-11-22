@@ -107,7 +107,7 @@ class auto_runner:
     def experiment_queue(self):
         print("Experiment queue started, importing dependencies...")
         from itkit.mm.experiment import experiment
-        
+
         def search_available_model_configs(exp_cfg_folder:Path):
             available_model_cfgs = [
                 py_file

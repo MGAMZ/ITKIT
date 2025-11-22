@@ -14,7 +14,7 @@ class PAM_Module(Module):
     """ Position attention module"""
     #Ref from SAGAN
     def __init__(self, in_dim):
-        super(PAM_Module, self).__init__()
+        super().__init__()
         self.chanel_in = in_dim
 
         self.query_conv = Conv2d(in_channels=in_dim, out_channels=in_dim//8, kernel_size=1)
@@ -48,7 +48,7 @@ class PAM_Module(Module):
 class CAM_Module(Module):
     """ Channel attention module"""
     def __init__(self, in_dim):
-        super(CAM_Module, self).__init__()
+        super().__init__()
         self.chanel_in = in_dim
 
 
@@ -75,4 +75,3 @@ class CAM_Module(Module):
 
         out = self.gamma*out + x
         return out
-

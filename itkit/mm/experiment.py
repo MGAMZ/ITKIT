@@ -29,7 +29,7 @@ class experiment:
         self.test_mode = test_mode
         self.detect_anomaly = detect_anomaly
         self.test_use_last_ckpt = test_use_last_ckpt
-        
+
         with torch.autograd.set_detect_anomaly(detect_anomaly):
             self._prepare_basic_config()
             self._main_process()
@@ -127,15 +127,14 @@ class experiment:
             work_dir_path = cfg.work_dir
             if not os.path.exists(os.path.join(work_dir_path, "last_checkpoint")):
                 return False
-            last_ckpt = open(os.path.join(work_dir_path, "last_checkpoint"), 'r').read()
+            last_ckpt = open(os.path.join(work_dir_path, "last_checkpoint")).read()
             last_ckpt = re.findall(r"iter_(\d+)", last_ckpt)[0].strip(r'iter_')
         else:
             target_iters = cfg.epochs
             work_dir_path = cfg.work_dir
             if not os.path.exists(os.path.join(work_dir_path, "last_checkpoint")):
                 return False
-            last_ckpt = open(os.path.join(work_dir_path, "last_checkpoint"),
-                            'r').read()
+            last_ckpt = open(os.path.join(work_dir_path, "last_checkpoint")).read()
             last_ckpt = re.findall(r"epoch_(\d+)", last_ckpt)[0].strip(r'epoch_')
         if int(last_ckpt) >= target_iters:
             return True

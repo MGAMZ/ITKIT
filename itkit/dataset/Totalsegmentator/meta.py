@@ -123,36 +123,36 @@ SUBSETS = {
     'vertebral': [
         'background',
         'rib_left_1', 'rib_left_2', 'rib_left_3', 'rib_left_4', 'rib_left_5',
-        'rib_left_6', 'rib_left_7', 'rib_left_8', 'rib_left_9', 
+        'rib_left_6', 'rib_left_7', 'rib_left_8', 'rib_left_9',
         'rib_left_10', 'rib_left_11', 'rib_left_12',
         'rib_right_1', 'rib_right_2', 'rib_right_3', 'rib_right_4', 'rib_right_5',
         'rib_right_6', 'rib_right_7', 'rib_right_8', 'rib_right_9',
         'rib_right_10', 'rib_right_11', 'rib_right_12',
         'vertebrae_C1', 'vertebrae_C2', 'vertebrae_C3', 'vertebrae_C4',
-        'vertebrae_C5', 'vertebrae_C6', 'vertebrae_C7', 
+        'vertebrae_C5', 'vertebrae_C6', 'vertebrae_C7',
         'vertebrae_T1', 'vertebrae_T2', 'vertebrae_T3', 'vertebrae_T4',
         'vertebrae_T5', 'vertebrae_T6', 'vertebrae_T7', 'vertebrae_T8',
         'vertebrae_T9', 'vertebrae_T10', 'vertebrae_T11',
-        'vertebrae_T12', 
+        'vertebrae_T12',
         'vertebrae_L1', 'vertebrae_L2', 'vertebrae_L3', 'vertebrae_L4', 'vertebrae_L5',
-        'vertebrae_S1', 
+        'vertebrae_S1',
     ],
     'bones': [
         'background', 'clavicula_left', 'clavicula_right', 'costal_cartilages',
         'femur_left', 'femur_right',
         'humerus_left', 'humerus_right',
         'rib_left_1', 'rib_left_2', 'rib_left_3', 'rib_left_4', 'rib_left_5',
-        'rib_left_6', 'rib_left_7', 'rib_left_8', 'rib_left_9', 
+        'rib_left_6', 'rib_left_7', 'rib_left_8', 'rib_left_9',
         'rib_left_10', 'rib_left_11', 'rib_left_12',
         'rib_right_1', 'rib_right_2', 'rib_right_3', 'rib_right_4', 'rib_right_5',
         'rib_right_6', 'rib_right_7', 'rib_right_8', 'rib_right_9',
         'rib_right_10', 'rib_right_11', 'rib_right_12',
         'sacrum', 'scapula_left', 'scapula_right', 'skull', 'sternum',
         'vertebrae_C1', 'vertebrae_C2', 'vertebrae_C3', 'vertebrae_C4',
-        'vertebrae_C5', 'vertebrae_C6', 'vertebrae_C7', 
+        'vertebrae_C5', 'vertebrae_C6', 'vertebrae_C7',
         'vertebrae_T1', 'vertebrae_T2', 'vertebrae_T3', 'vertebrae_T4',
         'vertebrae_T5', 'vertebrae_T6', 'vertebrae_T7', 'vertebrae_T8',
-        'vertebrae_T9', 'vertebrae_T10', 'vertebrae_T11','vertebrae_T12', 
+        'vertebrae_T9', 'vertebrae_T10', 'vertebrae_T11','vertebrae_T12',
         'vertebrae_L1', 'vertebrae_L2', 'vertebrae_L3', 'vertebrae_L4', 'vertebrae_L5',
         'vertebrae_S1',
     ],
@@ -237,10 +237,10 @@ CLASS_MERGE = {
 def generate_subset_class_map_and_label_map(subset_name: str):
     """
     生成从原始类定义到子集类定义的映射字典
-    
+
     Args:
         subset_name: 子集名称，在SUBSETS字典中定义
-        
+
     Returns:
         tuple: (subset_class_map, label_map)
             - subset_class_map: 子集类名到新索引的映射 {class_name: new_index}
@@ -248,15 +248,15 @@ def generate_subset_class_map_and_label_map(subset_name: str):
     """
     if subset_name not in SUBSETS:
         raise ValueError(f"Subset '{subset_name}' not found in SUBSETS. Available subsets: {list(SUBSETS.keys())}")
-    
+
     subset_classes = SUBSETS[subset_name]
     if not subset_classes:
         # 如果子集为空，返回原始映射
         return CLASS_INDEX_MAP.copy(), {v: v for v in CLASS_INDEX_MAP.values()}
-    
+
     # 创建子集类名到新索引的映射
     subset_class_map = {class_name: idx for idx, class_name in enumerate(subset_classes)}
-    
+
     # 创建原始类索引到新索引的映射
     label_map = {}
     for class_name, old_index in CLASS_INDEX_MAP.items():
@@ -266,7 +266,7 @@ def generate_subset_class_map_and_label_map(subset_name: str):
         else:
             # 如果类不在子集中，映射到background (0)
             label_map[old_index] = 0
-    
+
     return subset_class_map, label_map
 
 

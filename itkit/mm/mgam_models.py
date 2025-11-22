@@ -39,7 +39,7 @@ class InferenceConfig:
 
 class ArgmaxProcessor:
     """Device-aware argmax with optional chunking along the last dimension.
-    
+
     Advantages:
     - Avoids OOM on device when handling large tensors.
     - ArgMax can utilize GPU acceleration instead of fully relying on CPU.
@@ -111,7 +111,7 @@ class mgam_Seg_Lite(BaseModel):
         without decouple decoder_head, loss, neck design, allowing easier coding experiments.
         Meanwhile, it provides several args to support sliding window inference for large image/volume,
         especially useful for medical image segmentation tasks.
-        
+
         Args:
             backbone (ConfigDict): Configuration of the backbone network, including the merged decode_head. This backbone should directly output the final segmentation logits.
             criterion (ConfigDict): Criterion for computing loss, such as Dice loss or cross-entropy loss.
@@ -139,7 +139,7 @@ class mgam_Seg_Lite(BaseModel):
         else:
             raise TypeError(f'inference_config must be InferenceConfig, dict or None, but got {type(inference_config)}')
         self.allow_pbar = allow_pbar
-        
+
         if use_half:
             self.half()
 
@@ -189,11 +189,11 @@ class mgam_Seg_Lite(BaseModel):
     @abstractmethod
     def loss(self, inputs:Tensor, data_samples:Sequence[BaseDataElement]) -> dict:
         ...
-    
+
     @abstractmethod
     def predict(self, inputs:Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Sequence[BaseDataElement]:
         ...
-    
+
     @abstractmethod
     def _forward(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
         ...
@@ -202,24 +202,24 @@ class mgam_Seg_Lite(BaseModel):
 class mgam_Seg2D_Lite(mgam_Seg_Lite):
     def loss(self, inputs:Tensor, data_samples:Sequence[BaseDataElement]) -> dict:
         """Calculate losses from a batch of inputs and data samples.
-        
+
         Args:
             inputs (Tensor): The input tensor with shape (N, C, H, W)
             data_samples (Sequence[BaseDataElement]): The seg data samples
-            
+
         Returns:
             dict[str, Tensor]: A dictionary of loss components
         """
         # Forward pass to get prediction logits
         seg_logits = self._forward(inputs, data_samples)
-        
+
         # Extract ground truth masks from data_samples
         gt_segs = []
         for data_sample in data_samples:
             gt_segs.append(data_sample.get(self.gt_sem_seg_key).data)
         gt_segs = torch.stack(gt_segs, dim=0).squeeze(1)  # [N, H, W]
-        
-        return {'loss_' + cri.__class__.__name__: cri(seg_logits, gt_segs) 
+
+        return {'loss_' + cri.__class__.__name__: cri(seg_logits, gt_segs)
                 for cri in self.criterion}
 
     def predict(self, inputs:Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Sequence[BaseDataElement]:
@@ -229,7 +229,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
             inputs (Tensor): The input tensor with shape (N, C, H, W).
             data_samples (Sequence[BaseDataElement], optional): The seg data samples.
                 It usually includes information such as `metainfo`.
-                
+
         Returns:
             Sequence[BaseDataElement]: Segmentation results of the input images.
                 Each SegDataSample usually contains:
@@ -238,11 +238,11 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         """
         # Forward pass
         seg_logits = self.inference(inputs, data_samples) # [N, C, H, W]
-        
+
         # Process outputs
         batch_size = inputs.shape[0]
         out_channels = seg_logits.shape[1]
-        
+
         # Validate consistency of binary threshold and output channels
         if out_channels > 1 and self.binary_segment_threshold is not None:
             raise ValueError(
@@ -251,14 +251,14 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
             )
         if out_channels == 1 and self.binary_segment_threshold is None:
             raise ValueError(f"Binary model (out_channels={out_channels}) must set binary_segment_threshold; current value is None")
-        
+
         if data_samples is None:
             data_samples = [BaseDataElement() for _ in range(batch_size)]
-        
+
         for i in range(batch_size):
             # Process each sample
             i_seg_logits = seg_logits[i] # [C, H, W]
-            
+
             # Generate prediction mask
             if out_channels > 1:  # 多分类情况
                 # Argmax on forward_device with optional chunking
@@ -271,11 +271,11 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
                     f"当前值为None"
                 i_seg_logits_sigmoid = i_seg_logits.sigmoid()
                 i_seg_pred = (i_seg_logits_sigmoid > self.binary_segment_threshold).to(i_seg_logits)
-            
+
             # Store results into data_samples
             data_samples[i].seg_logits = PixelData(data=i_seg_logits)
             data_samples[i].pred_sem_seg = PixelData(data=i_seg_pred)
-        
+
         return data_samples
 
     def _forward(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
@@ -284,7 +284,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         Args:
             inputs (Tensor): The input tensor with shape (N, C, H, W).
             data_samples (Sequence[BaseDataElement], optional): The seg data samples.
-            
+
         Returns:
             Tensor: Output tensor from backbone
         """
@@ -307,7 +307,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         else:
             # 整体推理
             seg_logits = self._forward(inputs, data_samples)
-        
+
         return seg_logits
 
     def slide_inference(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
@@ -403,24 +403,24 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
 class mgam_Seg3D_Lite(mgam_Seg_Lite):
     def loss(self, inputs:Tensor, data_samples:Sequence[BaseDataElement]) -> dict:
         """Calculate losses from a batch of inputs and data samples.
-        
+
         Args:
             inputs (Tensor): The input tensor with shape (N, C, Z, Y, X)
             data_samples (Sequence[BaseDataElement]): The seg data samples
-            
+
         Returns:
             dict[str, Tensor]: A dictionary of loss components
         """
         # Forward pass to get prediction logits
         seg_logits = self._forward(inputs, data_samples)
-        
+
         # Extract ground truth volumes from data_samples
         gt_segs = []
         for data_sample in data_samples:
             gt_segs.append(data_sample.get(self.gt_sem_seg_key).data)
         gt_segs = torch.stack(gt_segs, dim=0).squeeze(1)  # [N, Z, Y, X]
-        
-        return {'loss_' + cri.__class__.__name__: cri(seg_logits, gt_segs) 
+
+        return {'loss_' + cri.__class__.__name__: cri(seg_logits, gt_segs)
                 for cri in self.criterion}
 
     @torch.inference_mode()
@@ -438,15 +438,15 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                 - pred_sem_seg (VolumeData): Prediction of semantic segmentation.
                 - seg_logits (VolumeData): Predicted logits of semantic segmentation.
         """
-        
+
         def _predict(force_cpu:bool=False):
             nonlocal data_samples
-            
+
             seg_logits = self.inference(inputs, data_samples, force_cpu) # [N, C, Z, Y, X]
-            
+
             batch_size = inputs.shape[0]
             out_channels = seg_logits.shape[1]
-            
+
             if out_channels > 1 and self.binary_segment_threshold is not None:
                 raise ValueError(
                     f"Multi-class model (out_channels={out_channels}) should not set binary_segment_threshold; "
@@ -454,14 +454,14 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                 )
             if out_channels == 1 and self.binary_segment_threshold is None:
                 raise ValueError(f"Binary model (out_channels={out_channels}) must set binary_segment_threshold; current value is None")
-            
+
             if data_samples is None:
                 data_samples = [BaseDataElement() for _ in range(batch_size)]
-            
+
             for i in range(batch_size):
                 # Process each sample
                 i_seg_logits = seg_logits[i] # [C, Z, Y, X]
-                
+
                 # Generate prediction volume
                 if out_channels > 1:  # Multi-class segmentation
                     # Argmax on forward_device with optional chunking
@@ -473,13 +473,13 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                         f"currently it's {self.binary_segment_threshold}"
                     i_seg_logits_sigmoid = i_seg_logits.sigmoid()
                     i_seg_pred = (i_seg_logits_sigmoid > self.binary_segment_threshold).to(i_seg_logits)
-                
+
                 # Store results into data_samples
                 data_samples[i].seg_logits = VolumeData(**{"data": i_seg_logits})
                 data_samples[i].pred_sem_seg = VolumeData(**{"data": i_seg_pred})
-            
+
             return data_samples
-        
+
         try:
             return _predict()
         except torch.OutOfMemoryError as e:
@@ -503,7 +503,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
 
         else:
             seg_logits = self._forward(inputs, data_samples)
-            
+
         return seg_logits
 
     @torch.inference_mode()
@@ -532,12 +532,12 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         batch_windows = forward_batch_windows or self.inference_config.forward_batch_windows
         batch_size, _, z_img, y_img, x_img = inputs.size()
         assert batch_size == 1, "Currently only batch_size=1 is supported for 3D sliding-window inference"
-        
+
         # Convert sizes to Python ints to avoid tensor-to-bool issues
         z_img = int(z_img)
         y_img = int(y_img)
         x_img = int(x_img)
-        
+
         # Check if padding is needed for small volumes
         need_padding = z_img < z_crop or y_img < y_crop or x_img < x_crop
         if need_padding:
@@ -546,7 +546,7 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             pad_y = max(y_crop - y_img, 0)
             pad_x = max(x_crop - x_img, 0)
             # Apply symmetric padding: (left, right, top, bottom, front, back)
-            pad = (pad_x // 2, pad_x - pad_x // 2, 
+            pad = (pad_x // 2, pad_x - pad_x // 2,
                    pad_y // 2, pad_y - pad_y // 2,
                    pad_z // 2, pad_z - pad_z // 2)
             padded_inputs = torch.nn.functional.pad(inputs, pad, mode='replicate', value=0)
@@ -621,13 +621,13 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                       dynamic_ncols=True,
                       leave=False):
             batch_slices = window_slices[i:i+batch_windows]
-            
+
             # prepare inference batch
             batch_patches = []
             for (z_slice, y_slice, x_slice) in batch_slices:
                 batch_patches.append(padded_inputs[:, :, z_slice, y_slice, x_slice])
             batch_patches = torch.cat(batch_patches, dim=0).to(self.inference_config.forward_device)  # [B, C, z_crop, y_crop, x_crop]
-            
+
             # prevent crop_logits of previous patch inference from being overlapped by next patch copy
             # HACK NOT SURE IF THIS STILL HAPPEN, This is only observed when using `.copy(non_blocking=True)`.
             if torch.cuda.is_available() and torch.device(self.inference_config.forward_device).type == "cuda":
@@ -639,19 +639,19 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
             for j, (z_slice, y_slice, x_slice) in enumerate(batch_slices):
                 preds[:, :, z_slice, y_slice, x_slice] += patch_cache[j:j+1]
                 count_mat[:, :, z_slice, y_slice, x_slice] += 1
-        
+
         min_count = torch.min(count_mat)
         assert min_count.item() > 0, "There are areas not covered by sliding windows"
         seg_logits = (preds / count_mat).to(dtype=torch.float16)
-        
+
         if need_padding:
             assert pad is not None, "Missing padding info, cannot crop back to original size"
             pad_x_left, pad_x_right, pad_y_top, pad_y_bottom, pad_z_front, pad_z_back = pad
-            seg_logits = seg_logits[:, :, 
+            seg_logits = seg_logits[:, :,
                                    pad_z_front:z_padded-pad_z_back,
                                    pad_y_top:y_padded-pad_y_bottom,
                                    pad_x_left:x_padded-pad_x_right]
-        
+
         return seg_logits
 
     def _forward(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
@@ -660,9 +660,8 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
         Args:
             inputs (Tensor): The input tensor with shape (N, C, Z, Y, X).
             data_samples (Sequence[BaseDataElement], optional): The seg data samples.
-            
+
         Returns:
             Tensor: Output tensor from backbone
         """
         return self.backbone(inputs)
-

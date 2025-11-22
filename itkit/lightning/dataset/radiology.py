@@ -35,11 +35,11 @@ class MhaDataset(BaseDataset):
             all_seriesUID = [file.stem for file in self.split_accordance.glob("*.mha")]
             all_seriesUID = sorted(all_seriesUID, key=lambda x: abs(int(re.search(r"\d+", x).group())))
             self.all_seriesUID = all_seriesUID
-        
+
         assert self.all_seriesUID is not None
         split_id_train_val = int(len(self.all_seriesUID) * self.SPLIT_RATIO[0])
         split_id_val_test = int(len(self.all_seriesUID) * (self.SPLIT_RATIO[0] + self.SPLIT_RATIO[1]))
-        
+
         if self.split in ('train', 'fit'):
             return self.all_seriesUID[:split_id_train_val]
         elif self.split in ('val', 'validate'):
@@ -57,7 +57,7 @@ class MhaDataset(BaseDataset):
             for seriesUID in self._split()
             for f in self.image_root.glob(f"*{seriesUID}*.mha")
         ]
-        
+
         self.available_series = []
         for avail_file_name in tqdm(available_file_names, f"Indexing Dataset | Split {self.split}"):
             image_mha_path = str(self.image_root / avail_file_name)
@@ -108,7 +108,7 @@ class LargeVolumeDataModule(BaseDataModule):
         self.whole_volume_val_dataset = whole_volume_val_dataset
         self.whole_volume_test_dataset = whole_volume_test_dataset
         super().__init__(**kwargs)
-    
+
     def setup(self, stage: Literal['fit', 'validate', 'test', 'predict']):
         if stage == 'fit':
             assert self.patched_train_dataset is not None, "Patched train dataset must be provided for training."

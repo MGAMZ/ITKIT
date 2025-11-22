@@ -181,4 +181,3 @@ class NEWNeighborhoodAttention(nn.Module):
         x=self.proj_drop(self.proj(x)).contiguous()
 
         return x
-

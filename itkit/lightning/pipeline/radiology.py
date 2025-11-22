@@ -9,7 +9,7 @@ class WindowNorm(BaseTransform):
         super().__init__()
         self.window_level = window_level
         self.window_width = window_width
-    
+
     def __call__(self, sample: dict) -> dict:
         if 'image' in sample:
             image = sample['image']
@@ -20,10 +20,10 @@ class WindowNorm(BaseTransform):
 
 
 class ITKResample(BaseTransform):
-    def __init__(self, 
-                 size: tuple, 
-                 spacing: tuple, 
-                 key: str = 'image', 
+    def __init__(self,
+                 size: tuple,
+                 spacing: tuple,
+                 key: str = 'image',
                  itk_resample_kwargs: dict = {}
     ):
         super().__init__()
@@ -31,7 +31,7 @@ class ITKResample(BaseTransform):
         self.spacing = spacing
         self.key = key
         self.itk_resample_kwargs = itk_resample_kwargs
-    
+
     def __call__(self, sample: dict) -> dict:
         if self.key not in sample:
             return sample
@@ -44,7 +44,7 @@ class ITKResample(BaseTransform):
             for i in range(img_dim):
                 if self.spacing[i] != -1 and self.size[i] != -1:
                     raise ValueError(f"Dimension {i} cannot have both spacing and size specified for resampling.")
-        
+
         # --- 阶段一：Spacing 重采样 ---
         orig_spacing = image_itk.GetSpacing()[::-1]
         effective_spacing = list(orig_spacing)
@@ -54,7 +54,7 @@ class ITKResample(BaseTransform):
                 if self.spacing[i] != -1:
                     effective_spacing[i] = self.spacing[i]
                     needs_spacing_resample = True
-        
+
         image_after_spacing = image_itk
         if needs_spacing_resample and not np.allclose(effective_spacing, orig_spacing):
             image_after_spacing = sitk_resample_to_spacing(

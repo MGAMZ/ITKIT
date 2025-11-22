@@ -148,7 +148,7 @@ class CheckMixin:
         if not output_dir:
             print("Error: output directory required for symlink mode")
             return
-        
+
         self.prepare_output_dir(output_dir)
         success_count = 0
         for item in items:
@@ -211,16 +211,16 @@ class DatasetCheckProcessor(DatasetProcessor, CheckMixin):
         """Process one image/label pair"""
         img_path, lbl_path = args
         name = os.path.basename(img_path)
-        
+
         try:
             lbl = sitk.ReadImage(lbl_path)
             size = list(lbl.GetSize()[::-1])
             spacing = list(lbl.GetSpacing()[::-1])
             reasons = self.validate_sample_metadata(size, spacing)
-            
+
             is_valid = len(reasons) == 0
             self.results.append(ValidationResult(name, is_valid, reasons, (img_path, lbl_path)))
-            
+
             return SeriesMetadata.from_sitk_image(lbl, name)
         except Exception as e:
             self.results.append(ValidationResult(name, False, [f"Failed to read: {str(e)}"], (img_path, lbl_path)))
@@ -236,7 +236,7 @@ class DatasetCheckProcessor(DatasetProcessor, CheckMixin):
             meta_path = get_series_meta_path(self.source_folder)
             os.remove(meta_path)
             series_meta = None
-            
+
         run_full_check = False
         if series_meta is not None:
             print("Found existing series_meta.json, performing fast check.")
@@ -250,7 +250,7 @@ class DatasetCheckProcessor(DatasetProcessor, CheckMixin):
 
         # Execute operations based on mode
         self.execute_operation(self.output_dir)
-        
+
         # Save metadata to source folder in check mode ONLY if full check was run
         if not self.output_dir and run_full_check:
             meta_path = get_series_meta_path(self.source_folder)
@@ -298,16 +298,16 @@ class SingleCheckProcessor(SingleFolderProcessor, CheckMixin):
         """Process one image file"""
         img_path = args
         name = os.path.basename(img_path)
-        
+
         try:
             img = sitk.ReadImage(img_path)
             size = list(img.GetSize()[::-1])
             spacing = list(img.GetSpacing()[::-1])
             reasons = self.validate_sample_metadata(size, spacing)
-            
+
             is_valid = len(reasons) == 0
             self.results.append(ValidationResult(name, is_valid, reasons, img_path))
-            
+
             # Always return metadata if image can be read
             return SeriesMetadata.from_sitk_image(img, name)
         except Exception as e:
@@ -319,7 +319,7 @@ class SingleCheckProcessor(SingleFolderProcessor, CheckMixin):
         # Try fast check first
         series_meta = load_series_meta(self.source_folder)
         run_full_check = False
-        
+
         if series_meta is not None:
             print("Found existing series_meta.json, performing fast check.")
             items = self.get_items_to_process()
@@ -332,7 +332,7 @@ class SingleCheckProcessor(SingleFolderProcessor, CheckMixin):
 
         # Execute operations based on mode
         self.execute_operation(self.output_dir)
-        
+
         # Save metadata to source folder in check mode ONLY if full check was run
         if not self.output_dir and run_full_check:
             meta_path = get_series_meta_path(self.source_folder)

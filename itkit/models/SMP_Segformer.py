@@ -26,7 +26,7 @@ class SMP_Segformer(torch.nn.Module):
             decoder_segmentation_channels=decoder_segmentation_channels,
             pretrained_cfg_overlay=dict(file=timm_ckpt_local_path) if timm_ckpt_local_path else {},
             **kwargs)
-    
+
     def forward(self, x:torch.Tensor):
         return self.efficient_vit(x)
 

@@ -47,38 +47,38 @@ class TestExtractProcessor:
         dest_folder = os.path.join(temp_dir, "dest")
         os.makedirs(source_folder)
         os.makedirs(dest_folder)
-        
+
         # Create sample input image
         image = create_sample_image([0, 1, 2])
         input_path = os.path.join(source_folder, "test.mha")
         image_arr = sitk.GetArrayFromImage(image)
         sitk.WriteImage(image, input_path, True)
-        
+
         label_mapping = {1: 10, 2: 20}
         processor = ExtractProcessor(source_folder, dest_folder, label_mapping)
-        
+
         result = processor.process_one(input_path)
         output_path = os.path.join(dest_folder, "test.mha")
-        
+
         assert os.path.exists(output_path)
         output_image = sitk.ReadImage(output_path)
         output_array = sitk.GetArrayFromImage(output_image)
-        
+
         assert np.all(output_array[image_arr==1] == 10)
         assert np.all(output_array[image_arr==2] == 20)
-        
+
         # Check remapping: 1 -> 10, 2 -> 20, 0 stays 0
         # Verify correct number of pixels for each label
         assert np.sum(output_array == 10) == 100  # 100 pixels were originally 1
         assert np.sum(output_array == 20) == 100  # 100 pixels were originally 2
         assert np.sum(output_array == 0) == 800   # 800 pixels were originally 0
-        
+
         # Verify specific layers were remapped correctly
         assert np.all(output_array[1, :, :] == 10)  # Layer 1 (originally 1) -> 10
         assert np.all(output_array[2, :, :] == 20)  # Layer 2 (originally 2) -> 20
         assert np.all(output_array[0, :, :] == 0)   # Layer 0 (originally 0) stays 0
         assert np.all(output_array[3, :, :] == 0)   # Layer 3 (originally 0) stays 0
-        
+
         # Check metadata
         assert result is not None
         assert result.name == "test.mha"
@@ -92,14 +92,14 @@ class TestExtractProcessor:
         dest_folder = os.path.join(temp_dir, "dest")
         os.makedirs(source_folder)
         os.makedirs(dest_folder)
-        
+
         input_path = os.path.join(source_folder, "test.mha")
         output_path = os.path.join(dest_folder, "test.mha")
-        
+
         # Create empty output file to simulate existing
         with open(output_path, 'w') as f:
             f.write("")
-        
+
         processor = ExtractProcessor(source_folder, dest_folder, {1: 0})
         result = processor._extract_one_sample(input_path, output_path)
         assert result is None  # Should skip
@@ -110,26 +110,26 @@ class TestExtractProcessor:
         dest_folder = os.path.join(temp_dir, "dest")
         os.makedirs(source_folder)
         os.makedirs(dest_folder)
-        
+
         # Create image with int32 dtype (signed integer)
         array = np.zeros((5, 5, 5), dtype=np.int32)
         array[0, :, :] = 1
         array[1, :, :] = 2
         image = sitk.GetImageFromArray(array)
-        
+
         input_path = os.path.join(source_folder, "test.mha")
         sitk.WriteImage(image, input_path, True)
-        
+
         label_mapping = {1: 10, 2: 20}
         processor = ExtractProcessor(source_folder, dest_folder, label_mapping)
-        
+
         result = processor.process_one(input_path)
         output_path = os.path.join(dest_folder, "test.mha")
-        
+
         assert os.path.exists(output_path)
         output_image = sitk.ReadImage(output_path)
         output_array = sitk.GetArrayFromImage(output_image)
-        
+
         # Check dtype was converted to uint8
         assert output_array.dtype == np.uint8
         # Check remapping worked
@@ -142,23 +142,23 @@ class TestExtractProcessor:
         dest_folder = os.path.join(temp_dir, "dest")
         os.makedirs(source_folder)
         os.makedirs(dest_folder)
-        
+
         # Create image with labels 1, 2, 3
         image = create_sample_image([1, 2, 3])
         input_path = os.path.join(source_folder, "test.mha")
         sitk.WriteImage(image, input_path, True)
-        
+
         # Map labels that don't exist in image (4, 5)
         label_mapping = {4: 10, 5: 20}
         processor = ExtractProcessor(source_folder, dest_folder, label_mapping)
-        
+
         result = processor.process_one(input_path)
         output_path = os.path.join(dest_folder, "test.mha")
-        
+
         assert os.path.exists(output_path)
         output_image = sitk.ReadImage(output_path)
         output_array = sitk.GetArrayFromImage(output_image)
-        
+
         # All pixels should be 0 since no labels were mapped
         assert np.all(output_array == 0)
         # include_classes should be None since no labels were extracted
@@ -171,18 +171,18 @@ class TestExtractProcessor:
         dest_folder = os.path.join(temp_dir, "dest")
         os.makedirs(sub_folder)
         os.makedirs(dest_folder)
-        
+
         # Create image in subdirectory
         image = create_sample_image([0, 1])
         input_path = os.path.join(sub_folder, "test.mha")
         sitk.WriteImage(image, input_path, True)
-        
+
         label_mapping = {1: 10}
         processor = ExtractProcessor(source_folder, dest_folder, label_mapping, recursive=True)
-        
+
         result = processor.process_one(input_path)
         expected_output = os.path.join(dest_folder, "sub", "test.mha")
-        
+
         assert os.path.exists(expected_output)
         assert result is not None
         assert result.name == "test.mha"
@@ -193,18 +193,18 @@ class TestExtractProcessor:
         dest_folder = os.path.join(temp_dir, "dest")
         os.makedirs(source_folder)
         os.makedirs(dest_folder)
-        
+
         # Test .nii extension
         image = create_sample_image([0, 1])
         input_path = os.path.join(source_folder, "test.nii")
         sitk.WriteImage(image, input_path, True)
-        
+
         label_mapping = {1: 10}
         processor = ExtractProcessor(source_folder, dest_folder, label_mapping)
-        
+
         result = processor.process_one(input_path)
         output_path = os.path.join(dest_folder, "test.mha")
-        
+
         assert os.path.exists(output_path)
         assert result.name == "test.mha"
 
@@ -214,18 +214,18 @@ class TestExtractProcessor:
         dest_folder = os.path.join(temp_dir, "dest")
         os.makedirs(source_folder)
         os.makedirs(dest_folder)
-        
+
         # Test .nii.gz extension
         image = create_sample_image([0, 1])
         input_path = os.path.join(source_folder, "test.nii.gz")
         sitk.WriteImage(image, input_path, True)
-        
+
         label_mapping = {1: 10}
         processor = ExtractProcessor(source_folder, dest_folder, label_mapping)
-        
+
         result = processor.process_one(input_path)
         output_path = os.path.join(dest_folder, "test.mha")
-        
+
         assert os.path.exists(output_path)
         assert result.name == "test.mha"
 
@@ -235,18 +235,18 @@ class TestExtractProcessor:
         dest_folder = os.path.join(temp_dir, "dest")
         os.makedirs(source_folder)
         os.makedirs(dest_folder)
-        
+
         # Test filename with multiple dots
         image = create_sample_image([0, 1])
         input_path = os.path.join(source_folder, "test.file.name.nii")
         sitk.WriteImage(image, input_path, True)
-        
+
         label_mapping = {1: 10}
         processor = ExtractProcessor(source_folder, dest_folder, label_mapping)
-        
+
         result = processor.process_one(input_path)
         output_path = os.path.join(dest_folder, "test.file.name.mha")
-        
+
         assert os.path.exists(output_path)
         assert result.name == "test.file.name.mha"
 
@@ -256,22 +256,22 @@ class TestExtractProcessor:
         dest_folder = os.path.join(temp_dir, "dest")
         os.makedirs(source_folder)
         os.makedirs(dest_folder)
-        
+
         # Create image with custom spacing and origin
         array = np.zeros((5, 5, 5), dtype=np.uint8)
         array[0, :, :] = 1
         image = sitk.GetImageFromArray(array)
         image.SetSpacing([2.0, 2.0, 2.0])
         image.SetOrigin([10.0, 20.0, 30.0])
-        
+
         input_path = os.path.join(source_folder, "test.mha")
         sitk.WriteImage(image, input_path, True)
-        
+
         label_mapping = {1: 5}
         processor = ExtractProcessor(source_folder, dest_folder, label_mapping)
-        
+
         result = processor.process_one(input_path)
-        
+
         # Check that spacing and origin are preserved (note: SimpleITK XYZ -> ZYX conversion)
         assert result.spacing == (2.0, 2.0, 2.0)  # spacing is not reversed
         assert result.origin == (30.0, 20.0, 10.0)  # origin is reversed from XYZ to ZYX
@@ -286,7 +286,7 @@ class TestParseArgs:
         from unittest.mock import patch
 
         from itkit.process.itk_extract import parse_args
-        
+
         test_args = ['script.py', 'source', 'dest', '1:0', '2:1']
         with patch.object(sys, 'argv', test_args):
             args = parse_args()
@@ -303,7 +303,7 @@ class TestParseArgs:
         from unittest.mock import patch
 
         from itkit.process.itk_extract import parse_args
-        
+
         test_args = ['script.py', 'source', 'dest', '1:0', '-r', '--mp', '--workers', '4']
         with patch.object(sys, 'argv', test_args):
             args = parse_args()
@@ -324,21 +324,21 @@ class TestMainIntegration:
         source = os.path.join(temp_dir, 'source')
         dest = os.path.join(temp_dir, 'dest')
         os.makedirs(source)
-        
+
         # Create a sample image
         image = create_sample_image([0, 1, 2])
         img_path = os.path.join(source, "sample.mha")
         sitk.WriteImage(image, img_path, True)
-        
+
         test_args = ['script.py', source, dest, '1:10', '2:20']
         with patch.object(sys, 'argv', test_args):
             # This should run without errors
             main()
-            
+
             # Check output was created
             output_path = os.path.join(dest, "sample.mha")
             assert os.path.exists(output_path)
-            
+
             # Check config file was created
             config_path = os.path.join(dest, "extract_configs.json")
             assert os.path.exists(config_path)
@@ -354,12 +354,12 @@ class TestMainIntegration:
         source = os.path.join(temp_dir, 'source')
         dest = os.path.join(temp_dir, 'dest')
         os.makedirs(source)
-        
+
         # Create a sample image
         image = create_sample_image([0, 1])
         img_path = os.path.join(source, "sample.mha")
         sitk.WriteImage(image, img_path, True)
-        
+
         test_args = ['script.py', source, dest, '1:10']
         with patch.object(sys, 'argv', test_args):
             # This should complete successfully despite any config save issues

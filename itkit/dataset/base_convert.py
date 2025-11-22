@@ -89,21 +89,21 @@ class StandardFileFormatter:
                     f"Image {input_image_mha.GetSize()} and label {input_label_mha.GetSize()} size mismatch."
                 input_label_mha = sitk.DICOMOrient(input_label_mha, 'LPI')
                 sitk.WriteImage(input_label_mha, output_label_mha_path, useCompression=True)
-        
+
         except Exception as e:
             convertion_log["id"] = "error"
             convertion_log["error"] = str(e)
             error_info = f"SeriesUID{series_id} | " + str(e)
             convertion_log["Unknown_error_detail"] = error_info
             print(error_info)
-        
+
         return convertion_log
-    
+
     @staticmethod
     def convert_one_sample_dcm(image_path:str, label_path:str):
         input_image_dcms, input_image_mha = read_dcm_as_sitk(image_path)
         return input_image_mha, None
-    
+
     @staticmethod
     def convert_one_sample_nii(image_path, label_path):
         if image_path is not None and os.path.exists(image_path):
@@ -136,10 +136,10 @@ class StandardFileFormatter:
             ):
                 result = self.convert_one_sample(args)
                 per_sample_log.append(result)
-        
+
         convertion_log = {
             "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "data_root": self.args.data_root, 
+            "data_root": self.args.data_root,
             "dest_root": self.args.dest_root,
             "spacing": self.args.spacing,
             "size": self.args.size,

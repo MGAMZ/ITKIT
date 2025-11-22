@@ -7,13 +7,13 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from .runner import CmdChunk, ProcessRunner
 
 
-def _style_lineedit_placeholder(line: QtWidgets.QLineEdit|QtWidgets.QPlainTextEdit, 
-                                placeholder_color: str = "#9d9d9d", 
+def _style_lineedit_placeholder(line: QtWidgets.QLineEdit|QtWidgets.QPlainTextEdit,
+                                placeholder_color: str = "#9d9d9d",
                                 bg_color: str | None = None):
     if bg_color:
         # 可选：同时设置浅色背景以提高对比
         line.setStyleSheet(f"background-color: {bg_color};")
-    
+
     pal = line.palette()
     pal.setColor(QtGui.QPalette.ColorRole.PlaceholderText, QtGui.QColor(placeholder_color))
     line.setPalette(pal)

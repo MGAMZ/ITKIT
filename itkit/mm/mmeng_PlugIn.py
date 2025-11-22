@@ -7,6 +7,7 @@ import os.path as osp
 import pdb
 from functools import partial
 from numbers import Number
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -31,7 +32,6 @@ from mmengine.runner import (
 from mmengine.runner.runner import ConfigType
 from torch import nn
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
-from typing_extensions import Sequence
 
 from ..utils.DevelopUtils import InjectVisualize, measure_time
 
@@ -51,7 +51,7 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
 
             if cfg.get("MP_mode", None) == "fsdp":
                 strategy = kwargs.get("cfg", {}).pop("strategy", None)
-                auto_strategy = partial(size_based_auto_wrap_policy, 
+                auto_strategy = partial(size_based_auto_wrap_policy,
                                         min_num_params=int(1e5))
                 strategy.update(dict(model_wrapper=dict(auto_wrap_policy=auto_strategy)))
                 kwargs["strategy"] = strategy
@@ -118,12 +118,12 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
                     self.logger.info(f"Resumed from the latest checkpoint {resume_from}.")
                     self._has_loaded = True
                     return
-            
+
             # When resume checkpoint can not be found, `load_from` as needed.
             if self._load_from is not None:
                 self.load_checkpoint(self._load_from)
                 self._has_loaded = True
-    
+
     return mgam_Runner.from_cfg(cfg)
 
 
@@ -299,12 +299,12 @@ from torch.distributed.checkpoint.state_dict import (
 
 
 class RemasteredFSDP_Strategy(FSDPStrategy):
-    def __init__(self, 
-                 model_wrapper_cfg:dict|None=None, 
+    def __init__(self,
+                 model_wrapper_cfg:dict|None=None,
                  *args, **kwargs):
         self.model_wrapper_cfg = model_wrapper_cfg
         super().__init__(*args, **kwargs)
-    
+
     def _wrap_model(self, model: nn.Module) -> None:
         """warp model but not load state."""
         try:
@@ -334,11 +334,11 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
             assert "type" in self.model_wrapper_cfg.keys()
             assert len(self.model_wrapper_cfg) == 1, "The cfg should only contain a type param."
             self.model_wrapper_cfg.update(
-                module=model, 
+                module=model,
                 device_id=int(os.environ['LOCAL_RANK'] ))
-        
+
         model = MODEL_WRAPPERS.build(
-            self.model_wrapper, 
+            self.model_wrapper,
             default_args=self.model_wrapper_cfg)
 
         if self.activation_checkpointing is not None:
@@ -361,7 +361,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
                 if not callable(check_fn):
                     raise TypeError('`check_fn` must be a callable function')
                 apply_activation_checkpointing(model, check_fn=check_fn, **cfg)
-        
+
         return model
 
     def prepare(
@@ -382,7 +382,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
         self.model = self._init_model_weights(self.model)
         self.optim_wrapper = self.build_optim_wrapper(optim_wrapper, self.model)
         self.model = self._wrap_model(self.model)
-        
+
         if hasattr(self, 'model_state_dict') and hasattr(self, 'optim_state_dict'):
             set_state_dict(
                 self.model,
@@ -391,7 +391,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
                 optim_state_dict=self.optim_state_dict(),
                 options=StateDictOptions(full_state_dict=True,
                                          cpu_offload=True))
-            
+
         self.model = self.compile_model(self.model, compile=compile)
 
         if param_scheduler is not None:
@@ -400,7 +400,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
 
         self._prepared = True
         return self._prepared_components()
-    
+
     def build_optim_wrapper(self, *args, **kwargs):
         optim_wrapper = super().build_optim_wrapper(*args, **kwargs)
         self._scale_lr()
@@ -423,7 +423,7 @@ class RatioSampler(DefaultSampler):
     def __init__(self, use_sample_ratio: float, **kwargs):
         super().__init__(**kwargs)
         self.use_sample_ratio = use_sample_ratio
-        self.num_samples_original = super(RatioSampler, self).__len__()
+        self.num_samples_original = super().__len__()
         print_log(f"RatioSampler used, original num of batches "
                   f"{self.num_samples_original} -> used {len(self)}",
                   MMLogger.get_current_instance())
@@ -455,7 +455,7 @@ def multi_sample_collate(data_batch: Sequence[dict]):
     Compatible with `SampleAugment` Transform Class.
     This collate is to facilitate multi-sub-sample generation
     from the same sample.
-    
+
     NOTE
     The reason to do SampleWiseInTimeAugment is the time comsumption
     for IO of an entire sample is too expensive, so it's better
@@ -476,8 +476,8 @@ class mgam_OptimWrapperConstructor(DefaultOptimWrapperConstructor):
     def __call__(self, model: nn.Module):
         if hasattr(model, 'module'):
             model = model.module
-        
+
         filtered_params = filter(lambda p: p.requires_grad, model.parameters())
         model.parameters = lambda: filtered_params
-        
+
         return super().__call__(model)

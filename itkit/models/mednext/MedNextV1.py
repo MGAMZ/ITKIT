@@ -1,4 +1,5 @@
-from typing import Iterable, List
+from collections.abc import Iterable
+from typing import List
 
 import torch
 import torch.nn as nn
@@ -9,10 +10,10 @@ from .blocks import *
 
 class MedNeXt(nn.Module):
 
-    def __init__(self, 
-        in_channels: int, 
+    def __init__(self,
+        in_channels: int,
         n_channels: int,
-        n_classes: int, 
+        n_classes: int,
         exp_r: int = 4,                            # Expansion ratio as in Swin Transformers
         kernel_size: int = 7,                      # Ofcourse can test kernel_size
         enc_kernel_size: int = None,
@@ -21,7 +22,7 @@ class MedNeXt(nn.Module):
         do_res: bool = False,                       # Can be used to individually test residual connection
         do_res_up_down: bool = False,             # Additional 'res' connection on up and down convs
         checkpoint_style: bool = None,            # Either inside block or outside block
-        block_counts: list = [2,2,2,2,2,2,2,2,2], # Can be used to test staging ratio: 
+        block_counts: list = [2,2,2,2,2,2,2,2,2], # Can be used to test staging ratio:
                                             # [3,3,9,3] in Swin as opposed to [2,2,2,2,2] in nnUNet
         norm_type = 'group',
         dim = '3d',                                # 2d or 3d
@@ -37,7 +38,7 @@ class MedNeXt(nn.Module):
         if checkpoint_style == 'outside_block':
             self.outside_block_checkpointing = True
         assert dim in ['2d', '3d']
-        
+
         if kernel_size is not None:
             enc_kernel_size = kernel_size
             dec_kernel_size = kernel_size
@@ -46,11 +47,11 @@ class MedNeXt(nn.Module):
             conv = nn.Conv2d
         elif dim == '3d':
             conv = nn.Conv3d
-            
+
         self.stem = conv(in_channels, n_channels, kernel_size=1)
         if type(exp_r) == int:
             exp_r = [exp_r for i in range(len(block_counts))]
-        
+
         self.enc_block_0 = nn.Sequential(*[
             MedNeXtBlock(
                 in_channels=n_channels,
@@ -61,9 +62,9 @@ class MedNeXt(nn.Module):
                 norm_type=norm_type,
                 dim=dim,
                 grn=grn
-                ) 
+                )
             for i in range(block_counts[0])]
-        ) 
+        )
 
         self.down_0 = MedNeXtDownBlock(
             in_channels=n_channels,
@@ -74,7 +75,7 @@ class MedNeXt(nn.Module):
             norm_type=norm_type,
             dim=dim
         )
-    
+
         self.enc_block_1 = nn.Sequential(*[
             MedNeXtBlock(
                 in_channels=n_channels*2,
@@ -124,7 +125,7 @@ class MedNeXt(nn.Module):
             dim=dim,
             grn=grn
         )
-        
+
         self.enc_block_3 = nn.Sequential(*[
             MedNeXtBlock(
                 in_channels=n_channels*8,
@@ -135,10 +136,10 @@ class MedNeXt(nn.Module):
                 norm_type=norm_type,
                 dim=dim,
                 grn=grn
-                )            
+                )
             for i in range(block_counts[3])]
         )
-        
+
         self.down_3 = MedNeXtDownBlock(
             in_channels=8*n_channels,
             out_channels=16*n_channels,
@@ -267,7 +268,7 @@ class MedNeXt(nn.Module):
         self.out_0 = OutBlock(in_channels=n_channels, n_classes=n_classes, dim=dim)
 
         # Used to fix PyTorch checkpointing bug
-        self.dummy_tensor = nn.Parameter(torch.tensor([1.]), requires_grad=True)  
+        self.dummy_tensor = nn.Parameter(torch.tensor([1.]), requires_grad=True)
 
         if deep_supervision:
             self.out_1 = OutBlock(in_channels=n_channels*2, n_classes=n_classes, dim=dim)
@@ -291,7 +292,7 @@ class MedNeXt(nn.Module):
 
 
     def forward(self, x):
-        
+
         x = self.stem(x)
         if self.outside_block_checkpointing:
             x_res_0 = self.iterative_checkpoint(self.enc_block_0, x)
@@ -308,28 +309,28 @@ class MedNeXt(nn.Module):
                 x_ds_4 = checkpoint.checkpoint(self.out_4, x, self.dummy_tensor)
 
             x_up_3 = checkpoint.checkpoint(self.up_3, x, self.dummy_tensor)
-            dec_x = x_res_3 + x_up_3 
+            dec_x = x_res_3 + x_up_3
             x = self.iterative_checkpoint(self.dec_block_3, dec_x)
             if self.do_ds:
                 x_ds_3 = checkpoint.checkpoint(self.out_3, x, self.dummy_tensor)
             del x_res_3, x_up_3
 
             x_up_2 = checkpoint.checkpoint(self.up_2, x, self.dummy_tensor)
-            dec_x = x_res_2 + x_up_2 
+            dec_x = x_res_2 + x_up_2
             x = self.iterative_checkpoint(self.dec_block_2, dec_x)
             if self.do_ds:
                 x_ds_2 = checkpoint.checkpoint(self.out_2, x, self.dummy_tensor)
             del x_res_2, x_up_2
 
             x_up_1 = checkpoint.checkpoint(self.up_1, x, self.dummy_tensor)
-            dec_x = x_res_1 + x_up_1 
+            dec_x = x_res_1 + x_up_1
             x = self.iterative_checkpoint(self.dec_block_1, dec_x)
             if self.do_ds:
                 x_ds_1 = checkpoint.checkpoint(self.out_1, x, self.dummy_tensor)
             del x_res_1, x_up_1
 
             x_up_0 = checkpoint.checkpoint(self.up_0, x, self.dummy_tensor)
-            dec_x = x_res_0 + x_up_0 
+            dec_x = x_res_0 + x_up_0
             x = self.iterative_checkpoint(self.dec_block_0, dec_x)
             del x_res_0, x_up_0, dec_x
 
@@ -350,7 +351,7 @@ class MedNeXt(nn.Module):
                 x_ds_4 = self.out_4(x)
 
             x_up_3 = self.up_3(x)
-            dec_x = x_res_3 + x_up_3 
+            dec_x = x_res_3 + x_up_3
             x = self.dec_block_3(dec_x)
 
             if self.do_ds:
@@ -358,21 +359,21 @@ class MedNeXt(nn.Module):
             del x_res_3, x_up_3
 
             x_up_2 = self.up_2(x)
-            dec_x = x_res_2 + x_up_2 
+            dec_x = x_res_2 + x_up_2
             x = self.dec_block_2(dec_x)
             if self.do_ds:
                 x_ds_2 = self.out_2(x)
             del x_res_2, x_up_2
 
             x_up_1 = self.up_1(x)
-            dec_x = x_res_1 + x_up_1 
+            dec_x = x_res_1 + x_up_1
             x = self.dec_block_1(dec_x)
             if self.do_ds:
                 x_ds_1 = self.out_1(x)
             del x_res_1, x_up_1
 
             x_up_0 = self.up_0(x)
-            dec_x = x_res_0 + x_up_0 
+            dec_x = x_res_0 + x_up_0
             x = self.dec_block_0(dec_x)
             del x_res_0, x_up_0, dec_x
 
@@ -380,7 +381,7 @@ class MedNeXt(nn.Module):
 
         if self.do_ds:
             return [x, x_ds_1, x_ds_2, x_ds_3, x_ds_4]
-        else: 
+        else:
             return x
 
 
@@ -389,8 +390,8 @@ from mmengine.model import BaseModule
 
 
 class MM_MedNext_Encoder(BaseModule):
-    def __init__(self, 
-        in_channels: int, 
+    def __init__(self,
+        in_channels: int,
         embed_dims: int,
         exp_r = 4,                            # Expansion ratio as in Swin Transformers
         kernel_size: int = 7,                      # Ofcourse can test kernel_size
@@ -400,7 +401,7 @@ class MM_MedNext_Encoder(BaseModule):
         do_res: bool = False,                       # Can be used to individually test residual connection
         do_res_up_down: bool = False,             # Additional 'res' connection on up and down convs
         checkpoint_style: bool = None,            # Either inside block or outside block
-        block_counts: list = [2,2,2,2,2,2,2,2,2], # Can be used to test staging ratio: 
+        block_counts: list = [2,2,2,2,2,2,2,2,2], # Can be used to test staging ratio:
                                             # [3,3,9,3] in Swin as opposed to [2,2,2,2,2] in nnUNet
         norm_type = 'group',
         dim = '2d',                                # 2d or 3d
@@ -415,7 +416,7 @@ class MM_MedNext_Encoder(BaseModule):
         if checkpoint_style == 'outside_block':
             self.outside_block_checkpointing = True
         assert dim in ['2d', '3d']
-        
+
         if kernel_size is not None:
             enc_kernel_size = kernel_size
             dec_kernel_size = kernel_size
@@ -425,12 +426,12 @@ class MM_MedNext_Encoder(BaseModule):
         elif dim == '3d':
             conv = nn.Conv3d
         self.stem = conv(in_channels, embed_dims, kernel_size=1)
-        
+
         if type(exp_r) == int:
             exp_r = [exp_r] * len(block_counts)
         else:
-            assert isinstance(exp_r, List)
-        
+            assert isinstance(exp_r, list)
+
         self.enc_block_0 = nn.Sequential(*[
             MedNeXtBlock(
                 in_channels=embed_dims,
@@ -441,9 +442,9 @@ class MM_MedNext_Encoder(BaseModule):
                 norm_type=norm_type,
                 dim=dim,
                 grn=grn
-                ) 
+                )
             for _ in range(block_counts[0])]
-        ) 
+        )
 
         self.down_0 = MedNeXtDownBlock(
             in_channels=embed_dims,
@@ -454,7 +455,7 @@ class MM_MedNext_Encoder(BaseModule):
             norm_type=norm_type,
             dim=dim
         )
-    
+
         self.enc_block_1 = nn.Sequential(*[
             MedNeXtBlock(
                 in_channels=embed_dims*2,
@@ -504,7 +505,7 @@ class MM_MedNext_Encoder(BaseModule):
             dim=dim,
             grn=grn
         )
-        
+
         self.enc_block_3 = nn.Sequential(*[
             MedNeXtBlock(
                 in_channels=embed_dims*8,
@@ -515,10 +516,10 @@ class MM_MedNext_Encoder(BaseModule):
                 norm_type=norm_type,
                 dim=dim,
                 grn=grn
-                )            
+                )
             for _ in range(block_counts[3])]
         )
-        
+
         self.down_3 = MedNeXtDownBlock(
             in_channels=8*embed_dims,
             out_channels=16*embed_dims,
@@ -546,7 +547,7 @@ class MM_MedNext_Encoder(BaseModule):
 
     def forward(self, x):
         x = self.stem(x)
-        
+
         x_res_0 = self.enc_block_0(x)
         x = self.down_0(x_res_0)
         x_res_1 = self.enc_block_1(x)
@@ -555,7 +556,7 @@ class MM_MedNext_Encoder(BaseModule):
         x = self.down_2(x_res_2)
         x_res_3 = self.enc_block_3(x)
         x = self.down_3(x_res_3)
-        
+
         return (x_res_0, x_res_1, x_res_2, x_res_3, x)
 
 
@@ -565,13 +566,13 @@ from mmseg.models.decode_heads.decode_head import BaseDecodeHead
 class MM_MedNext_Decoder(BaseDecodeHead):
     def __init__(self,
         embed_dims: int,
-        num_classes: int, 
-        out_channels: int, 
+        num_classes: int,
+        out_channels: int,
         exp_r = 4,                            # Expansion ratio as in Swin Transformers
         kernel_size: int = 7,                      # Ofcourse can test kernel_size
         do_res: bool = False,                       # Can be used to individually test residual connection
         do_res_up_down: bool = False,             # Additional 'res' connection on up and down convs
-        block_counts: list = [2,2,2,2,2,2,2,2,2], # Can be used to test staging ratio: 
+        block_counts: list = [2,2,2,2,2,2,2,2,2], # Can be used to test staging ratio:
                                             # [3,3,9,3] in Swin as opposed to [2,2,2,2,2] in nnUNet
         norm_type = 'group',
         dim = '2d',                                # 2d or 3d
@@ -589,12 +590,12 @@ class MM_MedNext_Decoder(BaseDecodeHead):
                          input_transform='multiple_select',
                          in_index=[0,1,2,3,4],
                          **kwargs)
-        
+
         if type(exp_r) == int:
             exp_r = [exp_r] * len(block_counts)
         else:
-            assert isinstance(exp_r, List)
-        
+            assert isinstance(exp_r, list)
+
         self.up_3 = MedNeXtUpBlock(
             in_channels=16*embed_dims,
             out_channels=8*embed_dims,
@@ -696,28 +697,28 @@ class MM_MedNext_Decoder(BaseDecodeHead):
         )
 
         self.block_counts = block_counts
-    
+
     def forward(self, inputs):
         (x_res_0, x_res_1, x_res_2, x_res_3, x) = inputs
-        
+
         x_up_3 = self.up_3(x)
-        dec_x = x_res_3 + x_up_3 
+        dec_x = x_res_3 + x_up_3
         x = self.dec_block_3(dec_x)
 
         del x_res_3, x_up_3
 
         x_up_2 = self.up_2(x)
-        dec_x = x_res_2 + x_up_2 
+        dec_x = x_res_2 + x_up_2
         x = self.dec_block_2(dec_x)
         del x_res_2, x_up_2
 
         x_up_1 = self.up_1(x)
-        dec_x = x_res_1 + x_up_1 
+        dec_x = x_res_1 + x_up_1
         x = self.dec_block_1(dec_x)
         del x_res_1, x_up_1
 
         x_up_0 = self.up_0(x)
-        dec_x = x_res_0 + x_up_0 
+        dec_x = x_res_0 + x_up_0
         x = self.dec_block_0(dec_x)
         del x_res_0, x_up_0, dec_x
 

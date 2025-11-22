@@ -494,8 +494,8 @@ class BaseDecodeHead_3D(BaseDecodeHead):
                 losses,
                 weight=1 / (self.deep_supervision_weight_truth**i))
 
-        losses["acc_seg"] = accuracy(seg_logits[0], 
-                                     seg_label.squeeze(1), 
+        losses["acc_seg"] = accuracy(seg_logits[0],
+                                     seg_label.squeeze(1),
                                      ignore_index=self.ignore_index)
 
         return losses
@@ -729,7 +729,7 @@ class Seg3DLocalVisualizer(SegLocalVisualizer):
         image = (image / image.max() * 255).astype(np.uint8)  # (Y, X, C)
         if self.resize is not None:
             image = cv2.resize(image, self.resize, interpolation=cv2.INTER_LINEAR)
-        
+
         if data_sample is not None:
             if "gt_sem_seg" in data_sample:
                 assert data_sample.gt_sem_seg.data.shape[-3:] == torch.Size([Z, Y, X])
@@ -944,7 +944,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
                     gt_sem_seg_one_hot = data_sample.gt_sem_seg_one_hot.data
                     del data_sample.gt_sem_seg_one_hot.data
                     data_sample.gt_sem_seg_one_hot.data = F.pad(gt_sem_seg_one_hot, padding_size, value=0)
-                
+
                 data_sample.set_metainfo(
                     {
                         "img_shape": tensor.shape[-3:],
@@ -953,7 +953,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
                     }
                 )
                 padded_samples.append(data_sample)
-            
+
             else:
                 padded_samples.append({
                     "img_padding_size": padding_size,
@@ -971,7 +971,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
 
         for i, one_rot_lbl in enumerate(rot_lbl):
             data_samples[i].gt_sem_seg.data = one_rot_lbl
-        
+
         return rot_inputs, data_samples
 
     def forward(self, data: dict, training: bool = False) -> dict[str, Any]:
@@ -985,7 +985,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         Returns:
             Dict: Data in the same format as the model input.
         """
-        
+
         data = self.cast_data(data)  # type: ignore
         inputs = data["inputs"]
         data_samples = data.get("data_samples", None)
@@ -1009,11 +1009,11 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
             )
             if self.rot3D_aug is not None:
                 inputs, data_samples = self._rotate_augment(inputs, data_samples)
-        
+
         else:
             vol_size = inputs[0].shape[1:]
             assert all(input_.shape[1:] == vol_size for input_ in inputs), "The volume size in a batch should be the same."
-            
+
             if self.test_cfg is not None:
                 inputs, data_samples = self.stack_batch_3D(
                     inputs=inputs,
@@ -1030,7 +1030,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
 
 class PixelUnshuffle1D(torch.nn.Module):
     def __init__(self, downscale_factor):
-        super(PixelUnshuffle1D, self).__init__()
+        super().__init__()
         self.downscale_factor = downscale_factor
 
     def forward(self, inputs: Tensor):
@@ -1049,8 +1049,8 @@ class PixelUnshuffle1D(torch.nn.Module):
 
 class PixelShuffle3D(torch.nn.Module):
     def __init__(self, upscale_factor: int|Sequence[int]):
-        super(PixelShuffle3D, self).__init__()
-        
+        super().__init__()
+
         if isinstance(upscale_factor, int):
             self.upscale_factor = (upscale_factor, upscale_factor, upscale_factor)
         elif isinstance(upscale_factor, Sequence) and len(upscale_factor) == 3:
@@ -1066,19 +1066,19 @@ class PixelShuffle3D(torch.nn.Module):
         out_channels = channels // total_factor
         if channels % total_factor != 0:
             raise ValueError(f"Input channels ({channels}) must be divisible by the product of upscale factors ({rx}*{ry}*{rz}={total_factor}).")
-        
+
         # execute
         mid = inputs.view(batch, out_channels, rx, ry, rz, x, y, z)
         mid = mid.permute(0, 1, 5, 2, 6, 3, 7, 4)
         outputs = mid.contiguous().view(batch, out_channels, x * rx, y * ry, z * rz)
-        
+
         return outputs
 
 
 class PixelUnshuffle3D(torch.nn.Module):
     def __init__(self, downscale_factor: int|Sequence[int]):
-        super(PixelUnshuffle3D, self).__init__()
-        
+        super().__init__()
+
         if isinstance(downscale_factor, int):
             self.downscale_factor = (downscale_factor, downscale_factor, downscale_factor)
         elif isinstance(downscale_factor, Sequence) and len(downscale_factor) == 3:
@@ -1093,10 +1093,10 @@ class PixelUnshuffle3D(torch.nn.Module):
         out_channels = channels * (rx * ry * rz)
         if x % rx != 0 or y % ry != 0 or z % rz != 0:
             raise ValueError(f"Input dimensions ({x}, {y}, {z}) must be divisible by the downscale factors ({rx}, {ry}, {rz}).")
-        
+
         # execute
         mid = inputs.view(batch, channels, x // rx, rx, y // ry, ry, z // rz, rz)
         mid = mid.permute(0, 1, 3, 5, 7, 2, 4, 6)
         outputs = mid.contiguous().view(batch, out_channels, x // rx, y // ry, z // rz)
-        
+
         return outputs

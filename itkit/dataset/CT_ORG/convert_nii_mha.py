@@ -7,7 +7,7 @@ class CT_ORG_formatter(StandardFileFormatter):
     @staticmethod
     def _series_id(image_path: str, label_path: str) -> str:
         return os.path.basename(image_path).replace("volume-", "").replace(".nii.gz", "")
-    
+
     def tasks(self) -> list:
         task_list = []
         for series_name in os.listdir(self.args.data_root):

@@ -8,7 +8,7 @@ CLASS_INDEX_MAP = {
     'inferior_vena_cava': 6,    # 下腔静脉
     'right_adrenal_gland': 7,   # 右肾上腺
     'left_adrenal_gland': 8,    # 左肾上腺
-    'gallbladder': 9,   # 胆囊 
+    'gallbladder': 9,   # 胆囊
     'esophagus': 10,    # 食道
     'stomach': 11,      # 胃
     'duodenum': 12,     # 十二指肠

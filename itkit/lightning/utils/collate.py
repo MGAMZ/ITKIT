@@ -9,7 +9,7 @@ def multi_sample_collate(data_batch: Sequence[dict]):
     Compatible with `SampleAugment` Transform Class.
     This collate is to facilitate multi-sub-sample generation
     from the same sample.
-    
+
     NOTE
     The reason to do SampleWiseInTimeAugment is the time comsumption
     for IO of an entire sample is too expensive, so it's better
@@ -21,8 +21,5 @@ def multi_sample_collate(data_batch: Sequence[dict]):
             flattened.extend(item)
         else:
             flattened.append(item)
-            
+
     return default_collate(flattened)
-
-
-

@@ -24,8 +24,8 @@ class PatchMetadata(BaseModel):
 
 class ProcessOneResult(BaseModel):
     """Result from processing one image-label pair.
-    
-    Contains both the patch-level metadata (for meta.json) and 
+
+    Contains both the patch-level metadata (for meta.json) and
     source-level metadata (for crop_meta.json).
     """
     patch_metadata_list: list[SeriesMetadata] = Field(default_factory=list, description="Metadata for each extracted patch")
@@ -55,13 +55,13 @@ class CropMetadata(BaseModel):
 
 def parse_patch_size(patched_dataset_folder: str | Path) -> list[int]:
     """Parse patch size from crop metadata file.
-    
+
     Args:
         patched_dataset_folder: Path to the patched dataset folder
-        
+
     Returns:
         Patch size as [Z, Y, X]
-        
+
     Raises:
         FileNotFoundError: If crop_meta.json doesn't exist
     """
@@ -109,7 +109,7 @@ class PatchProcessor(DatasetProcessor):
                 # Collect patch-level metadata for meta.json
                 for patch_meta in res.patch_metadata_list:
                     self.meta_manager.update(patch_meta, allow_and_overwrite_existed=self.ALLOW_AND_OVERWRITE_EXISTED_METADATA)
-                
+
                 # Collect source-level metadata for crop_meta.json
                 self.source_metadata[res.source_metadata.series_id] = res.source_metadata
 
@@ -129,7 +129,7 @@ class PatchProcessor(DatasetProcessor):
             lbl_arr = None
         else:
             lbl_arr = sitk.GetArrayFromImage(label)
-        
+
         def to_triplet(x):
             if isinstance(x, int):
                 return (x, x, x)
@@ -141,11 +141,11 @@ class PatchProcessor(DatasetProcessor):
         Z, Y, X = img_arr.shape
         if pZ > Z or pY > Y or pX > X:
             return []
-        
+
         origin = image.GetOrigin()
         spacing = image.GetSpacing()
         direction = image.GetDirection()
-        
+
         def compute_starts(L, p, s):
             starts = list(range(0, L - p + 1, s))
             if starts[-1] != L - p:
@@ -154,7 +154,7 @@ class PatchProcessor(DatasetProcessor):
         z_starts = compute_starts(Z, pZ, sZ)
         y_starts = compute_starts(Y, pY, sY)
         x_starts = compute_starts(X, pX, sX)
-        
+
         patches = []
         for z in z_starts:
             for y in y_starts:
@@ -173,7 +173,7 @@ class PatchProcessor(DatasetProcessor):
                             save = False
                         if fg_ratio == 0 and (np.random.rand() > self.keep_empty_label_prob):
                             save = False
-                    
+
                     if save:
                         new_origin = (
                             origin[0] + x * spacing[0],
@@ -209,10 +209,10 @@ class PatchProcessor(DatasetProcessor):
 
     def process_one(self, args: tuple[str, str]) -> ProcessOneResult | None:
         """Process one image-label pair and extract patches.
-        
+
         Args:
             args: Tuple of (image_path, label_path)
-            
+
         Returns:
             ProcessOneResult containing patch metadata list and source metadata,
             or None if processing failed
@@ -224,34 +224,34 @@ class PatchProcessor(DatasetProcessor):
             image = sitk.ReadImage(str(img_path))
             label = sitk.ReadImage(str(lbl_path))
             img_arr = sitk.GetArrayFromImage(image)
-            
+
             if not self.is_valid_sample(image, label):
                 return None
-            
+
             patches = self.extract_patches(image, label, self.patch_size, self.patch_stride, self.min_fg, self.still_save)
-            
+
             patch_metadata_list = []
             class_within_patch = {}
-            
+
             # Save patches and collect metadata for each patch
             for idx, (img_patch, lbl_patch) in enumerate(patches):
                 # Use unified filenames across image/ and label/ dirs so they correspond 1:1
                 fname_base = f"{case_name}_p{idx}.mha"
-                
+
                 # Save image patch
                 sitk.WriteImage(img_patch, str(self.image_dir / fname_base), True)
-                
+
                 if lbl_patch is not None:
                     # Log unique classes in this patch
                     lbl_arr = sitk.GetArrayFromImage(lbl_patch)
                     class_within_patch[fname_base] = np.unique(lbl_arr).tolist()
                     # Save label patch
                     sitk.WriteImage(lbl_patch, str(self.label_dir / fname_base), True)
-                    
+
                     # Create metadata for this patch from the label
                     patch_meta = SeriesMetadata.from_sitk_image(lbl_patch, fname_base)
                     patch_metadata_list.append(patch_meta)
-            
+
             # Create source-level metadata using PatchMetadata model
             source_meta = PatchMetadata(
                 series_id=case_name,
@@ -260,13 +260,13 @@ class PatchProcessor(DatasetProcessor):
                 anno_available=True,
                 class_within_patch=class_within_patch
             )
-            
+
             # Return combined result
             return ProcessOneResult(
                 patch_metadata_list=patch_metadata_list,
                 source_metadata=source_meta
             )
-        
+
         except Exception as e:
             tqdm.write(f"Failed processing case {case_name}: {e}")
             return None
@@ -277,17 +277,17 @@ class PatchProcessor(DatasetProcessor):
         if not np.allclose(img_size, lbl_size, atol=1.5):
             tqdm.write(f"Skipping for Size mismatch img size {img_size} | lbl size {lbl_size}.")
             return False
-        
+
         img_spacing = itk_img.GetSpacing()
         lbl_spacing = itk_lbl.GetSpacing()
         if not np.allclose(img_spacing, lbl_spacing, atol=0.01):
             tqdm.write(f"Skipping for Spacing mismatch img spacing {img_spacing} | lbl spacing {lbl_spacing}.")
             return False
-        
+
         if img_size[0] != img_size[1]:
             tqdm.write(f"Skipping for Non-isotropic size img size {img_size}.")
             return False
-        
+
         return True
 
 
@@ -315,7 +315,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    
+
     processor = PatchProcessor(
         source_folder = args.src_folder,
         dst_folder = args.dst_folder,
@@ -327,16 +327,16 @@ def main():
         mp = args.mp,
         workers = args.workers
     )
-    
+
     try:
         processor.process("Patching")
-        
+
         # Save standard metadata files (only contains patch-level metadata)
         # These meta.json files contain SeriesMetadata for each patch
         processor.save_meta(args.dst_folder / "meta.json")
         processor.save_meta(args.dst_folder / "image" / "meta.json")
         processor.save_meta(args.dst_folder / "label" / "meta.json")
-        
+
         # Create and save CropMetadata (contains source-level information)
         crop_meta = CropMetadata(
             src_folder=str(args.src_folder),
@@ -347,11 +347,11 @@ def main():
             patch_meta=processor.source_metadata
         )
         crop_meta.save(args.dst_folder / "crop_meta.json")
-        
+
         print(f"Patching completed. Results saved to {args.dst_folder}")
         print(f"  - Processed {len(processor.source_metadata)} cases")
         print(f"  - Generated {len(processor.meta_manager.meta)} patches")
-    
+
     except Exception as e:
         import traceback
         traceback.print_exc()

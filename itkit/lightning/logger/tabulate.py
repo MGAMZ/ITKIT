@@ -1,12 +1,12 @@
 import os
 import pdb
+from typing import override
 
 from pytorch_lightning.loggers import Logger
 from pytorch_lightning.utilities.rank_zero import rank_zero_only
 from tabulate import tabulate
 from torch import Tensor
 from tqdm import tqdm
-from typing_extensions import override
 
 
 class TabulateLogger(Logger):
@@ -42,10 +42,10 @@ class TabulateLogger(Logger):
     @rank_zero_only
     def log_metrics(self, metrics: dict[str, Tensor|float], step: int|None = None) -> None:
         """metric naming rule: <col_name>_<row_name>"""
-        
+
         if not metrics:
             return
-        
+
         for k in list(metrics.keys()):
             metrics[k.split('/')[-1]] = metrics[k]
             metrics.pop(k, None)

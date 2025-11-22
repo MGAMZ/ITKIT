@@ -14,7 +14,7 @@ DEFAULT_LABEL_DTYPE = np.uint8
 
 class ExtractProcessor(SingleFolderProcessor):
     """Processor for extracting and remapping labels"""
-    
+
     def __init__(self,
                  source_folder: str,
                  dest_folder: str,
@@ -25,7 +25,7 @@ class ExtractProcessor(SingleFolderProcessor):
         super().__init__(source_folder, dest_folder, recursive, mp=mp, workers=workers, task_description="Extracting labels")
         self.dest_folder: str
         self.label_mapping = label_mapping
-    
+
     def process_one(self, args: str) -> SeriesMetadata | None:
         # Determine output path
         file_path = args
@@ -34,15 +34,15 @@ class ExtractProcessor(SingleFolderProcessor):
             output_path = os.path.join(self.dest_folder, rel_path)
         else:
             output_path = os.path.join(self.dest_folder, os.path.basename(file_path))
-        
+
         # Normalize extension to .mha
         base_name = os.path.splitext(os.path.basename(output_path))[0]
         if base_name.endswith('.nii'):
             base_name = base_name[:-4]
         output_path = os.path.join(os.path.dirname(output_path), base_name + '.mha')
-        
+
         return self._extract_one_sample(file_path, output_path)
-    
+
     def _extract_one_sample(self, input_path: str, output_path: str) -> SeriesMetadata | None:
         """Extract and remap labels from a single sample"""
         # Check if output already exists
@@ -72,7 +72,7 @@ class ExtractProcessor(SingleFolderProcessor):
         # Apply label mappings
         original_labels = set()
         extracted_labels = set()
-        
+
         for source_label, target_label in self.label_mapping.items():
             mask = (image_array == source_label)
             if np.any(mask):
@@ -109,10 +109,10 @@ class ExtractProcessor(SingleFolderProcessor):
 def parse_label_mappings(mapping_strings: list[str]) -> dict:
     """
     Parse label mapping strings in format "source:target" to dictionary.
-    
+
     Args:
         mapping_strings: List of strings like ["1:0", "5:1", "3:2"]
-        
+
     Returns:
         Dictionary mapping source labels to target labels
     """
@@ -125,7 +125,7 @@ def parse_label_mappings(mapping_strings: list[str]) -> dict:
             mapping[source_label] = target_label
         except ValueError:
             raise ValueError(f"Invalid mapping format: {mapping_str}. Expected 'source:target' format.")
-    
+
     return mapping
 
 
@@ -133,31 +133,31 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Extract and remap labels from a dataset.")
     parser.add_argument("source_folder", type=str, help="The source folder containing .mha files.")
     parser.add_argument("dest_folder", type=str, help="The destination folder for extracted files.")
-    parser.add_argument("mappings", type=str, nargs='+', 
+    parser.add_argument("mappings", type=str, nargs='+',
                         help="Label mappings in format 'source:target' (e.g., '1:0' '5:1' '3:2')")
     parser.add_argument("-r", "--recursive", action="store_true", help="Recursively process subdirectories.")
     parser.add_argument("--mp", action="store_true", help="Whether to use multiprocessing.")
     parser.add_argument("--workers", type=int, default=None, help="The number of workers for multiprocessing.")
-    
+
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    
+
     # --- Parameter validation ---
     try:
         # Parse label mappings
         label_mapping = parse_label_mappings(args.mappings)
-        
+
         if not label_mapping:
             raise ValueError("At least one label mapping must be specified.")
-        
+
         # Check for duplicate target labels
         target_labels = list(label_mapping.values())
         if len(target_labels) != len(set(target_labels)):
             raise ValueError("Duplicate target labels found. Each target label should be unique.")
-        
+
         # Print configuration
         print(f"Extracting labels from {args.source_folder} -> {args.dest_folder}")
         print(f"  Label mappings: {label_mapping}")
@@ -183,7 +183,7 @@ def main():
         args.recursive, args.mp, args.workers
     )
     processor.process()
-    
+
     print(f"Label extraction completed. The extracted dataset is saved in {args.dest_folder}.")
 
 

@@ -2,6 +2,7 @@ import os
 import pdb
 from collections.abc import Callable
 from functools import partial
+from typing import Literal
 
 import mmengine
 import torch
@@ -15,7 +16,6 @@ from mmpretrain.structures import DataSample
 from torch import Tensor, nn
 from torch.nn import PixelUnshuffle as PixelUnshuffle2D
 from torch.utils.checkpoint import checkpoint as torch_ckpt
-from typing_extensions import Literal
 
 from ..mm.mmseg_Dev3D import PixelUnshuffle1D, PixelUnshuffle3D
 from .SelfSup import AutoEncoderSelfSup, VoxelData
@@ -32,7 +32,7 @@ class MoCoDataSample(mmengine.structures.BaseDataElement):
 class PackMoCoInput(BaseTransform):
     def __init__(self, fp16:bool = False) -> None:
         self.fp16 = fp16
-    
+
     def transform(self, results:dict):
         assert len(results['img']) == 2
         inputs = [torch.from_numpy(view) for view in results['img']]
@@ -137,8 +137,8 @@ class MoCoV3Head_WithAcc(BaseModule):
 
 
 class MoCoV3(AutoEncoderSelfSup):
-    def __init__(self, 
-                 base_momentum: float = 0.01, 
+    def __init__(self,
+                 base_momentum: float = 0.01,
                  backbone_checkpoint: bool = False,
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -164,9 +164,9 @@ class MoCoV3(AutoEncoderSelfSup):
         return acc.unsqueeze(0)
 
     def loss(
-        self, 
-        inputs: list[Tensor], 
-        data_samples: list[DataSample]|None = None, 
+        self,
+        inputs: list[Tensor],
+        data_samples: list[DataSample]|None = None,
         **kwargs
     ) -> dict[str, Tensor]:
         """The forward function in training.

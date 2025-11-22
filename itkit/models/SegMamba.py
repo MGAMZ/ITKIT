@@ -10,10 +10,10 @@
 # limitations under the License.
 
 """
-Xing, Z., Ye, T., Yang, Y., Liu, G., Zhu, L. (2024). 
-SegMamba: Long-Range Sequential Modeling Mamba for 3D Medical Image Segmentation. 
-In: Linguraru, M.G., et al. Medical Image Computing and Computer Assisted Intervention - MICCAI 2024. 
-MICCAI 2024. Lecture Notes in Computer Science, vol 15008. Springer, Cham. 
+Xing, Z., Ye, T., Yang, Y., Liu, G., Zhu, L. (2024).
+SegMamba: Long-Range Sequential Modeling Mamba for 3D Medical Image Segmentation.
+In: Linguraru, M.G., et al. Medical Image Computing and Computer Assisted Intervention - MICCAI 2024.
+MICCAI 2024. Lecture Notes in Computer Science, vol 15008. Springer, Cham.
 https://doi.org/10.1007/978-3-031-72111-3_54
 
 https://github.com/ge-xing/SegMamba/blob/main/model_segmamba/segmamba.py
@@ -69,7 +69,7 @@ class MambaLayer(nn.Module):
                 bimamba_type="v3",
                 nslices=num_slices,
         )
-    
+
     def forward(self, x):
         B, C = x.shape[:2]
         x_skip = x
@@ -82,9 +82,9 @@ class MambaLayer(nn.Module):
 
         out = x_mamba.transpose(-1, -2).reshape(B, C, *img_dims)
         out = out + x_skip
-        
+
         return out
-    
+
 class MlpChannel(nn.Module):
     def __init__(self,hidden_size, mlp_dim, ):
         super().__init__()
@@ -120,7 +120,7 @@ class GSC(nn.Module):
 
     def forward(self, x):
 
-        x_residual = x 
+        x_residual = x
 
         x1 = self.proj(x)
         x1 = self.norm(x1)
@@ -138,7 +138,7 @@ class GSC(nn.Module):
         x = self.proj4(x)
         x = self.norm4(x)
         x = self.nonliner4(x)
-        
+
         return x + x_residual
 
 class MambaEncoder(nn.Module):
@@ -228,7 +228,7 @@ class SegMamba(nn.Module):
         self.layer_scale_init_value = layer_scale_init_value
 
         self.spatial_dims = spatial_dims
-        self.vit = MambaEncoder(in_chans, 
+        self.vit = MambaEncoder(in_chans,
                                 depths=depths,
                                 dims=feat_size,
                                 drop_path_rate=drop_path_rate,
@@ -349,7 +349,7 @@ class SegMamba(nn.Module):
         dec1 = self.decoder3(dec2, enc2)
         dec0 = self.decoder2(dec1, enc1)
         out = self.decoder1(dec0)
-                
+
         return self.out(out)
 
 

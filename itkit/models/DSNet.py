@@ -17,7 +17,7 @@ from torchvision.models import vgg16
 
 class DDCB(BaseModule):
     def __init__(self, in_channels, out_channels):
-        super(DDCB, self).__init__()
+        super().__init__()
         self.layer1 = nn.Sequential(
             nn.Conv2d(in_channels, 256, kernel_size=1, padding=0, dilation=1),
             nn.Conv2d(256, 64, kernel_size=3, padding=1, dilation=1),
@@ -89,7 +89,7 @@ class DSNet(BaseDecodeHead):
         x7 = self.post2(x6)
         if self.logits_resize is not None:
             x7 = nn.functional.interpolate(
-                x7, 
+                x7,
                 size=self.logits_resize,
                 mode='bilinear',
                 align_corners=False)
@@ -122,7 +122,7 @@ class DSNet(BaseDecodeHead):
                 ignore_index=self.ignore_index)
 
         loss['acc_seg'] = accuracy(seg_logits, seg_label, ignore_index=self.ignore_index)
-        
+
         return loss
 
     def predict_by_feat(self, seg_logits: torch.Tensor, batch_img_metas: list[dict]) -> torch.Tensor:
@@ -153,7 +153,7 @@ class VGG16_DSNet(torch.nn.Module):
         x7 = self.post2(x6)
         if self.logits_resize is not None:
             x7 = nn.functional.interpolate(
-                x7, 
+                x7,
                 size=self.logits_resize,
                 mode='bilinear',
                 align_corners=False)

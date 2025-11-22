@@ -27,10 +27,10 @@ class Inferencer:
     @torch.inference_mode()
     def Inference_FromNDArray(self, inputs:np.ndarray) -> tuple[Tensor, Tensor]:
         """ Accept ndarray input and perform inference.
-        
+
         Args:
             inputs (np.ndarray): Input image ndarray.
-        
+
         Returns:
             tuple (Tensor, Tensor):
                 - seg_logits (Tensor): Segmentation logits tensor with shape (N, C, Z, Y, X).
@@ -41,7 +41,7 @@ class Inferencer:
 class Inferencer_Seg3D(Inferencer):
     ARGMAX_BATCH_SIZE = 16
     assert torch.cuda.is_available(), "CUDA is required for 3D segmentation inference."
-    
+
     @torch.inference_mode()
     def Inference_FromNDArray(self, inputs:np.ndarray) -> tuple[Tensor, Tensor]:
         self.model: mgam_Seg3D_Lite
@@ -60,7 +60,7 @@ class Inferencer_Seg3D(Inferencer):
     def _batched_argmax(self, inputs:Tensor) -> Tensor:
         assert inputs.ndim == 5, f"Input tensor must be (N, C, Z, Y, X), got: {format(inputs.shape)}."
         N, C, Z, Y, X = inputs.shape
-        
+
         sem_seg_map = torch.empty((N, Z, Y, X), dtype=torch.uint8)
         for start_z in tqdm(range(0, Z, Inferencer_Seg3D.ARGMAX_BATCH_SIZE),
                             desc="Batched ArgMax",
