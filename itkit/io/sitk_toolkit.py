@@ -59,7 +59,7 @@ def sitk_resample_to_spacing(mha:sitk.Image,
     try:
         return sitk.Resample(
             image1=mha,
-            size=resampled_size,  # type:ignore
+            size=resampled_size,  # type: ignore[arg-type]
             interpolator=interp_method or INTERPOLATOR(field),
             outputSpacing=spacing,
             outputPixelType=PIXEL_TYPE(field),
@@ -144,7 +144,7 @@ def sitk_resample_to_size(
     
     return sitk.Resample(
         image1=image,
-        size=new_size, # type: ignore
+        size=new_size,  # type: ignore[arg-type]
         interpolator=interp_method or INTERPOLATOR(field),
         outputSpacing=new_spacing,
         outputPixelType=PIXEL_TYPE(field),
