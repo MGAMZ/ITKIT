@@ -1,26 +1,38 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit
-    rev: v6.0.0
+    rev: v4.4.0
     hooks:
       - id: validate_manifest
-  - repo: https://github.com/PyCQA/isort
-    rev: 7.0.0
-    hooks:
-      - id: isort
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      - id: trailing-whitespace
+      - id: check-added-large-files
+      - id: check-builtin-literals
+      - id: check-docstring-first
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-xml
       - id: check-yaml
       - id: end-of-file-fixer
-      - id: requirements-txt-fixer
-      - id: double-quote-string-fixer
-      - id: check-merge-conflict
+      - id: detect-private-key
       - id: mixed-line-ending
-        args: ["--fix=lf"]
+      - id: requirements-txt-fixer
+      - id: trailing-whitespace
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.21.2
     hooks:
       - id: pyupgrade
         args: ["--py313-plus"]
         files: ^itkit/
+  - repo: https://github.com/PyCQA/isort
+    rev: 7.0.0
+    hooks:
+      - id: isort
+        files: ^itkit/
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.18.2
+    hooks:
+      - id: mypy
+        files: ^itkit/process
