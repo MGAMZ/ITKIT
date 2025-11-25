@@ -12,9 +12,7 @@ from mmengine.hooks import Hook
 from mmengine.logging import MMLogger, print_log
 from mmengine.runner import Runner
 from mmengine.visualization.vis_backend import LocalVisBackend as _LocalVisBackend
-from mmengine.visualization.vis_backend import (
-    TensorboardVisBackend as _TensorboardVisBackend,
-)
+from mmengine.visualization.vis_backend import TensorboardVisBackend as _TensorboardVisBackend
 from mmengine.visualization.visualizer import BaseDataElement, Visualizer, master_only
 
 
@@ -162,7 +160,7 @@ class SegViser(BaseViser):
 
     def _parse_datasample(
         self,
-        image: np.ndarray | torch.Tensor,
+        image: torch.Tensor,
         data_sample: BaseDataElement,
     ):
         """Parse data sample.

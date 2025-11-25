@@ -744,7 +744,7 @@ class Seg3DLocalVisualizer(SegLocalVisualizer):
         data_sample_2D = SegDataSample()
         if data_sample is not None:
             data_sample_2D.set_metainfo(data_sample.metainfo)
-            
+
             if "gt_sem_seg" in data_sample:
                 assert data_sample.gt_sem_seg.data.shape[-3:] == torch.Size([Z, Y, X])
                 gt_sem_seg_2d = data_sample.gt_sem_seg.data[:, random_selected_z].to(torch.uint8)
