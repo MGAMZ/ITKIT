@@ -51,5 +51,11 @@ repos:
     rev: v1.1.407
     hooks:
     - id: pyright
-      additional_dependencies: [colorama, tqdm]
+      additional_dependencies: [
+        colorama,
+        tqdm,
+        SimpleITK,
+        numpy,
+        onedl-mmsegmentation
+      ]
       pass_filenames: false

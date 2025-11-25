@@ -130,10 +130,12 @@ reportIncompatibleMethodOverride = false
 reportIncompatibleVariableOverride = false
 reportPrivateImportUsage = false
 reportOptionalMemberAccess = false
+reportOptionalSubscript = false
 
 [tool.isort]
 profile = "black"
 src_paths = ["itkit"]
+line_length = 150
 
 [tool.pytest.ini_options]
 addopts = "-ra"
