@@ -10,8 +10,8 @@ class TestMonaiSegMetrics:
 
     def setup_method(self):
         """Set up test fixtures before each test method."""
-        self.num_classes = 3
-        self.dataset_meta = {'classes': ['background', 'class1', 'class2']}
+        self.num_classes = 6
+        self.dataset_meta = {'classes': ['background', 'class1', 'class2', 'class3', 'class4', 'class5']}
         self.metric = MonaiSegMetrics(
             include_background=True,
             num_classes=self.num_classes,
@@ -23,7 +23,7 @@ class TestMonaiSegMetrics:
     def create_mock_data_sample(self):
         """Create a mock data sample dict for testing."""
         # Create mock tensors
-        seg_logits = torch.randn(3, 4, 8, 8)  # [C, Z, Y, X]
+        seg_logits = torch.randn(self.num_classes, 4, 8, 8)  # [C, Z, Y, X]
         pred_label = torch.randint(0, self.num_classes, (4, 8, 8))  # [Z, Y, X]
         gt_label = torch.randint(0, self.num_classes, (4, 8, 8))  # [Z, Y, X]
 
