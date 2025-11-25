@@ -74,10 +74,10 @@ class IoUMetric_PerClass(IoUMetric):
         results = list(zip(*results))
         assert len(results) == 4
 
-        total_area_intersect = torch.sum(results[0]).cpu().numpy()
-        total_area_union = torch.sum(results[1]).cpu().numpy()
-        total_area_pred_label = torch.sum(results[2]).cpu().numpy()
-        total_area_label = torch.sum(results[3]).cpu().numpy()
+        total_area_intersect = torch.sum(torch.stack(results[0]), dim=0).cpu().numpy()
+        total_area_union = torch.sum(torch.stack(results[1]), dim=0).cpu().numpy()
+        total_area_pred_label = torch.sum(torch.stack(results[2]), dim=0).cpu().numpy()
+        total_area_label = torch.sum(torch.stack(results[3]), dim=0).cpu().numpy()
         per_class_eval_metrics = self.total_area_to_metrics(
             total_area_intersect,
             total_area_union,
