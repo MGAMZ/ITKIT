@@ -55,6 +55,7 @@ class BaseVisHook(Hook):
         self.val_vis_interval = val_vis_interval
         self.test_vis_interval = test_vis_interval
 
+
     def after_val_iter(self,
                        runner: Runner,
                        batch_idx: int,
@@ -90,7 +91,7 @@ class BaseViser(Visualizer):
             fig.canvas.draw()
 
             if hasattr(fig.canvas, 'tostring_argb'):
-                data = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8)
+                data = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8)  # pyright: ignore[reportAttributeAccessIssue]
                 # Properly handle ARGB format by rearranging channels
                 width, height = fig.canvas.get_width_height()
                 data = data.reshape((height, width, 4))
@@ -98,10 +99,10 @@ class BaseViser(Visualizer):
                 data = data[:, :, 1:4]  # Skip alpha channel (first channel)
                 return data
             elif hasattr(fig.canvas, 'tostring_rgb'):
-                data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+                data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)  # pyright: ignore[reportAttributeAccessIssue]
                 channels = 3  # RGB
             elif hasattr(fig.canvas, 'buffer_rgba'):
-                data = np.asarray(fig.canvas.buffer_rgba())
+                data = np.asarray(fig.canvas.buffer_rgba())  # pyright: ignore[reportAttributeAccessIssue]
                 channels = 4  # RGBA
             else:
                 raise ValueError("Unknown canvas type - canvas methods not supported")
@@ -159,10 +160,11 @@ class SegViser(BaseViser):
         self.plt_figsize = plt_figsize
         self.plt_invert = plt_invert
 
-    def _parse_datasample(self,
-                          image:np.ndarray|torch.Tensor,
-                          data_sample:BaseDataElement|None=None
-                          ) -> tuple[np.ndarray|None, np.ndarray|None, np.ndarray|None, np.ndarray|None]:
+    def _parse_datasample(
+        self,
+        image: np.ndarray | torch.Tensor,
+        data_sample: BaseDataElement,
+    ):
         """Parse data sample.
 
         Arg:
@@ -311,13 +313,14 @@ class SegViser(BaseViser):
                       MMLogger.get_current_instance(), logging.INFO)
 
         # parse datasample
-        img_path = data_sample.metainfo.get('img_path', None)
-        image, gt_seg_map, pred_seg_map, pred_seg_logits = self._parse_datasample(image, data_sample)
+        assert data_sample is not None, "data_sample cannot be None when visualizing segmentation results."
+        img_path = data_sample.metainfo['img_path']
+        image_cpu, gt_seg_map, pred_seg_map, pred_seg_logits = self._parse_datasample(image, data_sample)
         if gt_seg_map is None:
             print_log(f"When visualizing `{name}` with img_path `{img_path}`, "
                       "gt_seg_map is None. So the gt_seg_map will not be empty.",
                       MMLogger.get_current_instance(), logging.WARN)
 
         # draw fig and save
-        image_array = self._draw_fig(img_path, image, gt_seg_map, pred_seg_map, pred_seg_logits)
+        image_array = self._draw_fig(img_path, image_cpu, gt_seg_map, pred_seg_map, pred_seg_logits)
         self.add_image(name, image_array, step)

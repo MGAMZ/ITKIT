@@ -71,14 +71,13 @@ class IoUMetric_PerClass(IoUMetric):
         # convert list of tuples to tuple of lists, e.g.
         # [(A_1, B_1, C_1, D_1), ...,  (A_n, B_n, C_n, D_n)] to
         # ([A_1, ..., A_n], ..., [D_1, ..., D_n])
-        results = tuple(zip(*results))
+        results = list(zip(*results))
         assert len(results) == 4
 
-        total_area_intersect: torch.Tensor = sum(results[0])
-        total_area_union: torch.Tensor = sum(results[1])
-        total_area_pred_label: torch.Tensor = sum(results[2])
-        total_area_label: torch.Tensor = sum(results[3])
-
+        total_area_intersect = torch.sum(results[0]).cpu().numpy()
+        total_area_union = torch.sum(results[1]).cpu().numpy()
+        total_area_pred_label = torch.sum(results[2]).cpu().numpy()
+        total_area_label = torch.sum(results[3]).cpu().numpy()
         per_class_eval_metrics = self.total_area_to_metrics(
             total_area_intersect,
             total_area_union,
@@ -271,7 +270,7 @@ class MonaiSegMetrics(BaseMetric):
             data_batch (dict): A batch of data from the dataloader.
             data_samples (list): A batch of outputs from the model.
         """
-        num_classes = self.num_classes or len(self.dataset_meta['classes'])
+        num_classes = self.num_classes or len(self.dataset_meta['classes'])  # pyright: ignore[reportOptionalSubscript]
 
         for data_sample in data_samples:
             # Extract prediction and ground truth
@@ -367,7 +366,7 @@ class MonaiSegMetrics(BaseMetric):
             metrics['m' + key] = val
 
         # Per-class results (matching IoUMetric_PerClass format)
-        class_names = self.dataset_meta['classes']
+        class_names = self.dataset_meta['classes']  # pyright: ignore[reportOptionalSubscript]
         per_classes_formatted_dict = OrderedDict()
         per_classes_formatted_dict['Class'] = class_names
         per_classes_formatted_dict['Dice'] = [format(v.item() * 100, ".2f") for v in dice_scores]

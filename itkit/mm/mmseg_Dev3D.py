@@ -16,7 +16,7 @@ from mmseg.models.data_preprocessor import SegDataPreProcessor
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
 from mmseg.models.losses.accuracy import accuracy
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
-from mmseg.structures.seg_data_sample import PixelData, SegDataSample
+from mmseg.structures.seg_data_sample import PixelData, SegDataSample  # pyright: ignore[reportAttributeAccessIssue]
 from mmseg.visualization.local_visualizer import SegLocalVisualizer
 from torch import Tensor
 from torch.nn import functional as F
@@ -117,6 +117,18 @@ class VolumeData(BaseDataElement):
         else:
             raise TypeError(f"Unsupported type {type(item)} for slicing VolumeData")
         return new_data
+
+    @property
+    def data(self) -> Tensor:
+        return self._data
+
+    @data.setter
+    def data(self, value: Tensor) -> None:
+        self.set_field(value, "_data", dtype=Tensor)
+
+    @data.deleter
+    def data(self) -> None:
+        del self._data
 
     @property
     def shape(self):
@@ -256,9 +268,9 @@ class EncoderDecoder_3D(EncoderDecoder):
                 input volume.
         """
 
-        accu_device: str = self.test_cfg.slide_accumulate_device
-        z_stride, y_stride, x_stride = self.test_cfg.stride  # type: ignore
-        z_crop, y_crop, x_crop = self.test_cfg.crop_size  # type: ignore
+        accu_device: str = self.test_cfg.slide_accumulate_device  # pyright: ignore
+        z_stride, y_stride, x_stride = self.test_cfg.stride  # pyright: ignore
+        z_crop, y_crop, x_crop = self.test_cfg.crop_size  # pyright: ignore
         batch_size, _, z_img, y_img, x_img = inputs.size()
         out_channels = self.out_channels
         z_grids = max(z_img - z_crop + z_stride - 1, 0) // z_stride + 1
@@ -619,7 +631,7 @@ class Seg3DLocalVisualizer(SegLocalVisualizer):
         name,
         resize: Sequence[int] | None = None,
         label_text_scale: float = 0.05,
-        label_text_thick: float = 1,
+        label_text_thick: int = 1,
         *args,
         **kwargs,
     ):
@@ -640,8 +652,8 @@ class Seg3DLocalVisualizer(SegLocalVisualizer):
 
         num_classes = len(classes)
 
-        sem_seg = sem_seg.cpu().data
-        ids = np.unique(sem_seg)[::-1]
+        sem_seg_data = sem_seg.data.cpu().numpy()  # pyright: ignore
+        ids = np.unique(sem_seg_data)[::-1]
         legal_indices = ids < num_classes
         ids = ids[legal_indices]
         labels = np.array(ids, dtype=np.int64)
@@ -650,7 +662,7 @@ class Seg3DLocalVisualizer(SegLocalVisualizer):
 
         mask = np.zeros_like(image, dtype=np.uint8)
         for label, color in zip(labels, colors):
-            mask[sem_seg[0] == label, :] = color
+            mask[sem_seg_data[0] == label, :] = color
 
         if with_labels:
             font = cv2.FONT_HERSHEY_SIMPLEX
@@ -661,34 +673,34 @@ class Seg3DLocalVisualizer(SegLocalVisualizer):
             rectangleThickness = thickness = self.label_text_thick
             lineType = 2
 
-            if isinstance(sem_seg[0], torch.Tensor):
-                masks = sem_seg[0].numpy() == labels[:, None, None]
+            if isinstance(sem_seg_data[0], torch.Tensor):
+                masks = sem_seg_data[0].numpy() == labels[:, None, None]
             else:
-                masks = sem_seg[0] == labels[:, None, None]
+                masks = sem_seg_data[0] == labels[:, None, None]
             masks = masks.astype(np.uint8)
             for mask_num in range(len(labels)):
                 classes_id = labels[mask_num]
                 classes_color = colors[mask_num]
-                loc = self._get_center_loc(masks[mask_num])
+                loc = self._get_center_loc(masks[mask_num]).tolist()
                 text = classes[classes_id]
                 (label_width, label_height), baseline = cv2.getTextSize(
                     text, font, fontScale, thickness
                 )
-                mask = cv2.rectangle(
+                mask = cv2.rectangle(  # pyright: ignore[reportCallIssue]
                     mask,
                     loc,
                     (loc[0] + label_width + baseline, loc[1] + label_height + baseline),
-                    classes_color,
-                    -1,
+                    color=classes_color,
+                    thickness=-1,
                 )
-                mask = cv2.rectangle(
+                mask = cv2.rectangle(  # pyright: ignore[reportCallIssue]
                     mask,
                     loc,
                     (loc[0] + label_width + baseline, loc[1] + label_height + baseline),
                     (0, 0, 0),
                     rectangleThickness,
                 )
-                mask = cv2.putText(
+                mask = cv2.putText(  # pyright: ignore[reportCallIssue]
                     mask,
                     text,
                     (loc[0], loc[1] + label_height),
@@ -729,24 +741,23 @@ class Seg3DLocalVisualizer(SegLocalVisualizer):
         if self.resize is not None:
             image = cv2.resize(image, self.resize, interpolation=cv2.INTER_LINEAR)
 
+        data_sample_2D = SegDataSample()
         if data_sample is not None:
+            data_sample_2D.set_metainfo(data_sample.metainfo)
+            
             if "gt_sem_seg" in data_sample:
                 assert data_sample.gt_sem_seg.data.shape[-3:] == torch.Size([Z, Y, X])
                 gt_sem_seg_2d = data_sample.gt_sem_seg.data[:, random_selected_z].to(torch.uint8)
                 if self.resize is not None:
                     gt_sem_seg_2d = F.interpolate(gt_sem_seg_2d[None], self.resize, mode="nearest").squeeze(0)
+                data_sample_2D.set_field(PixelData(data=gt_sem_seg_2d), "gt_sem_seg")
 
             if "pred_sem_seg" in data_sample:
                 assert data_sample.pred_sem_seg.data.shape[-3:] == torch.Size([Z, Y, X])
                 pred_sem_seg_2d = data_sample.pred_sem_seg.data[:, random_selected_z].to(torch.uint8)
                 if self.resize is not None:
                     pred_sem_seg_2d = F.interpolate(pred_sem_seg_2d[None], self.resize, mode="nearest").squeeze(0)
-
-            data_sample_2D = SegDataSample(
-                gt_sem_seg=PixelData(data=gt_sem_seg_2d),
-                pred_sem_seg=PixelData(data=pred_sem_seg_2d),
-            )
-            data_sample_2D.set_metainfo(data_sample.metainfo)
+                data_sample_2D.set_field(PixelData(data=pred_sem_seg_2d), "pred_sem_seg")
 
         else:
             data_sample_2D = None
@@ -987,7 +998,7 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
 
         data = self.cast_data(data)  # type: ignore
         inputs = data["inputs"]
-        data_samples = data.get("data_samples", None)
+        data_samples = data["data_samples"]
 
         inputs = [_input.float() for _input in inputs]
         if self._enable_normalize:

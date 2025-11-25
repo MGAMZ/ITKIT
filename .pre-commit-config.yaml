@@ -39,10 +39,17 @@ repos:
     hooks:
       - id: isort
         files: ^itkit/
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.18.2
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.18.2
+  #   hooks:
+  #     - id: mypy
+  #       pass_filenames: false
+  #       args: [--python-version=3.14]
+  #       files: ^itkit/process/
+  #       additional_dependencies: [SimpleITK, numpy]
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.407
     hooks:
-      - id: mypy
-        args: [--python-version=3.14]
-        files: ^itkit/process/
-        additional_dependencies: [SimpleITK, numpy]
+    - id: pyright
+      additional_dependencies: [colorama, tqdm]
+      pass_filenames: false

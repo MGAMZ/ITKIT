@@ -102,7 +102,7 @@ where = ["."]
 include = ["itkit*"]
 
 [tool.mypy]
-files = ["itkit/process"]
+files = ["itkit/process", "itkit/mm"]
 python_version = "3.14"
 ignore_missing_imports = true
 report_deprecated_as_note = true
@@ -112,10 +112,11 @@ warn_unused_configs = true
 warn_unreachable = true
 no_warn_no_return = true
 allow_redefinition = true
+check_untyped_defs = true
 
 [tool.pyright]
 pythonVersion = "3.14"
-include = ["itkit/process"]
+include = ["itkit/process", "itkit/mm"]
 exclude = [
   "**/__pycache__/**",
   "**/.venv/**",
@@ -125,6 +126,10 @@ exclude = [
   "**/*.egg-info/**"
 ]
 reportMissingImports = false
+reportIncompatibleMethodOverride = false
+reportIncompatibleVariableOverride = false
+reportPrivateImportUsage = false
+reportOptionalMemberAccess = false
 
 [tool.isort]
 profile = "black"

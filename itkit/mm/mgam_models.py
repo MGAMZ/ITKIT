@@ -144,8 +144,8 @@ class mgam_Seg_Lite(BaseModel):
 
     def forward(self,
                 inputs: Tensor,
-                data_samples:Sequence[BaseDataElement]|None=None,
-                mode:str='tensor'):
+                data_samples: Sequence[BaseDataElement] | None = None,
+                mode: str = 'tensor'):
         """The unified entry for a forward process in both training and test.
 
         The method should accept three modes: "tensor", "predict" and "loss":
@@ -186,7 +186,7 @@ class mgam_Seg_Lite(BaseModel):
                                'Only supports loss, predict and tensor mode')
 
     @abstractmethod
-    def loss(self, inputs:Tensor, data_samples:Sequence[BaseDataElement]) -> dict:
+    def loss(self, inputs:Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> dict:
         ...
 
     @abstractmethod

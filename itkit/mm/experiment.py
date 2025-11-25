@@ -141,7 +141,7 @@ class experiment:
             return False
 
     @staticmethod
-    def IsTested(cfg: str) -> bool:
+    def IsTested(cfg: Config) -> bool:
         test_file_path = os.path.join(
             cfg.work_dir,
             f"test_result_epoch{cfg.get('epoch', 0)}_iter{cfg.get('iters', 0)}.json"
