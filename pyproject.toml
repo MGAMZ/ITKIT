@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "itkit"
-version = "3.5.0"
+version = "3.5.1"
 requires-python = ">= 3.10"
 description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API"
 readme = "readme.md"
@@ -102,7 +102,7 @@ where = ["."]
 include = ["itkit*"]
 
 [tool.mypy]
-files = ["itkit/process"]
+files = ["itkit/process", "itkit/mm"]
 python_version = "3.14"
 ignore_missing_imports = true
 report_deprecated_as_note = true
@@ -112,10 +112,11 @@ warn_unused_configs = true
 warn_unreachable = true
 no_warn_no_return = true
 allow_redefinition = true
+check_untyped_defs = true
 
 [tool.pyright]
 pythonVersion = "3.14"
-include = ["itkit/process"]
+include = ["itkit/process", "itkit/mm"]
 exclude = [
   "**/__pycache__/**",
   "**/.venv/**",
@@ -125,7 +126,23 @@ exclude = [
   "**/*.egg-info/**"
 ]
 reportMissingImports = false
+reportIncompatibleMethodOverride = false
+reportIncompatibleVariableOverride = false
+reportPrivateImportUsage = false
+reportOptionalMemberAccess = false
+reportOptionalSubscript = false
 
 [tool.isort]
 profile = "black"
 src_paths = ["itkit"]
+line_length = 150
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+markers = [
+    "gui: marks tests that require a Qt GUI context (can run headless with QT_QPA_PLATFORM=offscreen)",
+    "itk_process: marks tests that execute itk process script mains",
+    "mm: marks tests that touch MMEngine runner entry",
+    "torch: marks tests that require PyTorch",
+]

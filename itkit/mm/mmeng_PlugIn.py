@@ -270,13 +270,13 @@ class RemasteredFSDP(MMFullyShardedDataParallel):
     the model's data flow design.
     """
     def train_step(self, *args, **kwargs):
-        return self.module.train_step(*args, **kwargs)
+        return self.module.train_step(*args, **kwargs)  # pyright: ignore[reportCallIssue]
 
     def val_step(self, *args, **kwargs):
-        return self.module.val_step(*args, **kwargs)
+        return self.module.val_step(*args, **kwargs)  # pyright: ignore[reportCallIssue]
 
     def test_step(self, *args, **kwargs):
-        return self.module.test_step(*args, **kwargs)
+        return self.module.test_step(*args, **kwargs)  # pyright: ignore[reportCallIssue]
 
     def __getattr__(self, name):
         try:
@@ -301,7 +301,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
         self.model_wrapper_cfg = model_wrapper_cfg
         super().__init__(*args, **kwargs)
 
-    def _wrap_model(self, model: nn.Module) -> None:
+    def _wrap_model(self, model: nn.Module):
         """warp model but not load state."""
         try:
             from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
@@ -315,7 +315,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
                 module.to(get_device())
 
         if is_model_wrapper(model):
-            return
+            return model
 
         if self.model_wrapper is None:
             self.model_wrapper = dict(type='MMFullyShardedDataParallel')
@@ -352,6 +352,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
                     fn_type = check_fn.pop('type')
                     if isinstance(fn_type, str):
                         fn_type = FUNCTIONS.get(fn_type)
+                    assert callable(fn_type), '`type` must be specified in `check_fn`'
                     check_fn = partial(fn_type, **cfg)
 
                 if not callable(check_fn):
@@ -471,9 +472,11 @@ def multi_sample_collate(data_batch: Sequence[dict]):
 class mgam_OptimWrapperConstructor(DefaultOptimWrapperConstructor):
     def __call__(self, model: nn.Module):
         if hasattr(model, 'module'):
+            assert isinstance(model.module, nn.Module), \
+                f'`model.module` is not an instance of `nn.Module`, got{model.module}.'
             model = model.module
 
         filtered_params = filter(lambda p: p.requires_grad, model.parameters())
-        model.parameters = lambda: filtered_params
+        model.parameters = lambda recurse=True: filtered_params
 
         return super().__call__(model)
