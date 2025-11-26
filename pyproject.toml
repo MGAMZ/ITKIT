@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "itkit"
-version = "3.5.1"
+version = "3.5.2"
 requires-python = ">= 3.10"
 description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API"
 readme = "readme.md"
@@ -101,29 +101,18 @@ itkit-app = "itkit.gui.app:main"
 where = ["."]
 include = ["itkit*"]
 
-[tool.mypy]
-files = ["itkit/process", "itkit/mm"]
-python_version = "3.14"
-ignore_missing_imports = true
-report_deprecated_as_note = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_unused_configs = true
-warn_unreachable = true
-no_warn_no_return = true
-allow_redefinition = true
-check_untyped_defs = true
-
 [tool.pyright]
 pythonVersion = "3.14"
-include = ["itkit/process", "itkit/mm"]
+include = ["itkit"]
 exclude = [
   "**/__pycache__/**",
   "**/.venv/**",
   "**/.git/**",
   "build/**",
   "dist/**",
-  "**/*.egg-info/**"
+  "**/*.egg-info/**",
+  "itkit/dataset/SA_Med2D",
+  "itkit/models",
 ]
 reportMissingImports = false
 reportIncompatibleMethodOverride = false

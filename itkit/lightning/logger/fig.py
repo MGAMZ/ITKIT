@@ -1,5 +1,4 @@
 import os
-from typing import override
 
 from matplotlib.figure import Figure
 from pytorch_lightning.loggers import Logger
@@ -25,17 +24,14 @@ class FigureLogger(Logger):
         self.pad_inches = pad_inches
 
     @property
-    @override
     def name(self) -> str:
         return self._name
 
     @property
-    @override
     def version(self):
         return self._version
 
     @property
-    @override
     def root_dir(self):
         return self._root_dir
 

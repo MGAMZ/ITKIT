@@ -89,15 +89,22 @@ class mgam_BaseSegDataset(BaseSegDataset):
 
 class mgam_SeriesVolume(mgam_BaseSegDataset):
     def __init__(self,
-                 data_root_mha:str|None=None,
-                 mode:Literal["semi", "sup"]="sup",
-                 min_spacing=(-1, -1, -1),
-                 min_size=(-1, -1, -1),
+                 data_root_mha: str | None = None,
+                 mode: Literal["semi", "sup"] = "sup",
+                 min_spacing = (-1, -1, -1),
+                 min_size = (-1, -1, -1),
                  *args, **kwargs):
+        if data_root_mha is None:
+            print_log(
+                f"data_root_mha is not specified, using `data_root`: {self.data_root_mha}",
+                MMLogger.get_current_instance(),
+                logging.WARNING
+            )
+
         # `Semi` mode will still include those samples without labels
         # `Sup` mode will exclude those samples without labels
         self.mode = mode
-        self.data_root_mha = data_root_mha
+        self.data_root_mha = data_root_mha or self.data_root
         self.min_spacing = min_spacing
         self.min_size = min_size
         if len(self.min_spacing) != 3 or len(self.min_size) != 3:
@@ -106,13 +113,6 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
 
         super().__init__(*args, **kwargs)
         self.data_root: str
-        if self.data_root_mha is None:
-            self.data_root_mha = self.data_root
-            print_log(
-                f"data_root_mha is not specified, using `data_root`: {self.data_root_mha}",
-                MMLogger.get_current_instance(),
-                logging.WARNING
-            )
 
     def _split(self):
         split_at = "label" if self.mode == "sup" else "image"

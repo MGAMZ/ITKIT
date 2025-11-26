@@ -37,6 +37,8 @@ class LoadMHAFile(BaseTransform):
             image_after_spacing = sitk_resample_to_spacing(
                 image_itk, effective_spacing, **kwargs
             )
+        if not isinstance(image_after_spacing, sitk.Image):
+            raise RuntimeError(f"Resampled image is not a SimpleITK Image, got {image_after_spacing}")
 
         # --- 阶段二：Size 重采样 ---
         current_size = image_after_spacing.GetSize()[::-1]

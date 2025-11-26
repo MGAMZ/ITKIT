@@ -1,5 +1,4 @@
 import os
-from typing import override
 
 from pytorch_lightning.loggers import Logger
 from pytorch_lightning.utilities.rank_zero import rank_zero_only
@@ -23,21 +22,17 @@ class TabulateLogger(Logger):
         self.column_names = column_names
 
     @property
-    @override
     def name(self) -> str:
         return self._name
 
     @property
-    @override
     def version(self):
         return self._version
 
     @property
-    @override
     def root_dir(self):
         return self._root_dir
 
-    @override
     @rank_zero_only
     def log_metrics(self, metrics: dict[str, Tensor|float], step: int|None = None) -> None:
         """metric naming rule: <col_name>_<row_name>"""
@@ -76,7 +71,6 @@ class TabulateLogger(Logger):
                     f.write(f"Step: {step}\n")
                 f.write("\n")
 
-    @override
     @rank_zero_only
     def log_hyperparams(self, params=None) -> None:
         ...
