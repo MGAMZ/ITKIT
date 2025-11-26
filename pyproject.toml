@@ -107,6 +107,7 @@ include = [
   "itkit/process",
   "itkit/mm",
   "itkit/io",
+  "itkit/lightning",
 ]
 exclude = [
   "**/__pycache__/**",

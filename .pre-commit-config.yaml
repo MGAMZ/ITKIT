@@ -48,6 +48,9 @@ repos:
         tqdm,
         SimpleITK,
         numpy,
-        onedl-mmsegmentation
+        onedl-mmsegmentation,
+        deprecated,
+        psutil,
+        tabulate,
       ]
       pass_filenames: false
