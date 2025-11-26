@@ -77,8 +77,7 @@ def convert_case(case_dir, dest_root, spacing=None, size=None):
     if label is not None and label_path is not None:
         label = sitk_resample_to_image(label, first_image, "label")
         if not isinstance(label, sitk.Image):
-            print(f"Resample label to image failed for {label_path}: {label}")
-            label = None
+            raise RuntimeError(f"Resample label to image failed for {label_path}: {label}")
         output_label_path = os.path.join(dest_root, phase, case_name, 'label.mha')
         os.makedirs(os.path.dirname(output_label_path), exist_ok=True)
         sitk.WriteImage(label, output_label_path, useCompression=True)

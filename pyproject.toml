@@ -103,19 +103,16 @@ include = ["itkit*"]
 
 [tool.pyright]
 pythonVersion = "3.14"
-include = [
-  "itkit/process",
-  "itkit/mm",
-  "itkit/io",
-  "itkit/lightning",
-]
+include = ["itkit"]
 exclude = [
   "**/__pycache__/**",
   "**/.venv/**",
   "**/.git/**",
   "build/**",
   "dist/**",
-  "**/*.egg-info/**"
+  "**/*.egg-info/**",
+  "itkit/dataset/SA_Med2D",
+  "itkit/models",
 ]
 reportMissingImports = false
 reportIncompatibleMethodOverride = false

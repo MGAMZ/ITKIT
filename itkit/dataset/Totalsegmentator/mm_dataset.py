@@ -1,10 +1,15 @@
 import os
+from typing import TYPE_CHECKING
 
 import orjson
 import pandas as pd
 from tqdm import tqdm
 
 from ..base import mgam_SemiSup_3D_Mha, mgam_SeriesPatched_Structure
+
+if TYPE_CHECKING:
+    from ..base import mgam_SeriesVolume
+
 from .meta import (
     CLASS_INDEX_MAP,
     generate_reduced_class_map_and_label_map,
@@ -50,7 +55,7 @@ class TotalsegmentatorIndexer:
                               image_path.replace('img_dir', 'ann_dir')))
                 for image_path in selected_split_image_paths]
 
-class Tsd_base:
+class Tsd_base(mgam_SeriesVolume if TYPE_CHECKING else object):
     METAINFO = dict(classes=list(CLASS_INDEX_MAP.keys()))
 
     def __init__(self, meta_csv:str|None, class_reduction: dict|None=None, subset:str|None=None, **kwargs) -> None:

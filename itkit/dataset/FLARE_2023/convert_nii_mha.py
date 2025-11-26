@@ -40,6 +40,8 @@ class FLARE2023_formetter(format_from_nnUNet):
                 input_image_mha, input_label_mha = self.convert_one_sample_dcm(image_path, label_path)
             elif ".nii.gz" in image_path:
                 input_image_mha, input_label_mha = self.convert_one_sample_nii(image_path, label_path)
+            else:
+                raise TypeError(f"Unsupported suffix: {image_path}")
             if input_image_mha is None:
                 convertion_log["id"] = "error"
                 convertion_log["error"] = "No image found."
