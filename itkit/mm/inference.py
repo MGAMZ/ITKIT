@@ -56,7 +56,7 @@ class Inferencer_Seg3D(Inferencer):
         return seg_logits, sem_seg_map
 
     def _batched_argmax(self, inputs:Tensor) -> Tensor:
-        argmax_batchsize: int = self.cfg.model.inference_config.argmax_batchsize
+        argmax_batchsize: int = self.cfg.model.inference_config.argmax_batchsize or 16
         forward_device: str = self.cfg.model.inference_config.forward_device
         assert inputs.ndim == 5, f"Input tensor must be (N, C, Z, Y, X), got: {format(inputs.shape)}."
         N, C, Z, Y, X = inputs.shape
