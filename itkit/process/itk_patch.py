@@ -222,6 +222,9 @@ class PatchProcessor(DatasetProcessor):
         try:
             image = sitk.ReadImage(str(img_path))
             label = sitk.ReadImage(str(lbl_path))
+            image = sitk.DICOMOrient(image, 'LPI')
+            label = sitk.DICOMOrient(label, 'LPI')
+
             img_arr = sitk.GetArrayFromImage(image)
 
             if not self.is_valid_sample(image, label):
