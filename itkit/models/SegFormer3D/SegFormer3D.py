@@ -448,17 +448,8 @@ class SegFormer3D(nn.Module):
         # 注入 Grad-CAM 用的属性和 hook
         self.feature_maps = None
         self.gradients = None
-        self.decoder.predict.register_forward_hook(self._forward_hook)
-        self.decoder.predict.register_full_backward_hook(self._backward_hook)
 
-    # HACK For reviewers' requirements.
-    def _forward_hook(self, module, input, output):
-        self.feature_maps = output
-    # HACK For reviewers' requirements.
-    def _backward_hook(self, module, grad_in, grad_out):
-        self.gradients = grad_out[0]
-
-    def forward(self, x, save_gradcam: bool = False, save_dir: str = 'tmp'):
+    def forward(self, x):
         encoder_features = self.encoder(x) # [N, C, Z, Y, X]
         segmentation_output = self.decoder(encoder_features)
         return segmentation_output # [N, C, Z, Y, X]
