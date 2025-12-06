@@ -445,9 +445,6 @@ class SegFormer3D(nn.Module):
             dropout=decoder_dropout,
         )
 
-        # 注入 Grad-CAM 用的属性和 hook
-        self.feature_maps = None
-        self.gradients = None
 
     def forward(self, x):
         encoder_features = self.encoder(x) # [N, C, Z, Y, X]
