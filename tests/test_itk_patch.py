@@ -13,7 +13,7 @@ from itkit.process.itk_patch import PatchProcessor, parse_patch_size
 
 @pytest.fixture
 def sample_image():
-    arr = np.random.rand(10, 10, 10).astype(np.float32)
+    arr = np.random.rand(10, 10, 10).astype(np.int16)
     img = sitk.GetImageFromArray(arr)
     img.SetSpacing((1.0, 1.0, 1.0))
     img.SetOrigin((0.0, 0.0, 0.0))
