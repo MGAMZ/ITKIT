@@ -56,7 +56,7 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
 
             exp_name_in_runner = kwargs.pop("experiment_name", None)
             if exp_name_in_runner is None:
-                work_dir:str|None = kwargs.get("work_dir", None)
+                work_dir: str | None = kwargs.get("work_dir", None)
                 if work_dir is not None:
                     exp_name_in_runner = str(work_dir.split("/")[-2:])
             super().__init__(experiment_name=exp_name_in_runner, **kwargs)

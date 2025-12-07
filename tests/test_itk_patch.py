@@ -13,7 +13,7 @@ from itkit.process.itk_patch import PatchProcessor, parse_patch_size
 
 @pytest.fixture
 def sample_image():
-    arr = np.random.rand(10, 10, 10).astype(np.float32)
+    arr = np.random.randint(-1024, 8192, size=(10, 10, 10)).astype(np.int16)
     img = sitk.GetImageFromArray(arr)
     img.SetSpacing((1.0, 1.0, 1.0))
     img.SetOrigin((0.0, 0.0, 0.0))
@@ -314,8 +314,9 @@ class TestPatchProcessor:
         saved_lbl = sitk.ReadImage(str(dst / 'label' / 'img_p0.mha'))
         assert saved_img.GetSize() == (4, 4, 4)
         assert saved_lbl.GetSize() == (4, 4, 4)
-        # Check content matches original slice
-        orig_arr = sitk.GetArrayFromImage(sample_image)
+        # Check content matches original slice after reorientation
+        reoriented_image = sitk.DICOMOrient(sample_image, 'LPI')
+        orig_arr = sitk.GetArrayFromImage(reoriented_image)
         saved_arr = sitk.GetArrayFromImage(saved_img)
         assert np.allclose(saved_arr, orig_arr[:4, :4, :4])
 
