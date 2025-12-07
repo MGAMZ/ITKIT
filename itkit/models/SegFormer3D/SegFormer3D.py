@@ -13,7 +13,6 @@ Modified to support arbitrary DWH input and optimized using SDPA.
 
 from collections.abc import Sequence
 
-import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 from torch import nn
