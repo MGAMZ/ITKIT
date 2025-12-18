@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import SimpleITK as sitk
 
-from itkit.process import itk_convert
+from itkit.process import itk_convert, itk_convert_monai
 
 
 def create_test_mha_image(path: str, size: tuple, spacing: tuple, dtype=sitk.sitkInt16):
@@ -66,7 +66,7 @@ class TestMonaiDatasetJson:
 
     def test_init_default(self):
         """Test default initialization."""
-        ds = itk_convert.MonaiDatasetJson()
+        ds = itk_convert_monai.MonaiDatasetJson()
         assert ds.name == "ITKITDataset"
         assert ds.modality == {"0": "CT"}
         assert ds.labels == {"0": "background"}
@@ -75,7 +75,7 @@ class TestMonaiDatasetJson:
 
     def test_init_custom(self):
         """Test custom initialization."""
-        ds = itk_convert.MonaiDatasetJson(
+        ds = itk_convert_monai.MonaiDatasetJson(
             name="TestDataset",
             description="Test description",
             modality={"0": "MR"},
@@ -87,7 +87,7 @@ class TestMonaiDatasetJson:
 
     def test_add_training_sample(self):
         """Test adding training samples."""
-        ds = itk_convert.MonaiDatasetJson()
+        ds = itk_convert_monai.MonaiDatasetJson()
         ds.add_training_sample("./imagesTr/case_001.nii.gz", "./labelsTr/case_001.nii.gz")
         ds.add_training_sample("./imagesTr/case_002.nii.gz", "./labelsTr/case_002.nii.gz")
 
@@ -97,7 +97,7 @@ class TestMonaiDatasetJson:
 
     def test_add_test_sample(self):
         """Test adding test samples."""
-        ds = itk_convert.MonaiDatasetJson()
+        ds = itk_convert_monai.MonaiDatasetJson()
         ds.add_test_sample("./imagesTs/case_001.nii.gz")
 
         assert len(ds.test) == 1
@@ -106,7 +106,7 @@ class TestMonaiDatasetJson:
 
     def test_update_labels_from_classes(self):
         """Test updating labels from discovered classes."""
-        ds = itk_convert.MonaiDatasetJson()
+        ds = itk_convert_monai.MonaiDatasetJson()
         ds.update_labels_from_classes({0, 1, 2, 5})
 
         assert ds.labels["0"] == "background"
@@ -116,7 +116,7 @@ class TestMonaiDatasetJson:
 
     def test_to_dict(self):
         """Test conversion to dictionary."""
-        ds = itk_convert.MonaiDatasetJson(name="TestDataset")
+        ds = itk_convert_monai.MonaiDatasetJson(name="TestDataset")
         ds.add_training_sample("./imagesTr/case_001.nii.gz", "./labelsTr/case_001.nii.gz")
 
         data = ds.to_dict()
@@ -129,7 +129,7 @@ class TestMonaiDatasetJson:
     def test_save(self):
         """Test saving to JSON file."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            ds = itk_convert.MonaiDatasetJson(name="TestDataset")
+            ds = itk_convert_monai.MonaiDatasetJson(name="TestDataset")
             ds.add_training_sample("./imagesTr/case_001.nii.gz", "./labelsTr/case_001.nii.gz")
 
             json_path = os.path.join(tmpdir, "dataset.json")
@@ -153,7 +153,7 @@ class TestMonaiConverter:
         with tempfile.TemporaryDirectory() as tmpdir:
             setup_itkit_dataset(tmpdir)
 
-            converter = itk_convert.MonaiConverter(
+            converter = itk_convert_monai.MonaiConverter(
                 source_folder=tmpdir,
                 dest_folder=os.path.join(tmpdir, "output"),
             )
@@ -166,7 +166,7 @@ class TestMonaiConverter:
             os.makedirs(os.path.join(tmpdir, "label"))
 
             with pytest.raises(ValueError, match="Missing 'image' subfolder"):
-                itk_convert.MonaiConverter(
+                itk_convert_monai.MonaiConverter(
                     source_folder=tmpdir,
                     dest_folder=os.path.join(tmpdir, "output"),
                 )
@@ -177,7 +177,7 @@ class TestMonaiConverter:
             os.makedirs(os.path.join(tmpdir, "image"))
 
             with pytest.raises(ValueError, match="Missing 'label' subfolder"):
-                itk_convert.MonaiConverter(
+                itk_convert_monai.MonaiConverter(
                     source_folder=tmpdir,
                     dest_folder=os.path.join(tmpdir, "output"),
                 )
@@ -187,7 +187,7 @@ class TestMonaiConverter:
         with tempfile.TemporaryDirectory() as tmpdir:
             samples = setup_itkit_dataset(tmpdir, num_samples=3)
 
-            converter = itk_convert.MonaiConverter(
+            converter = itk_convert_monai.MonaiConverter(
                 source_folder=tmpdir,
                 dest_folder=os.path.join(tmpdir, "output"),
             )
@@ -209,7 +209,7 @@ class TestMonaiConverter:
         with tempfile.TemporaryDirectory() as tmpdir:
             setup_itkit_dataset(tmpdir, num_samples=2)
 
-            converter = itk_convert.MonaiConverter(
+            converter = itk_convert_monai.MonaiConverter(
                 source_folder=tmpdir,
                 dest_folder=os.path.join(tmpdir, "output"),
                 split="test",
@@ -230,7 +230,7 @@ class TestMonaiConverter:
 
             samples = setup_itkit_dataset(src_dir, num_samples=3)
 
-            converter = itk_convert.convert_to_monai(
+            converter = itk_convert_monai.convert_to_monai(
                 source_folder=src_dir,
                 dest_folder=dest_dir,
                 dataset_name="TestDataset",
@@ -267,7 +267,7 @@ class TestMonaiConverter:
             setup_itkit_dataset(src_dir, num_samples=2, num_classes=3)
 
             labels = {"0": "background", "1": "liver", "2": "tumor"}
-            converter = itk_convert.convert_to_monai(
+            converter = itk_convert_monai.convert_to_monai(
                 source_folder=src_dir,
                 dest_folder=dest_dir,
                 labels=labels,
@@ -286,7 +286,7 @@ class TestMonaiConverter:
 
             setup_itkit_dataset(src_dir, num_samples=2)
 
-            itk_convert.convert_to_monai(
+            itk_convert_monai.convert_to_monai(
                 source_folder=src_dir,
                 dest_folder=dest_dir,
                 split="val",
@@ -310,7 +310,7 @@ class TestMonaiConverter:
 
             setup_itkit_dataset(src_dir, num_samples=2)
 
-            itk_convert.convert_to_monai(
+            itk_convert_monai.convert_to_monai(
                 source_folder=src_dir,
                 dest_folder=dest_dir,
                 split="test",
@@ -341,7 +341,7 @@ class TestConvertSingleFile:
 
             create_test_mha_image(input_path, (32, 32, 32), (1.0, 1.0, 1.0))
 
-            result = itk_convert._convert_single_file((input_path, output_path))
+            result = itk_convert_monai._convert_single_file((input_path, output_path))
 
             assert result is not None
             assert result["success"] is True
@@ -359,7 +359,7 @@ class TestConvertSingleFile:
 
             create_test_mha_label(input_path, (64, 64, 64), (1.0, 1.0, 1.0), num_classes=4)
 
-            result = itk_convert._convert_single_file((input_path, output_path))
+            result = itk_convert_monai._convert_single_file((input_path, output_path))
 
             assert result is not None
             assert result["success"] is True
@@ -372,7 +372,7 @@ class TestConvertSingleFile:
             input_path = os.path.join(tmpdir, "nonexistent.mha")
             output_path = os.path.join(tmpdir, "output.nii.gz")
 
-            result = itk_convert._convert_single_file((input_path, output_path))
+            result = itk_convert_monai._convert_single_file((input_path, output_path))
 
             assert result is not None
             assert result["success"] is False
