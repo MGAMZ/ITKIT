@@ -3,12 +3,21 @@
 import json
 import os
 import tempfile
+import importlib.util
 
 import numpy as np
 import pytest
 import SimpleITK as sitk
 
 from itkit.process import itk_convert, itk_convert_monai
+
+# Check if MONAI is available for end-to-end compatibility tests
+MONAI_AVAILABLE = importlib.util.find_spec("monai") is not None
+
+if MONAI_AVAILABLE:
+    import monai
+    from monai.data import Dataset, load_decathlon_datalist
+    from monai.transforms import Compose, EnsureChannelFirstd, LoadImaged
 
 
 def create_test_mha_image(path: str, size: tuple, spacing: tuple, dtype=sitk.sitkInt16):
@@ -467,3 +476,60 @@ class TestMainFunction:
             assert result == 1
             captured = capsys.readouterr()
             assert "Error during conversion" in captured.out
+
+@pytest.mark.itk_process
+@pytest.mark.skipif(not MONAI_AVAILABLE, reason="monai library is not installed")
+class TestMonaiEndToEndCompatibility:
+    """End-to-end test: Verify if converted folder can be correctly recognized by MONAI."""
+
+    def test_monai_can_load_converted_data(self):
+        """Test if MONAI Dataset can recognize and load converted NIfTI files and JSON."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            # 1. Setup original ITKIT format data
+            num_samples = 3
+            setup_itkit_dataset(src_dir, num_samples=num_samples, num_classes=3)
+
+            # 2. Execute conversion
+            itk_convert_monai.convert_to_monai(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+                dataset_name="TestCompatibility",
+                modality={"0": "CT"}
+            )
+
+            json_path = os.path.join(dest_dir, "dataset.json")
+            assert os.path.exists(json_path)
+
+            # 3. Load dataset.json using MONAI utilities
+            training_data = load_decathlon_datalist(
+                json_path,
+                data_list_key="training",
+                base_dir=dest_dir
+            )
+
+            assert len(training_data) == num_samples
+            assert "image" in training_data[0]
+            assert "label" in training_data[0]
+
+            # 4. Build MONAI pipeline to verify readability
+            check_ds = Dataset(
+                data=training_data,
+                transform=Compose([
+                    LoadImaged(keys=["image", "label"]),
+                    EnsureChannelFirstd(keys=["image", "label"])
+                ])
+            )
+
+            # Try to load the first sample
+            sample = check_ds[0]
+
+            # Verify tensor dimensions and types
+            assert isinstance(sample["image"], monai.data.MetaTensor)
+            assert sample["image"].shape[1:] == (64, 64, 64)
+            assert sample["label"].shape[1:] == (64, 64, 64)
+
+            # Verify metadata preservation
+            assert "affine" in sample["image"].meta
