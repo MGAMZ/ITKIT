@@ -354,16 +354,18 @@ class MonaiConverter(BaseITKProcessor):
         for img_input, img_output, lbl_input, lbl_output in items:
             # Get relative paths from dest_folder
             img_rel = os.path.relpath(img_output, self.dest_folder)
-            if lbl_output:
-                lbl_rel = os.path.relpath(lbl_output, self.dest_folder)
 
             # Add to appropriate section
             if self.split == "test":
                 self.dataset_json.add_test_sample(f"./{img_rel}")
             elif self.split == "val":
-                self.dataset_json.add_validation_sample(f"./{img_rel}", f"./{lbl_rel}")
+                if lbl_output:
+                    lbl_rel = os.path.relpath(lbl_output, self.dest_folder)
+                    self.dataset_json.add_validation_sample(f"./{img_rel}", f"./{lbl_rel}")
             else:  # "train" or "all"
-                self.dataset_json.add_training_sample(f"./{img_rel}", f"./{lbl_rel}")
+                if lbl_output:
+                    lbl_rel = os.path.relpath(lbl_output, self.dest_folder)
+                    self.dataset_json.add_training_sample(f"./{img_rel}", f"./{lbl_rel}")
 
 
 def convert_to_monai(
@@ -515,7 +517,7 @@ def main():
             labels = {str(i): name for i, name in enumerate(args.labels)}
 
         # Run conversion
-        print(f"Converting ITKIT dataset to MONAI format...")
+        print("Converting ITKIT dataset to MONAI format...")
         print(f"  Source: {args.source_folder}")
         print(f"  Destination: {args.dest_folder}")
         print(f"  Dataset name: {args.name}")
@@ -536,7 +538,7 @@ def main():
                 mp=args.mp,
                 workers=args.workers,
             )
-            print(f"\nConversion completed successfully!")
+            print("\nConversion completed successfully!")
             print(f"Output saved to: {args.dest_folder}")
             return 0
         except Exception as e:
