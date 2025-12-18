@@ -297,7 +297,7 @@ Outputs
 
 Notes
 
-- For MONAI conversion, images are saved in `imagesTr/Ts/Val` and labels in `labelsTr/Val` based on the `--split` parameter.
+- For MONAI conversion, images are saved in `imagesTr/imagesTs/imagesVal` and labels in `labelsTr/Val` based on the `--split` parameter.
 - If `--labels` is not provided, the tool will attempt to discover unique classes from the label files and generate generic names.
 
 Example
