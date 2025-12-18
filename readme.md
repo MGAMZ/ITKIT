@@ -320,7 +320,7 @@ itk_convert monai /data/itkit_dataset /data/monai_dataset \
 - OneDL-mmcv
 - OneDL-mmsegmentation
 
-Please install `monai` package before you use functions in this section.
+Note: The `itk_convert` command only converts datasets into MONAI's file format and does not require the `monai` Python package. Install `monai` only if you plan to run MONAI-based deep learning workflows.
 
 ```bash
 pip install --no-deps monai
