@@ -1,9 +1,5 @@
 """
-ITKIT to MONAI Dataset Format Converter.
-
-This module provides functionality to convert ITKIT's recommended dataset structure
-(mha files in image/label folders) to MONAI's recommended structure (Medical Segmentation
-Decathlon format with imagesTr/labelsTr folders, NIfTI format, and dataset.json manifest).
+ITKIT to other Dataset Format Converter.
 
 ITKIT Structure:
     dataset/
@@ -25,20 +21,12 @@ MONAI Decathlon Structure:
     ├── imagesTs/        # Optional test images
     │   └── case_003.nii.gz
     └── dataset.json     # Manifest file with metadata
-
-Usage:
-    Python API:
-        from itkit.process.itk_convert import convert_to_monai
-        convert_to_monai(source_folder, dest_folder, dataset_name="MyDataset")
-
-    CLI:
-        itk_convert monai /path/to/itkit_dataset /path/to/output --name MyDataset
 """
 
 import argparse
 import json
 import os
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 from pathlib import Path
 from typing import Any, Literal
 
@@ -47,7 +35,7 @@ import SimpleITK as sitk
 from tqdm import tqdm
 
 from itkit.process.base_processor import BaseITKProcessor
-from itkit.process.metadata_models import MetadataManager, SeriesMetadata
+from itkit.process.metadata_models import SeriesMetadata
 
 
 class MonaiDatasetJson:

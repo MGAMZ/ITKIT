@@ -268,6 +268,18 @@ Notes
 - If no matching files are found, the script exits with a message.
 - Safe to combine recursive and mp; progress shown via tqdm.
 
+### itk_convert
+
+Convert ITKIT Dataset Format to other project's recommended formats.
+
+```bash
+itk_convert monai /data/itkit_dataset /data/monai_dataset \
+    --name MyDataset \
+    --modality CT \
+    --labels background liver tumor \
+    --mp
+```
+
 ## OpenMMLab Extensions for Medical Vision
 
 [OpenMMLab](https://github.com/open-mmlab) is an outstanding open‑source deep learning image analysis framework. ITKIT carries a set of OpenMMLab extension classes; based on mmengine and mmsegmentation, they define commonly used pipelines and computational modules for the medical imaging domain.
