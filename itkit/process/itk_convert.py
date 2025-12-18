@@ -58,7 +58,7 @@ class MonaiDatasetJson:
         name: str = "ITKITDataset",
         description: str = "Dataset converted from ITKIT mha format",
         reference: str = "",
-        licence: str = "",
+        license: str = "",
         release: str = "1.0",
         tensorImageSize: str = "3D",
         modality: dict[str, str] | None = None,
@@ -67,7 +67,7 @@ class MonaiDatasetJson:
         self.name = name
         self.description = description
         self.reference = reference
-        self.licence = licence
+        self.license = license
         self.release = release
         self.tensorImageSize = tensorImageSize
         self.modality = modality or {"0": "CT"}
@@ -101,7 +101,7 @@ class MonaiDatasetJson:
             "name": self.name,
             "description": self.description,
             "reference": self.reference,
-            "licence": self.licence,
+            "license": self.license,
             "release": self.release,
             "tensorImageSize": self.tensorImageSize,
             "modality": self.modality,
