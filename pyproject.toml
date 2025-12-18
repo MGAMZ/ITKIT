@@ -95,6 +95,7 @@ itk_patch = "itkit.process.itk_patch:main"
 itk_check = "itkit.process.itk_check:main"
 itk_aug = "itkit.process.itk_aug:main"
 itk_extract = "itkit.process.itk_extract:main"
+itk_convert = "itkit.process.itk_convert:main"
 itkit-app = "itkit.gui.app:main"
 
 [tool.setuptools.packages.find]
