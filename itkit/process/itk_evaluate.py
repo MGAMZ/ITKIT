@@ -79,7 +79,8 @@ def calculate_metrics_for_sample(
     for i, class_idx in enumerate(all_classes):
         result[f'class_{int(class_idx)}_dice'] = f1score[i]
         result[f'class_{int(class_idx)}_iou'] = iou[i]
-        result[f'class_{int(class_idx)}_fscore'] = f1score[i]  # F-score = Dice
+        # Note: F-score equals Dice coefficient for segmentation metrics
+        result[f'class_{int(class_idx)}_fscore'] = f1score[i]
         result[f'class_{int(class_idx)}_recall'] = recall[i]
         result[f'class_{int(class_idx)}_precision'] = precision[i]
     
@@ -114,13 +115,10 @@ class EvaluateProcessor(SeparateFoldersProcessor):
         self.results = []
     
     def process_one(self, args: tuple[str, str]) -> None:
-        """Process one GT-prediction pair.
+        """Process one GT-prediction pair and store results.
         
         Args:
             args: Tuple of (gt_path, pred_path)
-            
-        Returns:
-            None (results are stored in self.results)
         """
         gt_path, pred_path = args
         sample_name = Path(gt_path).stem
@@ -148,11 +146,9 @@ class EvaluateProcessor(SeparateFoldersProcessor):
                 default_value=0.0
             )
         
-        # Calculate metrics
+        # Calculate metrics and store in results list
         result = calculate_metrics_for_sample(gt_itk, pred_itk, sample_name)
         self.results.append(result)
-        
-        return None
 
 
 def aggregate_metrics(results: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -198,9 +194,11 @@ def aggregate_metrics(results: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame, 
             else:
                 per_class_data[f'class_{class_idx}'].append(np.nan)
     
-    # Add accuracy row
-    per_class_data['metric'].append('accuracy')
+    # Add accuracy as a separate row with global mean
+    # Note: Accuracy is a global metric, not per-class, so we show the mean once
+    per_class_data['metric'].append('accuracy (global)')
     for class_idx in classes:
+        # Show mean accuracy for all classes (same value repeated for table consistency)
         per_class_data[f'class_{class_idx}'].append(df['accuracy'].mean())
     
     per_class_sample_avg = pd.DataFrame(per_class_data)
