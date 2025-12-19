@@ -18,7 +18,6 @@ The converter ensures:
 """
 
 import os
-from pathlib import Path
 from typing import Any
 
 import SimpleITK as sitk
@@ -26,7 +25,6 @@ from tqdm import tqdm
 
 from itkit.process.base_processor import BaseITKProcessor
 from itkit.process.metadata_models import SeriesMetadata
-
 
 # Supported format extensions and their characteristics
 SUPPORTED_FORMATS = {

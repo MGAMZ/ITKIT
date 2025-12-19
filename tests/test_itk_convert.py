@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 import SimpleITK as sitk
 
-from itkit.process import itk_convert, itk_convert_format, itk_convert_monai, itk_convert_torchio
+from itkit.process import itk_convert, itk_convert_monai, itk_convert_torchio
 
 # Check if MONAI is available for end-to-end compatibility tests
 MONAI_AVAILABLE = importlib.util.find_spec("monai") is not None

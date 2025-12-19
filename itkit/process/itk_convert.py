@@ -35,7 +35,7 @@ TorchIO Structure:
 
 import argparse
 
-from itkit.process.itk_convert_format import convert_format, list_supported_formats
+from itkit.process.itk_convert_format import convert_format
 from itkit.process.itk_convert_monai import convert_to_monai
 from itkit.process.itk_convert_torchio import convert_to_torchio
 
