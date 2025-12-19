@@ -21,11 +21,22 @@ MONAI Decathlon Structure:
     ├── imagesTs/        # Optional test images
     │   └── case_003.nii.gz
     └── dataset.json     # Manifest file with metadata
+
+TorchIO Structure:
+    dataset/
+    ├── images/
+    │   ├── subject_001.nii.gz
+    │   └── subject_002.nii.gz
+    ├── labels/
+    │   ├── subject_001.nii.gz
+    │   └── subject_002.nii.gz
+    └── subjects.csv     # Manifest file with paths
 """
 
 import argparse
 
 from itkit.process.itk_convert_monai import convert_to_monai
+from itkit.process.itk_convert_torchio import convert_to_torchio
 
 
 def parse_args():
@@ -100,6 +111,41 @@ def parse_args():
         help="Number of worker processes (default: half of CPU cores)",
     )
 
+    # TorchIO subcommand
+    torchio_parser = subparsers.add_parser(
+        "torchio",
+        help="Convert ITKIT dataset to TorchIO format",
+        description="Convert ITKIT's mha-based dataset structure to TorchIO format "
+        "with NIfTI files and subjects.csv manifest.",
+    )
+
+    torchio_parser.add_argument(
+        "source_folder",
+        type=str,
+        help="Path to ITKIT dataset (must contain 'image' and 'label' subfolders)",
+    )
+    torchio_parser.add_argument(
+        "dest_folder",
+        type=str,
+        help="Path to output TorchIO-format dataset",
+    )
+    torchio_parser.add_argument(
+        "--no-csv",
+        action="store_true",
+        help="Skip creating subjects.csv manifest file",
+    )
+    torchio_parser.add_argument(
+        "--mp",
+        action="store_true",
+        help="Enable multiprocessing",
+    )
+    torchio_parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Number of worker processes (default: half of CPU cores)",
+    )
+
     return parser.parse_args()
 
 
@@ -109,8 +155,10 @@ def main():
 
     if args.format is None:
         print("Error: Please specify a format to convert to.")
-        print("Available formats: monai")
-        print("\nUsage: itk_convert monai <source_folder> <dest_folder> [options]")
+        print("Available formats: monai, torchio")
+        print("\nUsage:")
+        print("  itk_convert monai <source_folder> <dest_folder> [options]")
+        print("  itk_convert torchio <source_folder> <dest_folder> [options]")
         return 1
 
     if args.format == "monai":
@@ -141,6 +189,28 @@ def main():
                 modality=modality,
                 labels=labels,
                 split=args.split,
+                mp=args.mp,
+                workers=args.workers,
+            )
+            print("\nConversion completed successfully!")
+            print(f"Output saved to: {args.dest_folder}")
+            return 0
+        except Exception as e:
+            print(f"\nError during conversion: {e}")
+            return 1
+
+    elif args.format == "torchio":
+        # Run conversion
+        print("Converting ITKIT dataset to TorchIO format...")
+        print(f"  Source: {args.source_folder}")
+        print(f"  Destination: {args.dest_folder}")
+        print(f"  Create CSV manifest: {not args.no_csv}")
+
+        try:
+            convert_to_torchio(
+                source_folder=args.source_folder,
+                dest_folder=args.dest_folder,
+                create_csv=not args.no_csv,
                 mp=args.mp,
                 workers=args.workers,
             )
