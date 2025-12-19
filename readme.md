@@ -273,40 +273,57 @@ Notes
 Convert ITKIT Dataset Format to other project's recommended formats.
 
 ```bash
-itk_convert <format> <source_folder> <dest_folder> [--name NAME] [--description DESC] [--modality MOD] [--split SPLIT] [--labels L1 L2 ...] [--mp] [--workers N]
+itk_convert <format> <source_folder> <dest_folder> [options]
 ```
 
 Parameters
 
-- **format**: Target format to convert to (currently supports: `monai`).
+- **format**: Target format to convert to (currently supports: `monai`, `torchio`).
 - **source_folder**: Path to ITKIT dataset (must contain `image/` and `label/` subfolders).
 - **dest_folder**: Path to output dataset in the target format.
+
+**MONAI-specific options:**
 - **--name**: Dataset name for the manifest file (default: `ITKITDataset`).
 - **--description**: Dataset description for the manifest file.
 - **--modality**: Primary imaging modality (default: `CT`).
 - **--split**: Which split to treat the data as: `train` | `val` | `test` | `all` (default: `train`).
 - **--labels**: Label names in order (e.g., `background liver tumor`). Index 0 is background.
+
+**TorchIO-specific options:**
+- **--no-csv**: Skip creating `subjects.csv` manifest file.
+
+**Common options:**
 - **--mp**: Enable multiprocessing.
 - **--workers** N: Number of worker processes for multiprocessing.
 
 Outputs
 
-- Converted image and label files in the target format (e.g., `.nii.gz` for MONAI).
-- A manifest file (e.g., `dataset.json` for MONAI) containing metadata and file lists.
+- Converted image and label files in the target format (`.nii.gz` for both MONAI and TorchIO).
+- A manifest file:
+  - `dataset.json` for MONAI containing metadata and file lists
+  - `subjects.csv` for TorchIO with subject paths
 - A `meta.json` file containing ITKIT-style metadata for the converted files.
 
 Notes
 
 - For MONAI conversion, images are saved in `imagesTr/imagesTs/imagesVal` and labels in `labelsTr/Val` based on the `--split` parameter.
-- If `--labels` is not provided, the tool will attempt to discover unique classes from the label files and generate generic names.
+- For TorchIO conversion, images are saved in `images/` and labels in `labels/` directories.
+- If `--labels` is not provided for MONAI, the tool will attempt to discover unique classes from the label files and generate generic names.
 
-Example
+Examples
 
+**MONAI conversion:**
 ```bash
 itk_convert monai /data/itkit_dataset /data/monai_dataset \
     --name MyDataset \
     --modality CT \
     --labels background liver tumor \
+    --mp
+```
+
+**TorchIO conversion:**
+```bash
+itk_convert torchio /data/itkit_dataset /data/torchio_dataset \
     --mp
 ```
 
