@@ -15,8 +15,7 @@ TorchIO Structure:
 import csv
 import os
 from multiprocessing import Pool
-from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import SimpleITK as sitk
 from tqdm import tqdm
