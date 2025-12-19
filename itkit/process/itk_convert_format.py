@@ -58,14 +58,14 @@ SUPPORTED_FORMATS = {
 }
 
 
-def _convert_single_file(args: tuple[str, str, bool]) -> dict[str, Any] | None:
+def _convert_single_file(args: tuple[str, str, bool]) -> dict[str, Any]:
     """Convert a single medical image file to another format.
 
     Args:
         args: Tuple of (input_path, output_path, use_compression)
 
     Returns:
-        Dictionary with conversion result or None if failed
+        Dictionary with conversion result (always includes 'success' key)
     """
     input_path, output_path, use_compression = args
 
@@ -184,16 +184,16 @@ class FormatConverter(BaseITKProcessor):
 
         return items
 
-    def process_one(self, args: tuple[str, str, str, str]) -> SeriesMetadata | None:
+    def process_one(self, file_paths: tuple[str, str, str, str]) -> SeriesMetadata | None:
         """Process a single image-label pair.
 
         Args:
-            args: Tuple of (img_input, img_output, lbl_input, lbl_output)
+            file_paths: Tuple of (img_input, img_output, lbl_input, lbl_output)
 
         Returns:
             SeriesMetadata or None
         """
-        img_input, img_output, lbl_input, lbl_output = args
+        img_input, img_output, lbl_input, lbl_output = file_paths
 
         # Skip if output already exists
         if os.path.exists(img_output) and os.path.exists(lbl_output):
@@ -208,19 +208,15 @@ class FormatConverter(BaseITKProcessor):
 
         # Convert image
         img_result = _convert_single_file((img_input, img_output, self.use_compression))
-        if img_result is None or not img_result.get("success"):
-            error_msg = (
-                img_result.get("error", "Unknown error") if img_result else "Unknown error"
-            )
+        if not img_result.get("success"):
+            error_msg = img_result.get("error", "Unknown error")
             print(f"Failed to convert image {img_input}: {error_msg}")
             return None
 
         # Convert label
         lbl_result = _convert_single_file((lbl_input, lbl_output, self.use_compression))
-        if lbl_result is None or not lbl_result.get("success"):
-            error_msg = (
-                lbl_result.get("error", "Unknown error") if lbl_result else "Unknown error"
-            )
+        if not lbl_result.get("success"):
+            error_msg = lbl_result.get("error", "Unknown error")
             print(f"Failed to convert label {lbl_input}: {error_msg}")
             return None
 
