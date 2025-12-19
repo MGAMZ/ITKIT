@@ -1009,12 +1009,11 @@ class TestFormatConverter:
             assert os.path.exists(os.path.join(dest_dir, "image"))
             assert os.path.exists(os.path.join(dest_dir, "label"))
 
-            # Check converted files
-            img_files = os.listdir(os.path.join(dest_dir, "image"))
-            lbl_files = os.listdir(os.path.join(dest_dir, "label"))
+            # Check converted files (filter out meta.json)
+            img_files = [f for f in os.listdir(os.path.join(dest_dir, "image")) if f.endswith(".nii.gz")]
+            lbl_files = [f for f in os.listdir(os.path.join(dest_dir, "label")) if f.endswith(".nii.gz")]
             assert len(img_files) == 3
             assert len(lbl_files) == 3
-            assert all(f.endswith(".nii.gz") for f in img_files)
 
     def test_conversion_mha_to_nrrd(self):
         """Test full conversion from MHA to NRRD."""
@@ -1032,12 +1031,11 @@ class TestFormatConverter:
                 target_format="nrrd",
             )
 
-            # Check converted files
-            img_files = os.listdir(os.path.join(dest_dir, "image"))
-            lbl_files = os.listdir(os.path.join(dest_dir, "label"))
+            # Check converted files (filter out meta.json)
+            img_files = [f for f in os.listdir(os.path.join(dest_dir, "image")) if f.endswith(".nrrd")]
+            lbl_files = [f for f in os.listdir(os.path.join(dest_dir, "label")) if f.endswith(".nrrd")]
             assert len(img_files) == 2
             assert len(lbl_files) == 2
-            assert all(f.endswith(".nrrd") for f in img_files)
 
     def test_conversion_mha_to_mhd(self):
         """Test full conversion from MHA to MHD."""
