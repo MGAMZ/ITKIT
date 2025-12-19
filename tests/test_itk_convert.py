@@ -901,3 +901,452 @@ class TestTorchIOEndToEndCompatibility:
             assert "image" in sample
             assert "label" in sample
             assert sample["image"].data.shape[1:] == (64, 64, 64)
+
+
+@pytest.mark.itk_process
+class TestFormatConverter:
+    """Test FormatConverter class for medical image format conversion."""
+
+    def test_validate_source_structure_valid(self):
+        """Test validation with valid source structure."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            setup_itkit_dataset(tmpdir)
+
+            from itkit.process.itk_convert_format import FormatConverter
+
+            converter = FormatConverter(
+                source_folder=tmpdir,
+                dest_folder=os.path.join(tmpdir, "output"),
+                target_format="nii.gz",
+            )
+            # Should not raise
+            assert converter.source_folder == tmpdir
+
+    def test_validate_source_structure_missing_image(self):
+        """Test validation with missing image folder."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "label"))
+
+            from itkit.process.itk_convert_format import FormatConverter
+
+            with pytest.raises(ValueError, match="Missing 'image' subfolder"):
+                FormatConverter(
+                    source_folder=tmpdir,
+                    dest_folder=os.path.join(tmpdir, "output"),
+                    target_format="nii.gz",
+                )
+
+    def test_validate_source_structure_missing_label(self):
+        """Test validation with missing label folder."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "image"))
+
+            from itkit.process.itk_convert_format import FormatConverter
+
+            with pytest.raises(ValueError, match="Missing 'label' subfolder"):
+                FormatConverter(
+                    source_folder=tmpdir,
+                    dest_folder=os.path.join(tmpdir, "output"),
+                    target_format="nii.gz",
+                )
+
+    def test_unsupported_format(self):
+        """Test with unsupported format."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            setup_itkit_dataset(tmpdir)
+
+            from itkit.process.itk_convert_format import FormatConverter
+
+            with pytest.raises(ValueError, match="Unsupported target format"):
+                FormatConverter(
+                    source_folder=tmpdir,
+                    dest_folder=os.path.join(tmpdir, "output"),
+                    target_format="dcm",
+                )
+
+    def test_get_items_to_process(self):
+        """Test getting items to process."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            samples = setup_itkit_dataset(tmpdir, num_samples=3)
+
+            from itkit.process.itk_convert_format import FormatConverter
+
+            converter = FormatConverter(
+                source_folder=tmpdir,
+                dest_folder=os.path.join(tmpdir, "output"),
+                target_format="nii.gz",
+            )
+
+            items = converter.get_items_to_process()
+            assert len(items) == 3
+
+            # Check structure of first item
+            img_in, img_out, lbl_in, lbl_out = items[0]
+            assert img_in.endswith(".mha")
+            assert img_out.endswith(".nii.gz")
+            assert lbl_in.endswith(".mha")
+            assert lbl_out.endswith(".nii.gz")
+            assert "image" in img_out
+            assert "label" in lbl_out
+
+    def test_conversion_mha_to_nifti(self):
+        """Test full conversion from MHA to NIfTI."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            samples = setup_itkit_dataset(src_dir, num_samples=3)
+
+            from itkit.process.itk_convert_format import convert_format
+
+            converter = convert_format(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+                target_format="nii.gz",
+            )
+
+            # Check output structure
+            assert os.path.exists(os.path.join(dest_dir, "image"))
+            assert os.path.exists(os.path.join(dest_dir, "label"))
+
+            # Check converted files (filter out meta.json)
+            img_files = [f for f in os.listdir(os.path.join(dest_dir, "image")) if f.endswith(".nii.gz")]
+            lbl_files = [f for f in os.listdir(os.path.join(dest_dir, "label")) if f.endswith(".nii.gz")]
+            assert len(img_files) == 3
+            assert len(lbl_files) == 3
+
+    def test_conversion_mha_to_nrrd(self):
+        """Test full conversion from MHA to NRRD."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            setup_itkit_dataset(src_dir, num_samples=2)
+
+            from itkit.process.itk_convert_format import convert_format
+
+            convert_format(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+                target_format="nrrd",
+            )
+
+            # Check converted files (filter out meta.json)
+            img_files = [f for f in os.listdir(os.path.join(dest_dir, "image")) if f.endswith(".nrrd")]
+            lbl_files = [f for f in os.listdir(os.path.join(dest_dir, "label")) if f.endswith(".nrrd")]
+            assert len(img_files) == 2
+            assert len(lbl_files) == 2
+
+    def test_conversion_mha_to_mhd(self):
+        """Test full conversion from MHA to MHD."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            setup_itkit_dataset(src_dir, num_samples=2)
+
+            from itkit.process.itk_convert_format import convert_format
+
+            convert_format(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+                target_format="mhd",
+            )
+
+            # Check converted files
+            img_files = os.listdir(os.path.join(dest_dir, "image"))
+            assert any(f.endswith(".mhd") for f in img_files)
+            # MHD format also creates .raw files
+            assert any(f.endswith(".raw") for f in img_files)
+
+    def test_metadata_preservation_spacing(self):
+        """Test that conversion preserves image spacing metadata."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            # Create dataset with specific spacing
+            img_dir = os.path.join(src_dir, 'image')
+            lbl_dir = os.path.join(src_dir, 'label')
+            os.makedirs(img_dir, exist_ok=True)
+            os.makedirs(lbl_dir, exist_ok=True)
+
+            size = (32, 32, 32)
+            spacing = (2.5, 1.5, 1.0)
+
+            img_path = os.path.join(img_dir, "test_case.mha")
+            lbl_path = os.path.join(lbl_dir, "test_case.mha")
+
+            original_img = create_test_mha_image(img_path, size, spacing)
+            create_test_mha_label(lbl_path, size, spacing)
+
+            # Convert to NIfTI
+            from itkit.process.itk_convert_format import convert_format
+
+            convert_format(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+                target_format="nii.gz",
+            )
+
+            # Read output and verify spacing
+            output_img = sitk.ReadImage(os.path.join(dest_dir, "image", "test_case.nii.gz"))
+            output_spacing = output_img.GetSpacing()
+
+            # SimpleITK uses XYZ order
+            original_spacing = original_img.GetSpacing()
+            for i in range(3):
+                assert abs(output_spacing[i] - original_spacing[i]) < SPACING_TOLERANCE
+
+    def test_metadata_preservation_origin(self):
+        """Test that conversion preserves image origin metadata."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            # Create dataset with specific origin
+            img_dir = os.path.join(src_dir, 'image')
+            lbl_dir = os.path.join(src_dir, 'label')
+            os.makedirs(img_dir, exist_ok=True)
+            os.makedirs(lbl_dir, exist_ok=True)
+
+            size = (32, 32, 32)
+            spacing = (1.0, 1.0, 1.0)
+            origin = (10.0, 20.0, 30.0)
+
+            img_path = os.path.join(img_dir, "test_case.mha")
+            lbl_path = os.path.join(lbl_dir, "test_case.mha")
+
+            img = sitk.Image(size[::-1], sitk.sitkInt16)
+            img.SetSpacing(spacing[::-1])
+            img.SetOrigin(origin[::-1])
+            sitk.WriteImage(img, img_path)
+
+            lbl = sitk.Image(size[::-1], sitk.sitkUInt8)
+            lbl.SetSpacing(spacing[::-1])
+            lbl.SetOrigin(origin[::-1])
+            sitk.WriteImage(lbl, lbl_path)
+
+            # Convert to NRRD
+            from itkit.process.itk_convert_format import convert_format
+
+            convert_format(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+                target_format="nrrd",
+            )
+
+            # Read output and verify origin
+            output_img = sitk.ReadImage(os.path.join(dest_dir, "image", "test_case.nrrd"))
+            output_origin = output_img.GetOrigin()
+
+            for i in range(3):
+                assert abs(output_origin[i] - origin[::-1][i]) < SPACING_TOLERANCE
+
+    def test_metadata_preservation_direction(self):
+        """Test that conversion preserves image direction matrix."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            # Create dataset with specific direction
+            img_dir = os.path.join(src_dir, 'image')
+            lbl_dir = os.path.join(src_dir, 'label')
+            os.makedirs(img_dir, exist_ok=True)
+            os.makedirs(lbl_dir, exist_ok=True)
+
+            size = (32, 32, 32)
+            spacing = (1.0, 1.0, 1.0)
+
+            img_path = os.path.join(img_dir, "test_case.mha")
+            lbl_path = os.path.join(lbl_dir, "test_case.mha")
+
+            img = sitk.Image(size[::-1], sitk.sitkInt16)
+            img.SetSpacing(spacing[::-1])
+            # Set a non-identity direction matrix
+            img.SetDirection([1, 0, 0, 0, 1, 0, 0, 0, 1])
+            sitk.WriteImage(img, img_path)
+
+            lbl = sitk.Image(size[::-1], sitk.sitkUInt8)
+            lbl.SetSpacing(spacing[::-1])
+            lbl.SetDirection([1, 0, 0, 0, 1, 0, 0, 0, 1])
+            sitk.WriteImage(lbl, lbl_path)
+
+            # Convert to NIfTI
+            from itkit.process.itk_convert_format import convert_format
+
+            convert_format(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+                target_format="nii.gz",
+            )
+
+            # Read output and verify direction
+            output_img = sitk.ReadImage(os.path.join(dest_dir, "image", "test_case.nii.gz"))
+            output_direction = output_img.GetDirection()
+
+            assert len(output_direction) == 9
+            # Check diagonal elements
+            assert output_direction[0] == 1
+            assert output_direction[4] == 1
+            assert output_direction[8] == 1
+
+    def test_data_integrity(self):
+        """Test that conversion preserves actual image data."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            # Create dataset with known data
+            img_dir = os.path.join(src_dir, 'image')
+            lbl_dir = os.path.join(src_dir, 'label')
+            os.makedirs(img_dir, exist_ok=True)
+            os.makedirs(lbl_dir, exist_ok=True)
+
+            size = (16, 16, 16)
+            spacing = (1.0, 1.0, 1.0)
+
+            # Create image with specific pattern
+            arr = np.arange(16 * 16 * 16).reshape(size).astype(np.int16)
+            img = sitk.GetImageFromArray(arr)
+            img.SetSpacing(spacing[::-1])
+
+            img_path = os.path.join(img_dir, "test_case.mha")
+            sitk.WriteImage(img, img_path)
+
+            # Create label with specific pattern
+            lbl_arr = np.zeros(size, dtype=np.uint8)
+            lbl_arr[5:10, 5:10, 5:10] = 1
+            lbl = sitk.GetImageFromArray(lbl_arr)
+            lbl.SetSpacing(spacing[::-1])
+
+            lbl_path = os.path.join(lbl_dir, "test_case.mha")
+            sitk.WriteImage(lbl, lbl_path)
+
+            # Convert to NIfTI
+            from itkit.process.itk_convert_format import convert_format
+
+            convert_format(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+                target_format="nii.gz",
+            )
+
+            # Read output and verify data
+            output_img = sitk.ReadImage(os.path.join(dest_dir, "image", "test_case.nii.gz"))
+            output_arr = sitk.GetArrayFromImage(output_img)
+
+            # Check that data matches
+            np.testing.assert_array_equal(output_arr, arr)
+
+            # Check label data
+            output_lbl = sitk.ReadImage(os.path.join(dest_dir, "label", "test_case.nii.gz"))
+            output_lbl_arr = sitk.GetArrayFromImage(output_lbl)
+            np.testing.assert_array_equal(output_lbl_arr, lbl_arr)
+
+    def test_multiple_formats_roundtrip(self):
+        """Test converting through multiple formats maintains data integrity."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create original MHA dataset
+            mha_dir = os.path.join(tmpdir, "mha")
+            nifti_dir = os.path.join(tmpdir, "nifti")
+            nrrd_dir = os.path.join(tmpdir, "nrrd")
+            mha2_dir = os.path.join(tmpdir, "mha2")
+
+            setup_itkit_dataset(mha_dir, num_samples=2)
+
+            from itkit.process.itk_convert_format import convert_format
+
+            # Convert MHA -> NIfTI -> NRRD -> MHA
+            convert_format(mha_dir, nifti_dir, "nii.gz")
+            convert_format(nifti_dir, nrrd_dir, "nrrd")
+            convert_format(nrrd_dir, mha2_dir, "mha")
+
+            # Compare original and final
+            original_img = sitk.ReadImage(
+                os.path.join(mha_dir, "image", "case_0000.mha")
+            )
+            final_img = sitk.ReadImage(os.path.join(mha2_dir, "image", "case_0000.mha"))
+
+            # Check metadata
+            assert original_img.GetSize() == final_img.GetSize()
+            for i in range(3):
+                assert (
+                    abs(original_img.GetSpacing()[i] - final_img.GetSpacing()[i])
+                    < SPACING_TOLERANCE
+                )
+
+            # Check data
+            original_arr = sitk.GetArrayFromImage(original_img)
+            final_arr = sitk.GetArrayFromImage(final_img)
+            np.testing.assert_array_equal(original_arr, final_arr)
+
+
+@pytest.mark.itk_process
+class TestFormatConversionCLI:
+    """Test format conversion CLI integration."""
+
+    def test_format_subcommand_basic(self, monkeypatch):
+        """Test basic format subcommand parsing."""
+        test_args = ["itk_convert", "format", "nii.gz", "/source", "/dest"]
+        monkeypatch.setattr("sys.argv", test_args)
+
+        args = itk_convert.parse_args()
+
+        assert args.format == "format"
+        assert args.target_format == "nii.gz"
+        assert args.source_folder == "/source"
+        assert args.dest_folder == "/dest"
+
+    def test_format_subcommand_with_options(self, monkeypatch):
+        """Test format subcommand with all options."""
+        test_args = [
+            "itk_convert",
+            "format",
+            "nrrd",
+            "/source",
+            "/dest",
+            "--mp",
+            "--workers",
+            "4",
+        ]
+        monkeypatch.setattr("sys.argv", test_args)
+
+        args = itk_convert.parse_args()
+
+        assert args.format == "format"
+        assert args.target_format == "nrrd"
+        assert args.mp is True
+        assert args.workers == 4
+
+    def test_main_format_success(self, monkeypatch):
+        """Test main with successful format conversion."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            setup_itkit_dataset(src_dir, num_samples=2)
+
+            test_args = ["itk_convert", "format", "nii.gz", src_dir, dest_dir]
+            monkeypatch.setattr("sys.argv", test_args)
+
+            result = itk_convert.main()
+
+            assert result == 0
+            assert os.path.exists(os.path.join(dest_dir, "image"))
+            assert os.path.exists(os.path.join(dest_dir, "label"))
+
+    def test_main_format_invalid_source(self, monkeypatch, capsys):
+        """Test main with invalid source folder."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "nonexistent")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            test_args = ["itk_convert", "format", "nii.gz", src_dir, dest_dir]
+            monkeypatch.setattr("sys.argv", test_args)
+
+            result = itk_convert.main()
+
+            assert result == 1
+            captured = capsys.readouterr()
+            assert "Error during conversion" in captured.out

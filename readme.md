@@ -270,17 +270,70 @@ Notes
 
 ### itk_convert
 
-Convert ITKIT Dataset Format to other project's recommended formats.
+Convert ITKIT datasets between different formats and file types.
 
 ```bash
-itk_convert <format> <source_folder> <dest_folder> [options]
+itk_convert <subcommand> <source_folder> <dest_folder> [options]
+```
+
+**Available subcommands:**
+- `format`: Convert medical image file formats (e.g., mha ↔ nii.gz ↔ nrrd)
+- `monai`: Convert to MONAI Decathlon format
+- `torchio`: Convert to TorchIO format
+
+#### Format Conversion (itk_convert format)
+
+Convert medical image files between different formats while preserving metadata and maintaining the ITKIT dataset structure.
+
+```bash
+itk_convert format <target_format> <source_folder> <dest_folder> [options]
 ```
 
 Parameters
 
-- **format**: Target format to convert to (currently supports: `monai`, `torchio`).
+- **target_format**: Target file format. Supported formats:
+  - `mha`: MetaImage (single file)
+  - `mhd`: MetaImage Header (with separate .raw file)
+  - `nii.gz`: Compressed NIfTI
+  - `nii`: NIfTI (uncompressed)
+  - `nrrd`: Nearly Raw Raster Data
 - **source_folder**: Path to ITKIT dataset (must contain `image/` and `label/` subfolders).
-- **dest_folder**: Path to output dataset in the target format.
+- **dest_folder**: Path to output dataset (maintains same structure).
+- **--mp**: Enable multiprocessing.
+- **--workers** N: Number of worker processes for multiprocessing.
+
+Features
+
+- **Metadata Preservation**: Spacing, origin, and direction matrix are fully preserved.
+- **Data Integrity**: Pixel values remain unchanged during conversion.
+- **Bidirectional**: All formats can be converted to any other supported format.
+- **Structure Maintained**: Output maintains the ITKIT `image/` and `label/` folder structure with matching filenames.
+
+Examples
+
+```bash
+# Convert MHA to compressed NIfTI
+itk_convert format nii.gz /data/mha_dataset /data/nifti_dataset
+
+# Convert to NRRD with multiprocessing
+itk_convert format nrrd /data/input /data/output --mp --workers 8
+
+# Convert MHD to MHA
+itk_convert format mha /data/mhd_dataset /data/mha_dataset
+```
+
+#### MONAI Conversion (itk_convert monai)
+
+Convert ITKIT dataset to MONAI Decathlon format.
+
+```bash
+itk_convert monai <source_folder> <dest_folder> [options]
+```
+
+Parameters
+
+- **source_folder**: Path to ITKIT dataset (must contain `image/` and `label/` subfolders).
+- **dest_folder**: Path to output dataset in MONAI format.
 
 **MONAI-specific options:**
 - **--name**: Dataset name for the manifest file (default: `ITKITDataset`).
@@ -288,6 +341,44 @@ Parameters
 - **--modality**: Primary imaging modality (default: `CT`).
 - **--split**: Which split to treat the data as: `train` | `val` | `test` | `all` (default: `train`).
 - **--labels**: Label names in order (e.g., `background liver tumor`). Index 0 is background.
+
+**Common options:**
+- **--mp**: Enable multiprocessing.
+- **--workers** N: Number of worker processes for multiprocessing.
+
+Outputs
+
+- Converted image and label files in `.nii.gz` format.
+- `dataset.json` manifest file containing metadata and file lists.
+- `meta.json` file containing ITKIT-style metadata for the converted files.
+
+Notes
+
+- Images are saved in `imagesTr/imagesTs/imagesVal` and labels in `labelsTr/Val` based on the `--split` parameter.
+- If `--labels` is not provided, the tool will attempt to discover unique classes from the label files and generate generic names.
+
+Example
+
+```bash
+itk_convert monai /data/itkit_dataset /data/monai_dataset \
+    --name MyDataset \
+    --modality CT \
+    --labels background liver tumor \
+    --mp
+```
+
+#### TorchIO Conversion (itk_convert torchio)
+
+Convert ITKIT dataset to TorchIO format.
+
+```bash
+itk_convert torchio <source_folder> <dest_folder> [options]
+```
+
+Parameters
+
+- **source_folder**: Path to ITKIT dataset (must contain `image/` and `label/` subfolders).
+- **dest_folder**: Path to output dataset in TorchIO format.
 
 **TorchIO-specific options:**
 - **--no-csv**: Skip creating `subjects.csv` manifest file.
@@ -298,30 +389,16 @@ Parameters
 
 Outputs
 
-- Converted image and label files in the target format (`.nii.gz` for both MONAI and TorchIO).
-- A manifest file:
-  - `dataset.json` for MONAI containing metadata and file lists
-  - `subjects.csv` for TorchIO with subject paths
-- A `meta.json` file containing ITKIT-style metadata for the converted files.
+- Converted image and label files in `.nii.gz` format.
+- `subjects.csv` manifest file with subject paths (unless `--no-csv` is specified).
+- `meta.json` file containing ITKIT-style metadata for the converted files.
 
 Notes
 
-- For MONAI conversion, images are saved in `imagesTr/imagesTs/imagesVal` and labels in `labelsTr/Val` based on the `--split` parameter.
-- For TorchIO conversion, images are saved in `images/` and labels in `labels/` directories.
-- If `--labels` is not provided for MONAI, the tool will attempt to discover unique classes from the label files and generate generic names.
+- Images are saved in `images/` and labels in `labels/` directories.
 
-Examples
+Example
 
-**MONAI conversion:**
-```bash
-itk_convert monai /data/itkit_dataset /data/monai_dataset \
-    --name MyDataset \
-    --modality CT \
-    --labels background liver tumor \
-    --mp
-```
-
-**TorchIO conversion:**
 ```bash
 itk_convert torchio /data/itkit_dataset /data/torchio_dataset \
     --mp
@@ -337,7 +414,7 @@ itk_convert torchio /data/itkit_dataset /data/torchio_dataset \
 - OneDL-mmcv
 - OneDL-mmsegmentation
 
-Note: The `itk_convert` command only converts datasets into MONAI's file format and does not require the `monai` Python package. Install `monai` only if you plan to run MONAI-based deep learning workflows.
+Note: The `itk_convert monai` and `itk_convert torchio` commands do not require the `monai` or `torchio` Python packages to perform the conversion. Install these packages only if you plan to run MONAI or TorchIO-based deep learning workflows.
 
 ```bash
 pip install --no-deps monai

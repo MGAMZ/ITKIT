@@ -35,6 +35,7 @@ TorchIO Structure:
 
 import argparse
 
+from itkit.process.itk_convert_format import convert_format
 from itkit.process.itk_convert_monai import convert_to_monai
 from itkit.process.itk_convert_torchio import convert_to_torchio
 
@@ -146,6 +147,43 @@ def parse_args():
         help="Number of worker processes (default: half of CPU cores)",
     )
 
+    # Format conversion subcommand
+    format_parser = subparsers.add_parser(
+        "format",
+        help="Convert medical image files between different formats",
+        description="Convert medical image files between different formats "
+        "(e.g., mha, nii.gz, mhd, nrrd) while preserving metadata and "
+        "maintaining the ITKIT dataset structure (image/ and label/ folders).",
+    )
+
+    format_parser.add_argument(
+        "target_format",
+        type=str,
+        choices=["mha", "mhd", "nii.gz", "nii", "nrrd"],
+        help="Target file format (mha, mhd, nii.gz, nii, nrrd)",
+    )
+    format_parser.add_argument(
+        "source_folder",
+        type=str,
+        help="Path to source dataset (must contain 'image' and 'label' subfolders)",
+    )
+    format_parser.add_argument(
+        "dest_folder",
+        type=str,
+        help="Path to output dataset (will maintain same structure)",
+    )
+    format_parser.add_argument(
+        "--mp",
+        action="store_true",
+        help="Enable multiprocessing",
+    )
+    format_parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Number of worker processes (default: half of CPU cores)",
+    )
+
     return parser.parse_args()
 
 
@@ -155,10 +193,11 @@ def main():
 
     if args.format is None:
         print("Error: Please specify a format to convert to.")
-        print("Available formats: monai, torchio")
+        print("Available formats: monai, torchio, format")
         print("\nUsage:")
         print("  itk_convert monai <source_folder> <dest_folder> [options]")
         print("  itk_convert torchio <source_folder> <dest_folder> [options]")
+        print("  itk_convert format <target_format> <source_folder> <dest_folder> [options]")
         return 1
 
     if args.format == "monai":
@@ -216,6 +255,30 @@ def main():
             )
             print("\nConversion completed successfully!")
             print(f"Output saved to: {args.dest_folder}")
+            return 0
+        except Exception as e:
+            print(f"\nError during conversion: {e}")
+            return 1
+
+    elif args.format == "format":
+        # Run format conversion
+        print(f"Converting medical image files to {args.target_format.upper()} format...")
+        print(f"  Source: {args.source_folder}")
+        print(f"  Destination: {args.dest_folder}")
+        print(f"  Target format: {args.target_format}")
+        print(f"  Multiprocessing: {args.mp}")
+
+        try:
+            convert_format(
+                source_folder=args.source_folder,
+                dest_folder=args.dest_folder,
+                target_format=args.target_format,
+                mp=args.mp,
+                workers=args.workers,
+            )
+            print("\nConversion completed successfully!")
+            print(f"Output saved to: {args.dest_folder}")
+            print(f"All files converted to {args.target_format} format with metadata preserved.")
             return 0
         except Exception as e:
             print(f"\nError during conversion: {e}")
