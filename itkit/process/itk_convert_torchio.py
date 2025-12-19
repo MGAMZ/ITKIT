@@ -174,9 +174,7 @@ class TorchIOConverter(BaseITKProcessor):
             return None
 
         # Store subject info for CSV
-        subject_name = os.path.splitext(os.path.basename(img_output))[0]
-        if subject_name.endswith('.nii'):
-            subject_name = subject_name[:-4]
+        subject_name = self._normalize_filename(os.path.basename(img_output))
 
         self.subjects.append({
             "subject": subject_name,

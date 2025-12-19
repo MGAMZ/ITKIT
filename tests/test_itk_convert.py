@@ -26,6 +26,9 @@ TORCHIO_AVAILABLE = importlib.util.find_spec("torchio") is not None
 if TORCHIO_AVAILABLE:
     import torchio as tio
 
+# Constants
+SPACING_TOLERANCE = 0.001  # Tolerance for spacing comparison in tests
+
 
 def create_test_mha_image(path: str, size: tuple, spacing: tuple, dtype=sitk.sitkInt16):
     """Helper to create test MHA images."""
@@ -691,9 +694,9 @@ class TestTorchIOConverter:
             output_spacing = output_img.GetSpacing()
 
             # SimpleITK uses XYZ order
-            assert abs(output_spacing[0] - spacing[2]) < 0.001
-            assert abs(output_spacing[1] - spacing[1]) < 0.001
-            assert abs(output_spacing[2] - spacing[0]) < 0.001
+            assert abs(output_spacing[0] - spacing[2]) < SPACING_TOLERANCE
+            assert abs(output_spacing[1] - spacing[1]) < SPACING_TOLERANCE
+            assert abs(output_spacing[2] - spacing[0]) < SPACING_TOLERANCE
 
 
 @pytest.mark.itk_process
