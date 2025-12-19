@@ -268,13 +268,59 @@ Notes
 - If no matching files are found, the script exits with a message.
 - Safe to combine recursive and mp; progress shown via tqdm.
 
+### itk_convert
+
+Convert ITKIT Dataset Format to other project's recommended formats.
+
+```bash
+itk_convert <format> <source_folder> <dest_folder> [--name NAME] [--description DESC] [--modality MOD] [--split SPLIT] [--labels L1 L2 ...] [--mp] [--workers N]
+```
+
+Parameters
+
+- **format**: Target format to convert to (currently supports: `monai`).
+- **source_folder**: Path to ITKIT dataset (must contain `image/` and `label/` subfolders).
+- **dest_folder**: Path to output dataset in the target format.
+- **--name**: Dataset name for the manifest file (default: `ITKITDataset`).
+- **--description**: Dataset description for the manifest file.
+- **--modality**: Primary imaging modality (default: `CT`).
+- **--split**: Which split to treat the data as: `train` | `val` | `test` | `all` (default: `train`).
+- **--labels**: Label names in order (e.g., `background liver tumor`). Index 0 is background.
+- **--mp**: Enable multiprocessing.
+- **--workers** N: Number of worker processes for multiprocessing.
+
+Outputs
+
+- Converted image and label files in the target format (e.g., `.nii.gz` for MONAI).
+- A manifest file (e.g., `dataset.json` for MONAI) containing metadata and file lists.
+- A `meta.json` file containing ITKIT-style metadata for the converted files.
+
+Notes
+
+- For MONAI conversion, images are saved in `imagesTr/imagesTs/imagesVal` and labels in `labelsTr/Val` based on the `--split` parameter.
+- If `--labels` is not provided, the tool will attempt to discover unique classes from the label files and generate generic names.
+
+Example
+
+```bash
+itk_convert monai /data/itkit_dataset /data/monai_dataset \
+    --name MyDataset \
+    --modality CT \
+    --labels background liver tumor \
+    --mp
+```
+
 ## OpenMMLab Extensions for Medical Vision
 
 [OpenMMLab](https://github.com/open-mmlab) is an outstanding open‑source deep learning image analysis framework. ITKIT carries a set of OpenMMLab extension classes; based on mmengine and mmsegmentation, they define commonly used pipelines and computational modules for the medical imaging domain.
 
-**Unfortunately**, the upstream OpenMMLab project has gradually fallen out of maintenance, and I have to consider abandoning this portion of the development work.
+**Unfortunately**, the upstream `OpenMMLab` project has gradually fallen out of maintenance. `ITKIT` now recommend users to use `OneDL` redistribution of `OpenMMLab` instead. They're:
 
-Please install `monai` package before you use functions in this section.
+- OneDL-mmengine
+- OneDL-mmcv
+- OneDL-mmsegmentation
+
+Note: The `itk_convert` command only converts datasets into MONAI's file format and does not require the `monai` Python package. Install `monai` only if you plan to run MONAI-based deep learning workflows.
 
 ```bash
 pip install --no-deps monai
