@@ -1,5 +1,6 @@
-"""Tests for itk_convert module - ITKIT to MONAI format conversion."""
+"""Tests for itk_convert module - ITKIT to MONAI and TorchIO format conversion."""
 
+import csv
 import json
 import os
 import tempfile
@@ -9,7 +10,7 @@ import numpy as np
 import pytest
 import SimpleITK as sitk
 
-from itkit.process import itk_convert, itk_convert_monai
+from itkit.process import itk_convert, itk_convert_monai, itk_convert_torchio
 
 # Check if MONAI is available for end-to-end compatibility tests
 MONAI_AVAILABLE = importlib.util.find_spec("monai") is not None
@@ -18,6 +19,12 @@ if MONAI_AVAILABLE:
     import monai
     from monai.data import Dataset, load_decathlon_datalist
     from monai.transforms import Compose, EnsureChannelFirstd, LoadImaged
+
+# Check if TorchIO is available for end-to-end compatibility tests
+TORCHIO_AVAILABLE = importlib.util.find_spec("torchio") is not None
+
+if TORCHIO_AVAILABLE:
+    import torchio as tio
 
 
 def create_test_mha_image(path: str, size: tuple, spacing: tuple, dtype=sitk.sitkInt16):
@@ -533,3 +540,361 @@ class TestMonaiEndToEndCompatibility:
 
             # Verify metadata preservation
             assert "affine" in sample["image"].meta
+
+
+@pytest.mark.itk_process
+class TestTorchIOConverter:
+    """Test TorchIOConverter class."""
+
+    def test_validate_source_structure_valid(self):
+        """Test validation with valid source structure."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            setup_itkit_dataset(tmpdir)
+
+            converter = itk_convert_torchio.TorchIOConverter(
+                source_folder=tmpdir,
+                dest_folder=os.path.join(tmpdir, "output"),
+            )
+            # Should not raise
+            assert converter.source_folder == tmpdir
+
+    def test_validate_source_structure_missing_image(self):
+        """Test validation with missing image folder."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "label"))
+
+            with pytest.raises(ValueError, match="Missing 'image' subfolder"):
+                itk_convert_torchio.TorchIOConverter(
+                    source_folder=tmpdir,
+                    dest_folder=os.path.join(tmpdir, "output"),
+                )
+
+    def test_validate_source_structure_missing_label(self):
+        """Test validation with missing label folder."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "image"))
+
+            with pytest.raises(ValueError, match="Missing 'label' subfolder"):
+                itk_convert_torchio.TorchIOConverter(
+                    source_folder=tmpdir,
+                    dest_folder=os.path.join(tmpdir, "output"),
+                )
+
+    def test_get_items_to_process(self):
+        """Test getting items to process."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            samples = setup_itkit_dataset(tmpdir, num_samples=3)
+
+            converter = itk_convert_torchio.TorchIOConverter(
+                source_folder=tmpdir,
+                dest_folder=os.path.join(tmpdir, "output"),
+            )
+
+            items = converter.get_items_to_process()
+            assert len(items) == 3
+
+            # Check structure of first item
+            img_in, img_out, lbl_in, lbl_out = items[0]
+            assert img_in.endswith(".mha")
+            assert img_out.endswith(".nii.gz")
+            assert lbl_in.endswith(".mha")
+            assert lbl_out.endswith(".nii.gz")
+            assert "images" in img_out
+            assert "labels" in lbl_out
+
+    def test_full_conversion(self):
+        """Test full conversion process."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            samples = setup_itkit_dataset(src_dir, num_samples=3)
+
+            converter = itk_convert_torchio.convert_to_torchio(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+                create_csv=True,
+            )
+
+            # Check output structure
+            assert os.path.exists(os.path.join(dest_dir, "images"))
+            assert os.path.exists(os.path.join(dest_dir, "labels"))
+            assert os.path.exists(os.path.join(dest_dir, "subjects.csv"))
+
+            # Check converted files
+            img_files = os.listdir(os.path.join(dest_dir, "images"))
+            lbl_files = os.listdir(os.path.join(dest_dir, "labels"))
+            assert len(img_files) == 3
+            assert len(lbl_files) == 3
+            assert all(f.endswith(".nii.gz") for f in img_files)
+
+            # Check subjects.csv contents
+            with open(os.path.join(dest_dir, "subjects.csv")) as f:
+                reader = csv.DictReader(f)
+                subjects = list(reader)
+
+            assert len(subjects) == 3
+            assert all("subject" in s for s in subjects)
+            assert all("image" in s for s in subjects)
+            assert all("label" in s for s in subjects)
+
+    def test_conversion_without_csv(self):
+        """Test conversion without creating CSV manifest."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            setup_itkit_dataset(src_dir, num_samples=2)
+
+            itk_convert_torchio.convert_to_torchio(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+                create_csv=False,
+            )
+
+            # Check that CSV was not created
+            assert not os.path.exists(os.path.join(dest_dir, "subjects.csv"))
+
+            # But images and labels should exist
+            assert os.path.exists(os.path.join(dest_dir, "images"))
+            assert os.path.exists(os.path.join(dest_dir, "labels"))
+
+    def test_conversion_preserves_metadata(self):
+        """Test that conversion preserves image metadata."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            # Create dataset with specific spacing
+            img_dir = os.path.join(src_dir, 'image')
+            lbl_dir = os.path.join(src_dir, 'label')
+            os.makedirs(img_dir, exist_ok=True)
+            os.makedirs(lbl_dir, exist_ok=True)
+
+            size = (32, 32, 32)
+            spacing = (2.0, 1.5, 1.5)
+
+            img_path = os.path.join(img_dir, "test_case.mha")
+            lbl_path = os.path.join(lbl_dir, "test_case.mha")
+
+            create_test_mha_image(img_path, size, spacing)
+            create_test_mha_label(lbl_path, size, spacing)
+
+            # Convert
+            itk_convert_torchio.convert_to_torchio(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+            )
+
+            # Read output and verify spacing
+            output_img = sitk.ReadImage(os.path.join(dest_dir, "images", "test_case.nii.gz"))
+            output_spacing = output_img.GetSpacing()
+
+            # SimpleITK uses XYZ order
+            assert abs(output_spacing[0] - spacing[2]) < 0.001
+            assert abs(output_spacing[1] - spacing[1]) < 0.001
+            assert abs(output_spacing[2] - spacing[0]) < 0.001
+
+
+@pytest.mark.itk_process
+class TestConvertSingleFileTorchIO:
+    """Test the single file conversion function for TorchIO."""
+
+    def test_convert_mha_to_nifti(self):
+        """Test converting a single mha file to nii.gz."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create input mha
+            input_path = os.path.join(tmpdir, "test.mha")
+            output_path = os.path.join(tmpdir, "output", "test.nii.gz")
+
+            create_test_mha_image(input_path, (32, 32, 32), (1.0, 1.0, 1.0))
+
+            result = itk_convert_torchio._convert_single_file((input_path, output_path))
+
+            assert result is not None
+            assert result["success"] is True
+            assert os.path.exists(output_path)
+
+            # Verify the output file
+            output_img = sitk.ReadImage(output_path)
+            assert output_img.GetSize() == (32, 32, 32)
+
+    def test_convert_nonexistent_file(self):
+        """Test converting a non-existent file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            input_path = os.path.join(tmpdir, "nonexistent.mha")
+            output_path = os.path.join(tmpdir, "output.nii.gz")
+
+            result = itk_convert_torchio._convert_single_file((input_path, output_path))
+
+            assert result is not None
+            assert result["success"] is False
+            assert "error" in result
+
+
+@pytest.mark.itk_process
+class TestTorchIOCLI:
+    """Test TorchIO CLI integration."""
+
+    def test_torchio_subcommand_basic(self, monkeypatch):
+        """Test basic torchio subcommand parsing."""
+        test_args = ["itk_convert", "torchio", "/source", "/dest"]
+        monkeypatch.setattr("sys.argv", test_args)
+
+        args = itk_convert.parse_args()
+
+        assert args.format == "torchio"
+        assert args.source_folder == "/source"
+        assert args.dest_folder == "/dest"
+        assert args.no_csv is False
+
+    def test_torchio_subcommand_full(self, monkeypatch):
+        """Test torchio subcommand with all options."""
+        test_args = [
+            "itk_convert", "torchio", "/source", "/dest",
+            "--no-csv",
+            "--mp",
+            "--workers", "4",
+        ]
+        monkeypatch.setattr("sys.argv", test_args)
+
+        args = itk_convert.parse_args()
+
+        assert args.format == "torchio"
+        assert args.no_csv is True
+        assert args.mp is True
+        assert args.workers == 4
+
+    def test_main_torchio_success(self, monkeypatch):
+        """Test main with successful torchio conversion."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            setup_itkit_dataset(src_dir, num_samples=2)
+
+            test_args = ["itk_convert", "torchio", src_dir, dest_dir]
+            monkeypatch.setattr("sys.argv", test_args)
+
+            result = itk_convert.main()
+
+            assert result == 0
+            assert os.path.exists(os.path.join(dest_dir, "subjects.csv"))
+
+    def test_main_torchio_invalid_source(self, monkeypatch, capsys):
+        """Test main with invalid source folder."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "nonexistent")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            test_args = ["itk_convert", "torchio", src_dir, dest_dir]
+            monkeypatch.setattr("sys.argv", test_args)
+
+            result = itk_convert.main()
+
+            assert result == 1
+            captured = capsys.readouterr()
+            assert "Error during conversion" in captured.out
+
+
+@pytest.mark.itk_process
+@pytest.mark.skipif(not TORCHIO_AVAILABLE, reason="torchio library is not installed")
+class TestTorchIOEndToEndCompatibility:
+    """End-to-end test: Verify if converted folder can be correctly recognized by TorchIO."""
+
+    def test_torchio_can_load_converted_data(self):
+        """Test if TorchIO SubjectsDataset can load converted NIfTI files and CSV."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            # 1. Setup original ITKIT format data
+            num_samples = 3
+            setup_itkit_dataset(src_dir, num_samples=num_samples, num_classes=3)
+
+            # 2. Execute conversion
+            itk_convert_torchio.convert_to_torchio(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+                create_csv=True,
+            )
+
+            csv_path = os.path.join(dest_dir, "subjects.csv")
+            assert os.path.exists(csv_path)
+
+            # 3. Load subjects.csv
+            subjects = []
+            with open(csv_path) as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    subject = tio.Subject(
+                        image=tio.ScalarImage(os.path.join(dest_dir, row["image"])),
+                        label=tio.LabelMap(os.path.join(dest_dir, row["label"])),
+                        subject_id=row["subject"],
+                    )
+                    subjects.append(subject)
+
+            assert len(subjects) == num_samples
+
+            # 4. Build TorchIO dataset
+            dataset = tio.SubjectsDataset(subjects)
+            assert len(dataset) == num_samples
+
+            # 5. Try to load the first sample
+            sample = dataset[0]
+
+            # Verify we can access image and label
+            assert "image" in sample
+            assert "label" in sample
+
+            # Verify tensor dimensions
+            image_data = sample["image"].data
+            label_data = sample["label"].data
+
+            # TorchIO adds channel dimension
+            assert image_data.shape[0] == 1  # Channel dimension
+            assert label_data.shape[0] == 1  # Channel dimension
+            assert image_data.shape[1:] == (64, 64, 64)
+            assert label_data.shape[1:] == (64, 64, 64)
+
+    def test_torchio_can_apply_transforms(self):
+        """Test that TorchIO can apply transforms to converted data."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, "source")
+            dest_dir = os.path.join(tmpdir, "output")
+
+            # Setup and convert
+            setup_itkit_dataset(src_dir, num_samples=2, num_classes=3)
+            itk_convert_torchio.convert_to_torchio(
+                source_folder=src_dir,
+                dest_folder=dest_dir,
+                create_csv=True,
+            )
+
+            # Load subjects
+            csv_path = os.path.join(dest_dir, "subjects.csv")
+            subjects = []
+            with open(csv_path) as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    subject = tio.Subject(
+                        image=tio.ScalarImage(os.path.join(dest_dir, row["image"])),
+                        label=tio.LabelMap(os.path.join(dest_dir, row["label"])),
+                    )
+                    subjects.append(subject)
+
+            # Create dataset with transforms
+            transform = tio.Compose([
+                tio.RandomFlip(axes=(0,)),
+                tio.RandomAffine(),
+            ])
+
+            dataset = tio.SubjectsDataset(subjects, transform=transform)
+
+            # Try to get a transformed sample
+            sample = dataset[0]
+
+            # Should work without errors
+            assert "image" in sample
+            assert "label" in sample
+            assert sample["image"].data.shape[1:] == (64, 64, 64)
