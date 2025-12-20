@@ -38,7 +38,7 @@ jobs:
         mim install onedl-mmcv onedl-mmengine onedl-mmsegmentation
     - name: Install ITKIT dependencies
       run: |
-        uv pip install --system -e ".[dev,gui] monai"
+        uv pip install --system -e ".[dev,gui]" monai
     - name: Test with pytest
       env:
         QT_QPA_PLATFORM: offscreen
