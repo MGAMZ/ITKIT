@@ -11,6 +11,7 @@ if they differ, and orients all samples to LPI for consistent evaluation.
 """
 
 import argparse
+import logging
 import os
 from pathlib import Path
 from typing import Literal
@@ -26,6 +27,9 @@ from sklearn.metrics import (
 
 from itkit.io.sitk_toolkit import sitk_resample_to_image
 from itkit.process.base_processor import SeparateFoldersProcessor
+
+# Configure logging for thread-safe output
+logger = logging.getLogger(__name__)
 
 
 def calculate_metrics_for_sample(
@@ -49,14 +53,13 @@ def calculate_metrics_for_sample(
 
     # Get unique classes from both GT and prediction
     all_classes = np.union1d(np.unique(gt_array), np.unique(pred_array))
-    num_classes = len(all_classes)
 
     # Overall accuracy
     overall_accuracy = accuracy_score(gt_array, pred_array)
 
     # Per-class metrics using scikit-learn (authoritative implementation)
     # F1-score equals Dice coefficient for binary classification per class
-    precision, recall, f1score, support = precision_recall_fscore_support(
+    precision, recall, f1score, _ = precision_recall_fscore_support(
         gt_array,
         pred_array,
         labels=all_classes.tolist(),
@@ -110,15 +113,16 @@ class EvaluateProcessor(SeparateFoldersProcessor):
             *args,
             **kwargs
         )
-        self.gt_folder = gt_folder
-        self.pred_folder = pred_folder
         self.results = []
 
-    def process_one(self, args: tuple[str, str]) -> None:
-        """Process one GT-prediction pair and store results.
-
+    def process_one(self, args: tuple[str, str]) -> dict[str, float | str]:
+        """Process one GT-prediction pair and return metrics.
+        
         Args:
             args: Tuple of (gt_path, pred_path)
+            
+        Returns:
+            Dictionary with metrics for this sample
         """
         gt_path, pred_path = args
         sample_name = Path(gt_path).stem
@@ -138,7 +142,7 @@ class EvaluateProcessor(SeparateFoldersProcessor):
         )
 
         if needs_resampling:
-            print(f"Resampling {sample_name}: pred shape {pred_itk.GetSize()} -> gt shape {gt_itk.GetSize()}")
+            logger.info(f"Resampling {sample_name}: pred shape {pred_itk.GetSize()} -> gt shape {gt_itk.GetSize()}")
             pred_itk = sitk_resample_to_image(
                 image=pred_itk,
                 reference_image=gt_itk,
@@ -146,9 +150,16 @@ class EvaluateProcessor(SeparateFoldersProcessor):
                 default_value=0.0
             )
 
-        # Calculate metrics and store in results list
+        # Calculate and return metrics
         result = calculate_metrics_for_sample(gt_itk, pred_itk, sample_name)
-        self.results.append(result)
+        return result
+    
+    def _collect_results(self, results: list):
+        """Override to collect evaluation results into self.results."""
+        # Store results for aggregation (skip None values)
+        self.results = [r for r in results if r is not None]
+        # Don't call parent since we return dicts, not SeriesMetadata
+
 
 
 def aggregate_metrics(results: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
