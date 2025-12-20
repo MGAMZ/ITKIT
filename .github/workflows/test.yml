@@ -34,7 +34,7 @@ jobs:
         python -m pip install --upgrade pip
     - name: Install ITKIT dependencies
       run: |
-        uv pip install --system onedl-mim
+        uv pip install --system onedl-mim monai
         uv pip install --system -e ".[dev,gui]"
     - name: Install OneDL dependencies
       run: |
