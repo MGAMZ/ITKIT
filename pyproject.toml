@@ -10,7 +10,8 @@ description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK A
 readme = "readme.md"
 license = {file = "LICENSE"}
 dependencies = [
-  "numpy",
+  "numpy; python_version < '3.14'",
+  "numpy>=2.3.5; python_version >= '3.14'",
   "SimpleITK",
   "opencv-python-headless",
   "openpyxl",
@@ -37,6 +38,9 @@ dependencies = [
   "pynrrd",
   "nibabel",
   "tcia_utils",
+  "regex",
+  "lightning",
+  "timm",
 ]
 
 [project.optional-dependencies]
@@ -60,7 +64,7 @@ dev = [
   "mypy",
   "pyupgrade",
 ]
-nvidia = [
+advanced = [
   "onnx",
   "onnxruntime",
   "onnxruntime-gpu",
@@ -72,15 +76,6 @@ pathology = [
   "opensdpc",
   "openslide-python",
   "openslide-bin",
-]
-pytorch = [
-  "lightning",
-  "timm",
-  "deepspeed",
-]
-mm = [
-  "ftfy",
-  "regex",
 ]
 gui = [
   "PyQt6",

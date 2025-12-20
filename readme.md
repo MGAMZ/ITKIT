@@ -65,11 +65,9 @@ pip install ITKIT
 Optional dependencies:
 
 - dev: for development and testing
-- nvidia: onnx, tensorrt.
-- pathology: pathology IO.
-- pytorch: if you want to use the lightning extension. *Note that this dependency does not include `torch` itself, please install it separately according to your system and CUDA version.*
-- mm: if you want to use with OpenMMLab.
-- gui: if you want to use the PyQt6 GUI app.
+- advanced: for advanced image processing and deep learning features
+- pathology: for pathology image processing features
+- gui: for GUI usage
 
 ---
 
