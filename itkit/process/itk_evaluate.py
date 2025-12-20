@@ -117,10 +117,10 @@ class EvaluateProcessor(SeparateFoldersProcessor):
 
     def process_one(self, args: tuple[str, str]) -> dict[str, float | str]:
         """Process one GT-prediction pair and return metrics.
-        
+
         Args:
             args: Tuple of (gt_path, pred_path)
-            
+
         Returns:
             Dictionary with metrics for this sample
         """
@@ -153,7 +153,7 @@ class EvaluateProcessor(SeparateFoldersProcessor):
         # Calculate and return metrics
         result = calculate_metrics_for_sample(gt_itk, pred_itk, sample_name)
         return result
-    
+
     def _collect_results(self, results: list):
         """Override to collect evaluation results into self.results."""
         # Store results for aggregation (skip None values)

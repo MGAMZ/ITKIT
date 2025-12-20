@@ -63,6 +63,7 @@ dev = [
   "isort",
   "mypy",
   "pyupgrade",
+  "pre-commit"
 ]
 advanced = [
   "onnx",

@@ -261,19 +261,19 @@ def test_itk_evaluate_multiprocessing(tmp_path, monkeypatch):
     pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
     pytest.importorskip("sklearn", reason="scikit-learn not installed")
     pytest.importorskip("pandas", reason="pandas not installed")
-    
+
     from itkit.process import itk_evaluate
 
     gt_dir = tmp_path / "gt"
     pred_dir = tmp_path / "pred"
     save_dir = tmp_path / "results"
-    
+
     # Create multiple samples to test multiprocessing
     for i in range(4):
         gt_label = _make_toy_label(pattern='multiclass')
         _write_mha(gt_dir / f"case{i}.mha", gt_label)
         _write_mha(pred_dir / f"case{i}.mha", gt_label)
-    
+
     # Run evaluation with multiprocessing enabled
     monkeypatch.setattr(sys, "argv", [
         "itk_evaluate",
@@ -285,13 +285,13 @@ def test_itk_evaluate_multiprocessing(tmp_path, monkeypatch):
         "--workers", "2"
     ])
     itk_evaluate.main()
-    
+
     # Verify all samples were processed correctly
     import pandas as pd
     per_sample = pd.read_csv(save_dir / "per_sample_per_class.csv")
     assert len(per_sample) == 4, f"Expected 4 samples, got {len(per_sample)}"
     assert set(per_sample['sample'].values) == {'case0', 'case1', 'case2', 'case3'}
-    
+
     # Verify metrics are perfect (Dice = 1.0 for perfect match)
     per_class = pd.read_csv(save_dir / "per_class_sample_avg.csv")
     dice_row = per_class[per_class['metric'] == 'dice']

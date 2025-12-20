@@ -25,14 +25,20 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: 'pyproject.toml'
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v7
     - name: Install system dependencies
       run: |
         sudo apt update
         sudo apt install -y libegl1 libgl1 libopengl0 libxkbcommon0
-    - name: Install python dependencies
-      run: |
         python -m pip install --upgrade pip
-        pip install -e '.[dev,gui]'
+    - name: Install ITKIT dependencies
+      run: |
+        uv pip install onedl-mim
+        uv pip install -e ".[dev,gui]"
+    - name: Install OneDL dependencies
+      run: |
+        mim install onedl-mmcv[torch] onedl-mmengine onedl-mmsegmentation
     - name: Test with pytest
       env:
         QT_QPA_PLATFORM: offscreen
