@@ -34,8 +34,8 @@ jobs:
         python -m pip install --upgrade pip
     - name: Install OneDL dependencies
       run: |
-        uv pip install --system onedl-mim
-        mim install onedl-mmcv[torch] onedl-mmengine onedl-mmsegmentation
+        uv pip install --system torch onedl-mim
+        mim install onedl-mmcv onedl-mmengine onedl-mmsegmentation
     - name: Install ITKIT dependencies
       run: |
         uv pip install --system -e ".[dev,gui] monai"
