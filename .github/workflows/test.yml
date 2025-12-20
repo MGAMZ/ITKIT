@@ -34,8 +34,8 @@ jobs:
         python -m pip install --upgrade pip
     - name: Install ITKIT dependencies
       run: |
-        uv pip install onedl-mim
-        uv pip install -e ".[dev,gui]"
+        uv pip install --system onedl-mim
+        uv pip install --system -e ".[dev,gui]"
     - name: Install OneDL dependencies
       run: |
         mim install onedl-mmcv[torch] onedl-mmengine onedl-mmsegmentation
