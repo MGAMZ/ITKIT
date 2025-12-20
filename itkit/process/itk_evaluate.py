@@ -10,6 +10,8 @@ The tool automatically resamples predictions to match ground truth spacing/size
 if they differ, and orients all samples to LPI for consistent evaluation.
 """
 
+from __future__ import annotations
+
 import argparse
 import logging
 import os
