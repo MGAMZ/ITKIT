@@ -10,9 +10,9 @@ description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK A
 readme = "readme.md"
 license = {file = "LICENSE"}
 dependencies = [
-  "numpy>=2.2.6",
-  "SimpleITK>=2.5.0",
-  "opencv-python-headless>=4.11",
+  "numpy",
+  "SimpleITK",
+  "opencv-python-headless",
   "openpyxl",
   "pandas",
   "scikit-image",
