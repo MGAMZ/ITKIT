@@ -1,12 +1,10 @@
-import os, pdb
-from typing_extensions import override
-from tqdm import tqdm
+import os
 
-from torch import Tensor
-from tabulate import tabulate
-from pytorch_lightning.utilities.rank_zero import rank_zero_only
 from pytorch_lightning.loggers import Logger
-
+from pytorch_lightning.utilities.rank_zero import rank_zero_only
+from tabulate import tabulate
+from torch import Tensor
+from tqdm import tqdm
 
 
 class TabulateLogger(Logger):
@@ -24,28 +22,24 @@ class TabulateLogger(Logger):
         self.column_names = column_names
 
     @property
-    @override
     def name(self) -> str:
         return self._name
 
     @property
-    @override
     def version(self):
         return self._version
 
     @property
-    @override
     def root_dir(self):
         return self._root_dir
 
-    @override
     @rank_zero_only
     def log_metrics(self, metrics: dict[str, Tensor|float], step: int|None = None) -> None:
         """metric naming rule: <col_name>_<row_name>"""
-        
+
         if not metrics:
             return
-        
+
         for k in list(metrics.keys()):
             metrics[k.split('/')[-1]] = metrics[k]
             metrics.pop(k, None)
@@ -77,7 +71,6 @@ class TabulateLogger(Logger):
                     f.write(f"Step: {step}\n")
                 f.write("\n")
 
-    @override
     @rank_zero_only
     def log_hyperparams(self, params=None) -> None:
         ...

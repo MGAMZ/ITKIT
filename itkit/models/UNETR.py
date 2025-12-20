@@ -9,12 +9,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pdb
-from typing_extensions import Sequence
+from collections.abc import Sequence
 
 import torch
 import torch.nn as nn
-
 from monai.networks.blocks import UnetrBasicBlock, UnetrPrUpBlock, UnetrUpBlock
 from monai.networks.blocks.dynunet_block import UnetOutBlock
 from monai.networks.blocks.patchembedding import PatchEmbeddingBlock

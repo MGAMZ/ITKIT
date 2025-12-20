@@ -1,27 +1,15 @@
-import torch
-from torch import nn
-import numpy as np
-import torch
-import math
-from torch.nn import Module, Sequential, Conv2d, ReLU,AdaptiveMaxPool2d, AdaptiveAvgPool2d, \
-    NLLLoss, BCELoss, CrossEntropyLoss, AvgPool2d, MaxPool2d, Parameter, Linear, Sigmoid, Softmax, Dropout, Embedding
-from torch.nn import functional as F
-from torch.autograd import Variable
-
-import torch
-from torch import nn
-import numpy as np
-import torch
-import math
-from torch.nn import Module, Sequential, Conv2d, ReLU,AdaptiveMaxPool2d, AdaptiveAvgPool2d, \
-    NLLLoss, BCELoss, CrossEntropyLoss, AvgPool2d, MaxPool2d, Parameter, Linear, Sigmoid, Softmax, Dropout, Embedding
-from torch.nn import functional as F
-from torch.autograd import Variable
-
-from os.path import join as pjoin
 from collections import OrderedDict
+from os.path import join as pjoin
 
+import torch
 import torch.nn.functional as F
+from torch import nn
+from torch.nn import (
+    Conv2d,
+    Module,
+    Parameter,
+    Softmax,
+)
 
 
 def np2th(weights, conv=False):
@@ -166,7 +154,7 @@ class ResNetV2(nn.Module):
             right_size = int(in_size / 4 / (i+1))
             if x.size()[2] != right_size:
                 pad = right_size - x.size()[2]
-                assert pad < 3 and pad > 0, "x {} should {}".format(x.size(), right_size)
+                assert pad < 3 and pad > 0, f"x {x.size()} should {right_size}"
                 feat = torch.zeros((b, x.size()[1], right_size, right_size), device=x.device)
                 feat[:, :, 0:x.size()[2], 0:x.size()[3]] = x[:]
             else:
@@ -181,7 +169,7 @@ class PAM_Module(Module):
     """ Position attention module"""
     #Ref from SAGAN
     def __init__(self, in_dim):
-        super(PAM_Module, self).__init__()
+        super().__init__()
         self.chanel_in = in_dim
 
         self.query_conv = Conv2d(in_channels=in_dim, out_channels=in_dim//8, kernel_size=1)
@@ -215,7 +203,7 @@ class PAM_Module(Module):
 class CAM_Module(Module):
     """ Channel attention module"""
     def __init__(self, in_dim):
-        super(CAM_Module, self).__init__()
+        super().__init__()
         self.chanel_in = in_dim
 
 
@@ -257,11 +245,11 @@ def norm(planes, mode='bn', groups=16):
 
 
 
-    
+
 
 class DANetHead(nn.Module):
     def __init__(self, in_channels, out_channels):
-        super(DANetHead, self).__init__()
+        super().__init__()
         inter_channels = in_channels // 16
 #         inter_channels = in_channels  # test
 
@@ -289,11 +277,11 @@ class DANetHead(nn.Module):
 
         self.conv8 = nn.Sequential(nn.Dropout2d(0.05, False), nn.Conv2d(inter_channels, out_channels, 1),
                                    nn.ReLU())
-        
+
 
     def forward(self, x):
-#         x = x.unsqueeze(0) 
-        
+#         x = x.unsqueeze(0)
+
         feat1 = self.conv5a(x)
         sa_feat = self.sa(feat1)
         sa_conv = self.conv51(sa_feat)
@@ -307,6 +295,6 @@ class DANetHead(nn.Module):
         feat_sum = sa_conv + sc_conv
 
         sasc_output = self.conv8(feat_sum)
-        
+
 
         return sasc_output

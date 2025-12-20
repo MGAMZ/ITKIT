@@ -1,20 +1,18 @@
-import pdb
-from typing_extensions import Literal, deprecated, Sequence
-
-import cv2
-import numpy as np
-import SimpleITK as sitk
-
-from mmcv.transforms import BaseTransform
-from itkit.io.sitk_toolkit import sitk_resample_to_spacing, sitk_resample_to_size
-
-
 """
 General Rule:
 Before entering the neural network,
 the channel dimension order should align with
 [Z,Y,X] or [D,H,W]
 """
+
+from typing import Literal
+
+import cv2
+import numpy as np
+import SimpleITK as sitk
+from mmcv.transforms import BaseTransform
+
+from itkit.io.sitk_toolkit import sitk_resample_to_size, sitk_resample_to_spacing
 
 
 class BaseLoadBiomedicalData(BaseTransform):
@@ -85,6 +83,8 @@ class LoadFromMHA(BaseLoadBiomedicalData):
         if self.resample_size is not None:
             mha = sitk_resample_to_size(mha, self.resample_size, field, interp_method=sitk.sitkLinear if field == "image" else None)
         # mha.GetSize(): [X, Y, Z]
+        if not isinstance(mha, sitk.Image):
+            raise TypeError(f"Error during `sitk_resample`: {mha}")
         mha_array = sitk.GetArrayFromImage(mha)  # [Z, Y, X]
         return mha_array
 
@@ -135,52 +135,10 @@ class LoadMaskFromMHA(LoadFromMHA):
             mask = self._process_mha(mask_mha, "label")
             if results.get("label_map", None) is not None:
                 mask = self._label_remap(mask, results["label_map"])
-            
+
             results["gt_seg_map"] = mask # output: [Z, Y, X]
             results["seg_fields"].append("gt_seg_map")
             if self.debug:
                 print(f"[LoadMaskMHA] `{mask_path}` shape: {mask.shape}")
-        
-        return results
-
-
-class LoadCTPreCroppedSampleFromNpz(BaseLoadBiomedicalData):
-    """
-    Required Keys:
-
-    - img_path
-    - seg_map_path
-
-    Modified Keys:
-
-    - img
-    - gt_seg_map
-    - seg_fields
-    """
-    VALID_LOAD_FIELD = Literal["img", "anno"]
-    DEFAULT_NPZ_FIELDS = ["img", "gt_seg_map"]
-
-    def __init__(self, load_type: VALID_LOAD_FIELD | Sequence[VALID_LOAD_FIELD]):
-        self.load_type = load_type if isinstance(load_type, Sequence) else [load_type]
-        assert all([load_type in ["img", "anno"] for load_type in self.load_type])
-
-    def transform(self, results):
-        assert results["img_path"] == results["seg_map_path"], \
-            f"img_path: {results['img_path']}, seg_map_path: {results['seg_map_path']}"
-        sample_path = results["img_path"]
-        sample = np.load(sample_path)
-
-        if "img" in self.load_type:
-            results["img"] = sample[self.DEFAULT_NPZ_FIELDS[0]]
-            results["img_shape"] = results["img"].shape[:-1]
-            results["ori_shape"] = results["img"].shape[:-1]
-
-        if "anno" in self.load_type:
-            gt_seg_map = sample[self.DEFAULT_NPZ_FIELDS[1]]
-            # Support mmseg dataset rule
-            if results.get("label_map", None) is not None:
-                gt_seg_map = self._label_remap(gt_seg_map, results["label_map"])
-            results["gt_seg_map"] = gt_seg_map
-            results["seg_fields"].append("gt_seg_map")
 
         return results

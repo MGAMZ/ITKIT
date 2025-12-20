@@ -1,6 +1,8 @@
+![LOGO](ITKIT-LOGO.png)
+
 # mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API
 
-[![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![SimpleITK >= 2.5.0](https://img.shields.io/badge/SimpleITK-%3E%3D2.5-yellow)](https://github.com/SimpleITK/SimpleITK) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) ![CI Status](https://github.com/MGAMZ/ITKIT/actions/workflows/test.yml/badge.svg)
 
 `mgam-ITKIT` is a user-friendly toolkit built on `SimpleITK` and `Python`, designed for common data preprocessing operations in data-driven CT medical image analysis. It assumes a straightforward data sample structure and offers intuitive functions for checking, resampling, pre-segmenting, aligning, and enhancing such data. Each operation is specified by a dedicated command-line entry with a clear parameter list.
 
@@ -15,6 +17,8 @@ The repo it tested on:
 - SimpleITK >= 2.5.0
 
 Lower versions may work but are not guaranteed.
+
+If you want to run deep learning tasks, we recommend to install `monai` to avoid potential dependency issues.
 
 ## Introduction
 
@@ -42,7 +46,7 @@ Above all, the `process` module is the core of this repo, providing several comm
 
 ### From PyPI
 
-Just run: `pip install itkit[medical_vision]`
+Just run: `pip install itkit`
 
 ### From GitHub Repo
 
@@ -55,19 +59,34 @@ git clone https://gitee.com/MGAM/ITKIT.git
 Then, install the package:
 
 ```bash
-pip install ITKIT[medical_vision]
+pip install ITKIT
 ```
 
 Optional dependencies:
 
 - dev: for development and testing
-- nvidia: onnx, tensorrt.
-- medical_vision: pathology and dicom IO.
-- pytorch: if you want to use the lightning extension. *Note that this dependency does not include `torch` itself, please install it separately according to your system and CUDA version.*
-- mm: if you want to use with OpenMMLab.
-- gui: if you want to use the PyQt6 GUI app.
+- advanced: for advanced image processing and deep learning features
+- pathology: for pathology image processing features
+- gui: for GUI usage
 
 ---
+
+## Dataset Structure
+
+The following dataset structure is supported and assumed in all the `ITKIT` operations:
+
+```plaintext
+dataset_root
+├── image
+│   ├── a.mha
+│   ├── b.mha
+│   └── ...
+├── label
+│   ├── a.mha
+│   ├── b.mha
+│   └── ...
+└── series_meta.json
+```
 
 ## ITK Preprocessing
 
@@ -104,18 +123,18 @@ itk_check <mode> <sample_folder> [--output OUT] [--min-size Z Y X] [--max-size Z
 Parameters
 
 - **mode**: Operation mode: check | delete | copy | symlink
-  - **check**: Validate image/label pairs against size/spacing rules and report nonconforming samples (no file changes).  
-  - **delete**: Remove image and label files for samples that fail validation.  
-  - **copy**: Copy valid image/label pairs to the specified output directory (creates image/ and label/ subfolders).  
+  - **check**: Validate image/label pairs against size/spacing rules and report nonconforming samples (no file changes).
+  - **delete**: Remove image and label files for samples that fail validation.
+  - **copy**: Copy valid image/label pairs to the specified output directory (creates image/ and label/ subfolders).
   - **symlink**: Create symbolic links for valid image/label pairs in the specified output directory (creates image/ and label/ subfolders).
-- **sample_folder**: Root folder containing image/ and label/ subfolders  
-- **-o, --output** OUT: Output directory (required for copy and symlink)  
-- **--min-size** Z Y X: Minimum size per Z Y X (three ints; -1 = ignore)  
-- **--max-size** Z Y X: Maximum size per Z Y X (three ints; -1 = ignore)  
-- **--min-spacing** Z Y X: Minimum spacing per Z Y X (three floats; -1 = ignore)  
-- **--max-spacing** Z Y X: Maximum spacing per Z Y X (three floats; -1 = ignore)  
-- **--same-spacing** A B: Two dims (X|Y|Z) that must have equal spacing  
-- **--same-size** A B: Two dims (X|Y|Z) that must have equal size  
+- **sample_folder**: Root folder containing image/ and label/ subfolders
+- **-o, --output** OUT: Output directory (required for copy and symlink)
+- **--min-size** Z Y X: Minimum size per Z Y X (three ints; -1 = ignore)
+- **--max-size** Z Y X: Maximum size per Z Y X (three ints; -1 = ignore)
+- **--min-spacing** Z Y X: Minimum spacing per Z Y X (three floats; -1 = ignore)
+- **--max-spacing** Z Y X: Maximum spacing per Z Y X (three floats; -1 = ignore)
+- **--same-spacing** A B: Two dims (X|Y|Z) that must have equal spacing
+- **--same-size** A B: Two dims (X|Y|Z) that must have equal size
 - **--mp**: Enable multiprocessing
 
 **Note:** Triplet arguments use Z, Y, X order (Z→0, Y→1, X→2).
@@ -130,20 +149,20 @@ itk_resample <field> <source_folder> <dest_folder> [--spacing Z Y X] [--size Z Y
 
 Parameters
 
-- **field**: "image" or "label", will determine the output dtype and interpolation method.
-- **source_folder**: Folder containing source image files (.mha/.nii/.nii.gz/.mhd).  
-- **dest_folder**: Destination folder for resampled files (created if missing).  
-- **--spacing** Z Y X: Target spacing per dimension (ZYX order). Use -1 to ignore a dimension.  
-- **--size** Z Y X: Target size per dimension (ZYX order). Use -1 to ignore a dimension.  
-- **--target-folder** PATH: Folder of reference images (must not combine with `--spacing/--size`).  
-- **-r, --recursive**: Recursively process subdirectories, preserving layout.  
-- **--mp**: Enable multiprocessing.  
+- **field**: "image" or "label" or "dataset", will determine the output dtype and interpolation method.
+- **source_folder**: Folder containing source image files (.mha/.nii/.nii.gz/.mhd).
+- **dest_folder**: Destination folder for resampled files (created if missing).
+- **--spacing** Z Y X: Target spacing per dimension (ZYX order). Use -1 to ignore a dimension.
+- **--size** Z Y X: Target size per dimension (ZYX order). Use -1 to ignore a dimension.
+- **--target-folder** PATH: Folder of reference images (must not combine with `--spacing/--size`).
+- **-r, --recursive**: Recursively process subdirectories, preserving layout.
+- **--mp**: Enable multiprocessing.
 - **--workers** N: Number of worker processes for multiprocessing.
 
 Notes
 
-- `--target-folder` is mutually exclusive with `--spacing/--size`.  
-- Triplets use Z, Y, X order.  
+- `--target-folder` is mutually exclusive with `--spacing/--size`.
+- Triplets use Z, Y, X order.
 - Outputs: resampled files in dest_folder, plus `resample_configs.json` and `series_meta.json`.
 
 ### itk_orient
@@ -156,14 +175,14 @@ itk_orient <src_dir> <dst_dir> <orient> [--mp]
 
 Parameters
 
-- **src_dir**: Source directory containing .mha files (recursive scan).  
-- **dst_dir**: Destination directory (preserves relative directory structure; must differ from `src_dir`).  
-- **orient**: Target orientation string for SimpleITK.DICOMOrient (e.g., LPI).  
+- **src_dir**: Source directory containing .mha files (recursive scan).
+- **dst_dir**: Destination directory (preserves relative directory structure; must differ from `src_dir`).
+- **orient**: Target orientation string for SimpleITK.DICOMOrient (e.g., LPI).
 - **--mp**: Use multiprocessing to convert files in parallel.
 
 Notes
 
-- Skips files already present in `dst_dir`.  
+- Skips files already present in `dst_dir`.
 - Preserves folder layout and writes converted .mha files to `dst_dir`.
 
 ### itk_patch
@@ -176,23 +195,23 @@ itk_patch <src_folder> <dst_folder> --patch-size PZ [PY PX] --patch-stride SZ [S
 
 Parameters
 
-- **src_folder**: Source root containing `image/` and `label/` subfolders (Path).  
-- **dst_folder**: Destination root to save patches (Path).  
-- **--patch-size**: Patch size as single int or three ints (Z Y X).  
-- **--patch-stride**: Patch stride as single int or three ints (Z Y X).  
-- **--minimum-foreground-ratio**: Minimum label foreground ratio to keep a patch (float, default 0.0).  
+- **src_folder**: Source root containing `image/` and `label/` subfolders (Path).
+- **dst_folder**: Destination root to save patches (Path).
+- **--patch-size**: Patch size as single int or three ints (Z Y X).
+- **--patch-stride**: Patch stride as single int or three ints (Z Y X).
+- **--minimum-foreground-ratio**: Minimum label foreground ratio to keep a patch (float, default 0.0).
 - **--keep-empty-label-prob**: Probability to keep patches that contain only background (0.0-1.0).
-- **--still-save-when-no-label**: If set and label missing, save patches regardless.  
+- **--still-save-when-no-label**: If set and label missing, save patches regardless.
 - **--mp**: Use multiprocessing to process cases in parallel.
 
 Outputs
 
-- Patches saved under `dst_folder/<case_name>/` with image and label patch files.  
+- Patches saved under `dst_folder/<case_name>/` with image and label patch files.
 - Per-dataset `crop_meta.json` summarizing extraction and available annotations.
 
 Notes
 
-- Triplets use Z, Y, X order.  
+- Triplets use Z, Y, X order.
 - Only processes cases with paired image and label files of the same name.
 
 ### itk_aug
@@ -205,17 +224,17 @@ itk_aug <img_folder> <lbl_folder> [-oimg OUT_IMG] [-olbl OUT_LBL] [-n N] [--mp] 
 
 Parameters
 
-- **img_folder**: Folder with source image .mha files.  
-- **lbl_folder**: Folder with source label .mha files.  
-- **-oimg, --out-img-folder** OUT_IMG: Optional folder to save augmented images.  
-- **-olbl, --out-lbl-folder** OUT_LBL: Optional folder to save augmented labels.  
-- **-n, --num** N: Number of augmented samples to generate per source sample (int).  
-- **--mp**: Enable multiprocessing.  
+- **img_folder**: Folder with source image .mha files.
+- **lbl_folder**: Folder with source label .mha files.
+- **-oimg, --out-img-folder** OUT_IMG: Optional folder to save augmented images.
+- **-olbl, --out-lbl-folder** OUT_LBL: Optional folder to save augmented labels.
+- **-n, --num** N: Number of augmented samples to generate per source sample (int).
+- **--mp**: Enable multiprocessing.
 - **--random-rot** Z Y X: Max random rotation degrees for Z Y X axes (three ints, order Z, Y, X).
 
 Notes
 
-- Only files present in both `img_folder` and `lbl_folder` are processed.  
+- Only files present in both `img_folder` and `lbl_folder` are processed.
 - Augmented files are written only if corresponding output folders are provided.
 
 ### itk_extract
@@ -228,32 +247,172 @@ itk_extract <source_folder> <dest_folder> <mappings...> [-r|--recursive] [--mp] 
 
 Parameters
 
-- **source_folder**: Folder containing source images (.mha/.nii/.nii.gz/.mhd).  
-- **dest_folder**: Destination folder to save extracted label files (created if missing).  
-- **mappings**: One or more label mappings in "source:target" format (e.g., "1:0" "5:1").  
-- **-r, --recursive**: Recursively process subdirectories and preserve relative paths.  
-- **--mp**: Enable multiprocessing.  
+- **source_folder**: Folder containing source images (.mha/.nii/.nii.gz/.mhd).
+- **dest_folder**: Destination folder to save extracted label files (created if missing).
+- **mappings**: One or more label mappings in "source:target" format (e.g., "1:0" "5:1").
+- **-r, --recursive**: Recursively process subdirectories and preserve relative paths.
+- **--mp**: Enable multiprocessing.
 - **--workers** N: Number of worker processes for multiprocessing (optional).
 
 Outputs
 
-- Remapped label files written to dest_folder (output extensions normalized to .mha).  
-- Per-sample metadata saved to `dest_folder/extract_meta.json`.  
+- Remapped label files written to dest_folder (output extensions normalized to .mha).
+- Per-sample metadata saved to `dest_folder/extract_meta.json`.
 - Configuration saved to `dest_folder/extract_configs.json`.
 
 Notes
 
-- Mappings are parsed as integers; target labels must be unique.  
-- If no matching files are found, the script exits with a message.  
+- Mappings are parsed as integers; target labels must be unique.
+- If no matching files are found, the script exits with a message.
 - Safe to combine recursive and mp; progress shown via tqdm.
+
+### itk_convert
+
+Convert ITKIT datasets between different formats and file types.
+
+```bash
+itk_convert <subcommand> <source_folder> <dest_folder> [options]
+```
+
+**Available subcommands:**
+- `format`: Convert medical image file formats (e.g., mha ↔ nii.gz ↔ nrrd)
+- `monai`: Convert to MONAI Decathlon format
+- `torchio`: Convert to TorchIO format
+
+#### Format Conversion (itk_convert format)
+
+Convert medical image files between different formats while preserving metadata and maintaining the ITKIT dataset structure.
+
+```bash
+itk_convert format <target_format> <source_folder> <dest_folder> [options]
+```
+
+Parameters
+
+- **target_format**: Target file format. Supported formats:
+  - `mha`: MetaImage (single file)
+  - `mhd`: MetaImage Header (with separate .raw file)
+  - `nii.gz`: Compressed NIfTI
+  - `nii`: NIfTI (uncompressed)
+  - `nrrd`: Nearly Raw Raster Data
+- **source_folder**: Path to ITKIT dataset (must contain `image/` and `label/` subfolders).
+- **dest_folder**: Path to output dataset (maintains same structure).
+- **--mp**: Enable multiprocessing.
+- **--workers** N: Number of worker processes for multiprocessing.
+
+Features
+
+- **Metadata Preservation**: Spacing, origin, and direction matrix are fully preserved.
+- **Data Integrity**: Pixel values remain unchanged during conversion.
+- **Bidirectional**: All formats can be converted to any other supported format.
+- **Structure Maintained**: Output maintains the ITKIT `image/` and `label/` folder structure with matching filenames.
+
+Examples
+
+```bash
+# Convert MHA to compressed NIfTI
+itk_convert format nii.gz /data/mha_dataset /data/nifti_dataset
+
+# Convert to NRRD with multiprocessing
+itk_convert format nrrd /data/input /data/output --mp --workers 8
+
+# Convert MHD to MHA
+itk_convert format mha /data/mhd_dataset /data/mha_dataset
+```
+
+#### MONAI Conversion (itk_convert monai)
+
+Convert ITKIT dataset to MONAI Decathlon format.
+
+```bash
+itk_convert monai <source_folder> <dest_folder> [options]
+```
+
+Parameters
+
+- **source_folder**: Path to ITKIT dataset (must contain `image/` and `label/` subfolders).
+- **dest_folder**: Path to output dataset in MONAI format.
+
+**MONAI-specific options:**
+- **--name**: Dataset name for the manifest file (default: `ITKITDataset`).
+- **--description**: Dataset description for the manifest file.
+- **--modality**: Primary imaging modality (default: `CT`).
+- **--split**: Which split to treat the data as: `train` | `val` | `test` | `all` (default: `train`).
+- **--labels**: Label names in order (e.g., `background liver tumor`). Index 0 is background.
+
+**Common options:**
+- **--mp**: Enable multiprocessing.
+- **--workers** N: Number of worker processes for multiprocessing.
+
+Outputs
+
+- Converted image and label files in `.nii.gz` format.
+- `dataset.json` manifest file containing metadata and file lists.
+- `meta.json` file containing ITKIT-style metadata for the converted files.
+
+Notes
+
+- Images are saved in `imagesTr/imagesTs/imagesVal` and labels in `labelsTr/Val` based on the `--split` parameter.
+- If `--labels` is not provided, the tool will attempt to discover unique classes from the label files and generate generic names.
+
+Example
+
+```bash
+itk_convert monai /data/itkit_dataset /data/monai_dataset \
+    --name MyDataset \
+    --modality CT \
+    --labels background liver tumor \
+    --mp
+```
+
+#### TorchIO Conversion (itk_convert torchio)
+
+Convert ITKIT dataset to TorchIO format.
+
+```bash
+itk_convert torchio <source_folder> <dest_folder> [options]
+```
+
+Parameters
+
+- **source_folder**: Path to ITKIT dataset (must contain `image/` and `label/` subfolders).
+- **dest_folder**: Path to output dataset in TorchIO format.
+
+**TorchIO-specific options:**
+- **--no-csv**: Skip creating `subjects.csv` manifest file.
+
+**Common options:**
+- **--mp**: Enable multiprocessing.
+- **--workers** N: Number of worker processes for multiprocessing.
+
+Outputs
+
+- Converted image and label files in `.nii.gz` format.
+- `subjects.csv` manifest file with subject paths (unless `--no-csv` is specified).
+- `meta.json` file containing ITKIT-style metadata for the converted files.
+
+Notes
+
+- Images are saved in `images/` and labels in `labels/` directories.
+
+Example
+
+```bash
+itk_convert torchio /data/itkit_dataset /data/torchio_dataset \
+    --mp
+```
 
 ## OpenMMLab Extensions for Medical Vision
 
 [OpenMMLab](https://github.com/open-mmlab) is an outstanding open‑source deep learning image analysis framework. ITKIT carries a set of OpenMMLab extension classes; based on mmengine and mmsegmentation, they define commonly used pipelines and computational modules for the medical imaging domain.
 
-**Unfortunately**, the upstream OpenMMLab project has gradually fallen out of maintenance, and I have to consider abandoning this portion of the development work.
+**Unfortunately**, the upstream `OpenMMLab` project has gradually fallen out of maintenance. `ITKIT` now recommend users to use `OneDL` redistribution of `OpenMMLab` instead. They're:
 
-Please install `monai` package before you use functions in this section.
+- OneDL-mmengine
+- OneDL-mmcv
+- OneDL-mmsegmentation
+
+Note: The `itk_convert monai` and `itk_convert torchio` commands do not require the `monai` or `torchio` Python packages to perform the conversion. Install these packages only if you plan to run MONAI or TorchIO-based deep learning workflows.
 
 ```bash
 pip install --no-deps monai
@@ -268,7 +427,7 @@ For use of our private runner class, the following gloval variables need to be s
 - `mm_testdir`: The directory to store the test results. Used when `mmrun` command is called with `--test` flag.
 - `mm_configdir`: The directory where the config file is located, we specify a structure for all experiment configs.
 
-```text
+```plaintext
 mm_configdir
 ├── 0.1.Config1
 │   ├── mgam.py (Requires exactly this name to store non-model configs)
@@ -348,6 +507,7 @@ For the following datasets, we provide restructure scripts to convert them from 
 10. **[SA_Med2D](https://arxiv.org/abs/2308.16184)**: Junlong Cheng, et al. SAM-Med2D. arXiv, 2308.16184, 2023.
 11. **[TCGA](https://www.cancer.gov/ccg/research/genome-sequencing/tcga)**
 12. **[Totalsegmentator](https://pubs.rsna.org/doi/10.1148/ryai.230024)**: Wasserthal Jakob, et al. TotalSegmentator: Robust Segmentation of 104 Anatomic Structures in CT Images. Radiology: Artificial Intelligence, 5, 5, 2023.
+13. **[LiTS](https://www.sciencedirect.com/science/article/pii/S1361841522003085)**: Bilic, Patrick and Christ, Patrick and Li, Hongwei Bran and Vorontsov, Eugene and Ben-Cohen, Avi and Kaissis, Georgios and Szeskin, Adi and Jacobs, Colin and Mamani, Gabriel Efrain Humpire and Chartrand, Gabriel and others. The liver tumor segmentation benchmark (lits). Medical Image Analysis, volume 84, 2023, 102680, doi:10.1016/j.media.2022.102680.
 
 ### MMEngine Plugins
 

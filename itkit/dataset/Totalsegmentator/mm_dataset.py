@@ -1,19 +1,27 @@
 import os
-import pdb
-from tqdm import tqdm
+from typing import TYPE_CHECKING
 
 import orjson
 import pandas as pd
+from tqdm import tqdm
 
-from ..base import mgam_SemiSup_3D_Mha, mgam_SemiSup_Precropped_Npz
-from .meta import CLASS_INDEX_MAP, generate_subset_class_map_and_label_map, generate_reduced_class_map_and_label_map
+from ..base import mgam_SemiSup_3D_Mha, mgam_SeriesPatched_Structure
+
+if TYPE_CHECKING:
+    from ..base import mgam_SeriesVolume
+
+from .meta import (
+    CLASS_INDEX_MAP,
+    generate_reduced_class_map_and_label_map,
+    generate_subset_class_map_and_label_map,
+)
 
 
 class TotalsegmentatorIndexer:
 
     def __init__(self, data_root: str):
         self.data_root = data_root
-        self.index_file = os.path.join(self.data_root, f'index.json')
+        self.index_file = os.path.join(self.data_root, 'index.json')
 
         if not os.path.exists(self.index_file):
             self.generate_index_json_file()
@@ -47,8 +55,7 @@ class TotalsegmentatorIndexer:
                               image_path.replace('img_dir', 'ann_dir')))
                 for image_path in selected_split_image_paths]
 
-
-class Tsd_base:
+class Tsd_base(mgam_SeriesVolume if TYPE_CHECKING else object):
     METAINFO = dict(classes=list(CLASS_INDEX_MAP.keys()))
 
     def __init__(self, meta_csv:str|None, class_reduction: dict|None=None, subset:str|None=None, **kwargs) -> None:
@@ -67,7 +74,7 @@ class Tsd_base:
         else:
             self.label_map = None
 
-        super().__init__(lazy_init=True, **kwargs)
+        super().__init__(lazy_init=True, **kwargs)  # type: ignore[call-arg]
 
     def _split(self):
         if self.meta_table is None:
@@ -76,10 +83,8 @@ class Tsd_base:
             activate_series = self.meta_table[self.meta_table['split']==self.split]
             return activate_series['image_id'].tolist()
 
-
 class Tsd_Mha(Tsd_base, mgam_SemiSup_3D_Mha):
     ...
 
-
-class Tsd3D_PreCrop_Npz(Tsd_base, mgam_SemiSup_Precropped_Npz):
+class Tsd_Patch(Tsd_base, mgam_SeriesPatched_Structure):
     ...

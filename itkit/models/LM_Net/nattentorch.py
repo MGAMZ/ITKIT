@@ -5,11 +5,12 @@ This version does not require the torch extension and is implemented using unfol
 This source code is licensed under the license found in the
 LICENSE file in the root directory of this source tree.
 """
-from torch import nn
-import torch
-from torch.nn.functional import unfold, pad
-from timm.models.layers import trunc_normal_
 import warnings
+
+import torch
+from timm.models.layers import trunc_normal_
+from torch import nn
+from torch.nn.functional import pad, unfold
 
 
 class LegacyNeighborhoodAttention(nn.Module):

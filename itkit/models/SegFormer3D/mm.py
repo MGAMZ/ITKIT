@@ -1,12 +1,16 @@
-import pdb
 from warnings import warn
 
 import torch
-from torch import nn
 from mmengine.model import BaseModule
-from .SegFormer3D import PatchEmbedding, TransformerBlock, cube_root, SegFormerDecoderHead
+from torch import nn
+
 from ...mm.mmseg_Dev3D import BaseDecodeHead_3D
-from ...mm.mgam_models import mgam_Seg3D_Lite
+from .SegFormer3D import (
+    PatchEmbedding,
+    SegFormerDecoderHead,
+    TransformerBlock,
+)
+
 
 class SegFormer3D_Encoder_MM(BaseModule):
     def __init__(
@@ -67,11 +71,11 @@ class SegFormer3D_Encoder_MM(BaseModule):
             x, patched_volume_size = self.embeds[stage_idx](x)
             patched_volume_size: list[int]
             B, N, C = x.shape
-            
+
             for blk in self.blocks[stage_idx]:  # type:ignore
                 x = blk(x, patched_volume_size)
             x = self.norms[stage_idx](x)
-            
+
             x = x.reshape(B, *patched_volume_size, C).permute(0, 4, 1, 2, 3).contiguous()
             out.append(x)
         return out
@@ -79,8 +83,8 @@ class SegFormer3D_Encoder_MM(BaseModule):
 
 class SegFormer3D_Decoder_MM(BaseDecodeHead_3D):
     def __init__(
-        self, 
-        num_classes:int|None=None, 
+        self,
+        num_classes:int|None=None,
         embed_dims:list[int]=[64, 128, 320, 512],
         head_embed_dims:int=256,
         *args, **kwargs
@@ -88,10 +92,10 @@ class SegFormer3D_Decoder_MM(BaseDecodeHead_3D):
         if num_classes is None:
             warn("num_classes is not provided, set to head_embed_dims by default.")
             num_classes = head_embed_dims
-            
+
         super().__init__(
-            in_channels=embed_dims, 
-            channels=head_embed_dims, 
+            in_channels=embed_dims,
+            channels=head_embed_dims,
             num_classes=num_classes,
             input_transform="multiple_select",
             in_index=[0, 1, 2, 3],
@@ -116,4 +120,3 @@ class SegFormer3D_Decoder_MM(BaseDecodeHead_3D):
         else:
             raise ValueError(f"Invalid number of inputs for SegFormer3D_Decoder_MM: {num_input_elements}")
         return (segformer_out, )
-

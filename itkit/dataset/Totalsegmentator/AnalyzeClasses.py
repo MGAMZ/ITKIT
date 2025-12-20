@@ -1,10 +1,10 @@
-import os
 import argparse
-from tqdm import tqdm
+import os
 from multiprocessing import Pool, cpu_count
 
-import SimpleITK as sitk
 import pandas as pd
+import SimpleITK as sitk
+from tqdm import tqdm
 
 from itkit.dataset.Totalsegmentator import TSD_CLASS_INDEX_MAP as CLASS_INDEX_MAP
 
@@ -13,7 +13,7 @@ def analyze_single_file(args):
     file_path, class_names = args
     img = sitk.ReadImage(file_path)
     arr = sitk.GetArrayFromImage(img)
-    unique_ids = set(int(i) for i in set(arr.flatten()))
+    unique_ids = {int(i) for i in set(arr.flatten())}
     row = [1 if CLASS_INDEX_MAP[name] in unique_ids else 0 for name in class_names]
     return row
 

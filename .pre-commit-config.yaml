@@ -1,0 +1,56 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit
+    rev: v4.4.0
+    hooks:
+      - id: validate_manifest
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.21.2
+    hooks:
+      - id: pyupgrade
+        args: ["--py313-plus"]
+        files: ^itkit/
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.6
+    hooks:
+      - id: ruff-check
+        types_or: [ python, pyi ]
+        args: [ --fix, --exit-zero ]
+      # - id: ruff-format
+      #   types_or: [ python, pyi ]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-builtin-literals
+      - id: check-docstring-first
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-xml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: detect-private-key
+      - id: mixed-line-ending
+      - id: requirements-txt-fixer
+      - id: trailing-whitespace
+  - repo: https://github.com/PyCQA/isort
+    rev: 7.0.0
+    hooks:
+      - id: isort
+        files: ^itkit/
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.407
+    hooks:
+    - id: pyright
+      additional_dependencies: [
+        colorama,
+        tqdm,
+        SimpleITK,
+        numpy,
+        onedl-mmsegmentation,
+        deprecated,
+        psutil,
+        tabulate,
+      ]
+      pass_filenames: false

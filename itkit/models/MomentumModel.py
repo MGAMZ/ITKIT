@@ -1,8 +1,9 @@
-import pdb, logging, copy
+import copy
+import logging
 
 import torch
-from torch import Tensor
 from mmengine.logging import print_log
+from torch import Tensor
 
 
 class MomentumAvgModel(torch.nn.Module):
@@ -14,37 +15,37 @@ class MomentumAvgModel(torch.nn.Module):
                  device: torch.device|None = None,
                  update_buffers: bool = False) -> None:
         super().__init__()
-        
+
         # Check distributed environment
         self.is_distributed = hasattr(model, 'module')
         self.is_deepspeed = hasattr(model, 'module') and hasattr(model.module, 'deepspeed')
-        
+
         # For DeepSpeed, get the full underlying model parameters
         if self.is_deepspeed:
-            with model.module.summon_full_params():
+            with model.module.summon_full_params(): # pyright: ignore
                 self.module = copy.deepcopy(model.module).requires_grad_(False)
         else:
             target_model = model.module if self.is_distributed else model
             self.module = copy.deepcopy(target_model).requires_grad_(False)
-            
+
         self.interval = interval
         if device is not None:
             self.module = self.module.to(device)
-            
+
         self.register_buffer('steps', torch.tensor(0, dtype=torch.long, device=device))
-                           
+
         self.update_buffers = update_buffers
         if update_buffers:
             state_dict = self.module.state_dict()
             self.avg_parameters = {
-                k: v for k, v in state_dict.items() 
+                k: v for k, v in state_dict.items()
                 if v.numel() > 0
             }
         else:
             params = dict(self.module.named_parameters())
-            self.avg_parameters = {k: v for k, v in params.items() 
+            self.avg_parameters = {k: v for k, v in params.items()
                                    if v.numel() > 0}
-            
+
         # Validate momentum parameter range
         assert 0.0 < momentum < 1.0, f'momentum must be in range (0.0, 1.0) but got {momentum}'
         if momentum > 0.5:
@@ -52,7 +53,7 @@ class MomentumAvgModel(torch.nn.Module):
                       'which is different from the conventional notion of '
                       f'momentum but got {momentum}. Please make sure the '
                       f'value is correct.',
-                      logger='current', 
+                      logger='current',
                       level=logging.WARNING)
         self.momentum = momentum
         assert gamma > 0, f'gamma must be greater than 0, but got {gamma}'
@@ -67,7 +68,7 @@ class MomentumAvgModel(torch.nn.Module):
             return self.module.state_dict()
         else:
             return dict(self.module.named_parameters())
-    
+
     def update_parameters(self, model: torch.nn.Module) -> None:
         """Update the parameters of the model. This method will execute the
         ``avg_func`` to compute the new parameters and update the model's

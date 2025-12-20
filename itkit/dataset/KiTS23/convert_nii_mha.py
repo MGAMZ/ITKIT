@@ -1,13 +1,11 @@
 import os
+
 from itkit.dataset.base_convert import StandardFileFormatter
 
+
 class KiTS23_formatter(StandardFileFormatter):
-    @staticmethod
-    def _series_id(image_path: str, label_path: str) -> str:
-        ...
-    
     def tasks(self) -> list:
-        task_list = []
+        task_list: list[tuple] = []
         for series_name in os.listdir(self.args.data_root):
             image_path = os.path.join(self.args.data_root, series_name, "imaging.nii.gz")
             label_path = os.path.join(self.args.data_root, series_name, "segmentation.nii.gz")

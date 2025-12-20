@@ -1,41 +1,36 @@
+import copy
+import datetime
+import json
+import logging
 import os
 import os.path as osp
-import pdb
-import datetime
-import logging
-import json
-import copy
+from collections.abc import Sequence
 from functools import partial
 from numbers import Number
-from typing_extensions import Sequence
 
-import torch
-import pandas as pd
 import numpy as np
-from torch import nn
-from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
-
+import pandas as pd
+import torch
+from mmengine._strategy.fsdp import FSDPStrategy
 from mmengine.dataset.sampler import DefaultSampler
-from mmengine.runner import (
-    Runner,
-    IterBasedTrainLoop,
-    FlexibleRunner,
-    find_latest_checkpoint,
-)
-from mmengine.runner.runner import ConfigType
+from mmengine.dataset.utils import default_collate
 from mmengine.hooks import LoggerHook
 from mmengine.hooks import RuntimeInfoHook as _RuntimeInfoHook
-from mmengine.logging import print_log, MMLogger
-from mmengine.optim import AmpOptimWrapper, DefaultOptimWrapperConstructor
+from mmengine.logging import MMLogger, print_log
 from mmengine.model.wrappers import (
     MMDistributedDataParallel,
     MMFullyShardedDataParallel,
 )
-from mmengine.dataset.utils import default_collate
-from mmengine._strategy.fsdp import FSDPStrategy
-
-from ..utils.DevelopUtils import measure_time, InjectVisualize
-
+from mmengine.optim import AmpOptimWrapper, DefaultOptimWrapperConstructor
+from mmengine.runner import (
+    FlexibleRunner,
+    IterBasedTrainLoop,
+    Runner,
+    find_latest_checkpoint,
+)
+from mmengine.runner.runner import ConfigType
+from torch import nn
+from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
 
 def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
@@ -53,7 +48,7 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
 
             if cfg.get("MP_mode", None) == "fsdp":
                 strategy = kwargs.get("cfg", {}).pop("strategy", None)
-                auto_strategy = partial(size_based_auto_wrap_policy, 
+                auto_strategy = partial(size_based_auto_wrap_policy,
                                         min_num_params=int(1e5))
                 strategy.update(dict(model_wrapper=dict(auto_wrap_policy=auto_strategy)))
                 kwargs["strategy"] = strategy
@@ -61,7 +56,7 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
 
             exp_name_in_runner = kwargs.pop("experiment_name", None)
             if exp_name_in_runner is None:
-                work_dir:str|None = kwargs.get("work_dir", None)
+                work_dir: str | None = kwargs.get("work_dir", None)
                 if work_dir is not None:
                     exp_name_in_runner = str(work_dir.split("/")[-2:])
             super().__init__(experiment_name=exp_name_in_runner, **kwargs)
@@ -120,12 +115,12 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
                     self.logger.info(f"Resumed from the latest checkpoint {resume_from}.")
                     self._has_loaded = True
                     return
-            
+
             # When resume checkpoint can not be found, `load_from` as needed.
             if self._load_from is not None:
                 self.load_checkpoint(self._load_from)
                 self._has_loaded = True
-    
+
     return mgam_Runner.from_cfg(cfg)
 
 
@@ -138,9 +133,10 @@ class IterBasedTrainLoop_SupportProfiler(IterBasedTrainLoop):
 
         if profiler == "PyTorchProfiler":
             from torch.profiler import (
-                profile,
                 ProfilerActivity,
-                tensorboard_trace_handler)
+                profile,
+                tensorboard_trace_handler,
+            )
             self.prof = profile(
                 activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                 schedule=torch.profiler.schedule(wait=50, warmup=1, active=2),
@@ -274,13 +270,13 @@ class RemasteredFSDP(MMFullyShardedDataParallel):
     the model's data flow design.
     """
     def train_step(self, *args, **kwargs):
-        return self.module.train_step(*args, **kwargs)
+        return self.module.train_step(*args, **kwargs)  # pyright: ignore[reportCallIssue]
 
     def val_step(self, *args, **kwargs):
-        return self.module.val_step(*args, **kwargs)
+        return self.module.val_step(*args, **kwargs)  # pyright: ignore[reportCallIssue]
 
     def test_step(self, *args, **kwargs):
-        return self.module.test_step(*args, **kwargs)
+        return self.module.test_step(*args, **kwargs)  # pyright: ignore[reportCallIssue]
 
     def __getattr__(self, name):
         try:
@@ -288,23 +284,29 @@ class RemasteredFSDP(MMFullyShardedDataParallel):
         except:
             return getattr(self.module, name)
 
-from mmengine.registry import FUNCTIONS, MODEL_WRAPPERS
-from mmengine.model import BaseDataPreprocessor, is_model_wrapper
 from mmengine.device import get_device
+from mmengine.model import BaseDataPreprocessor, is_model_wrapper
 from mmengine.optim import BaseOptimWrapper, _ParamScheduler
-from torch.distributed.checkpoint.state_dict import get_state_dict, set_state_dict, StateDictOptions
+from mmengine.registry import FUNCTIONS, MODEL_WRAPPERS
+from torch.distributed.checkpoint.state_dict import (
+    StateDictOptions,
+    set_state_dict,
+)
+
+
 class RemasteredFSDP_Strategy(FSDPStrategy):
-    def __init__(self, 
-                 model_wrapper_cfg:dict|None=None, 
+    def __init__(self,
+                 model_wrapper_cfg:dict|None=None,
                  *args, **kwargs):
         self.model_wrapper_cfg = model_wrapper_cfg
         super().__init__(*args, **kwargs)
-    
-    def _wrap_model(self, model: nn.Module) -> None:
+
+    def _wrap_model(self, model: nn.Module):
         """warp model but not load state."""
         try:
-            from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import \
-                apply_activation_checkpointing
+            from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+                apply_activation_checkpointing,
+            )
         except ImportError:
             apply_activation_checkpointing = None
 
@@ -313,7 +315,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
                 module.to(get_device())
 
         if is_model_wrapper(model):
-            return
+            return model
 
         if self.model_wrapper is None:
             self.model_wrapper = dict(type='MMFullyShardedDataParallel')
@@ -328,11 +330,11 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
             assert "type" in self.model_wrapper_cfg.keys()
             assert len(self.model_wrapper_cfg) == 1, "The cfg should only contain a type param."
             self.model_wrapper_cfg.update(
-                module=model, 
+                module=model,
                 device_id=int(os.environ['LOCAL_RANK'] ))
-        
+
         model = MODEL_WRAPPERS.build(
-            self.model_wrapper, 
+            self.model_wrapper,
             default_args=self.model_wrapper_cfg)
 
         if self.activation_checkpointing is not None:
@@ -350,12 +352,13 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
                     fn_type = check_fn.pop('type')
                     if isinstance(fn_type, str):
                         fn_type = FUNCTIONS.get(fn_type)
+                    assert callable(fn_type), '`type` must be specified in `check_fn`'
                     check_fn = partial(fn_type, **cfg)
 
                 if not callable(check_fn):
                     raise TypeError('`check_fn` must be a callable function')
                 apply_activation_checkpointing(model, check_fn=check_fn, **cfg)
-        
+
         return model
 
     def prepare(
@@ -376,7 +379,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
         self.model = self._init_model_weights(self.model)
         self.optim_wrapper = self.build_optim_wrapper(optim_wrapper, self.model)
         self.model = self._wrap_model(self.model)
-        
+
         if hasattr(self, 'model_state_dict') and hasattr(self, 'optim_state_dict'):
             set_state_dict(
                 self.model,
@@ -385,7 +388,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
                 optim_state_dict=self.optim_state_dict(),
                 options=StateDictOptions(full_state_dict=True,
                                          cpu_offload=True))
-            
+
         self.model = self.compile_model(self.model, compile=compile)
 
         if param_scheduler is not None:
@@ -394,7 +397,7 @@ class RemasteredFSDP_Strategy(FSDPStrategy):
 
         self._prepared = True
         return self._prepared_components()
-    
+
     def build_optim_wrapper(self, *args, **kwargs):
         optim_wrapper = super().build_optim_wrapper(*args, **kwargs)
         self._scale_lr()
@@ -417,7 +420,7 @@ class RatioSampler(DefaultSampler):
     def __init__(self, use_sample_ratio: float, **kwargs):
         super().__init__(**kwargs)
         self.use_sample_ratio = use_sample_ratio
-        self.num_samples_original = super(RatioSampler, self).__len__()
+        self.num_samples_original = super().__len__()
         print_log(f"RatioSampler used, original num of batches "
                   f"{self.num_samples_original} -> used {len(self)}",
                   MMLogger.get_current_instance())
@@ -449,7 +452,7 @@ def multi_sample_collate(data_batch: Sequence[dict]):
     Compatible with `SampleAugment` Transform Class.
     This collate is to facilitate multi-sub-sample generation
     from the same sample.
-    
+
     NOTE
     The reason to do SampleWiseInTimeAugment is the time comsumption
     for IO of an entire sample is too expensive, so it's better
@@ -469,9 +472,11 @@ def multi_sample_collate(data_batch: Sequence[dict]):
 class mgam_OptimWrapperConstructor(DefaultOptimWrapperConstructor):
     def __call__(self, model: nn.Module):
         if hasattr(model, 'module'):
+            assert isinstance(model.module, nn.Module), \
+                f'`model.module` is not an instance of `nn.Module`, got{model.module}.'
             model = model.module
-        
+
         filtered_params = filter(lambda p: p.requires_grad, model.parameters())
-        model.parameters = lambda: filtered_params
-        
+        model.parameters = lambda recurse=True: filtered_params
+
         return super().__call__(model)

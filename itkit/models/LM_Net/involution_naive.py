@@ -7,7 +7,7 @@ class involution(nn.Module):
                  in_channels,
                  kernel_size,
                  stride):
-        super(involution, self).__init__()
+        super().__init__()
         self.kernel_size = kernel_size
         self.stride = stride
         self.in_channels = in_channels

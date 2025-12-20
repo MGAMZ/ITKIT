@@ -1,5 +1,4 @@
-import pdb
-from typing_extensions import Sequence
+from collections.abc import Sequence
 
 import torch
 import torch.nn as nn
@@ -22,29 +21,29 @@ def ConvBlock(in_channels, out_channels, kernel_size=3, stride=1, padding='same'
                is_bn=True, is_relu=True, n=2, dim=2):
     """ 支持2D/3D的卷积块 """
     Conv, BatchNorm, _ = get_components(dim)
-    
+
     # 根据维度调整kernel_size和stride为元组形式
     if isinstance(kernel_size, int):
         kernel_size = tuple([kernel_size] * dim)
     if isinstance(stride, int):
         stride = tuple([stride] * dim)
-    
+
     layers = []
     for i in range(1, n + 1):
-        conv = Conv(in_channels=in_channels if i == 1 else out_channels, 
+        conv = Conv(in_channels=in_channels if i == 1 else out_channels,
                     out_channels=out_channels,
                     kernel_size=kernel_size,
                     stride=stride,
                     padding=padding if padding != 'same' else 'same',
                     bias=not is_bn)
         layers.append(conv)
-        
+
         if is_bn:
             layers.append(BatchNorm(out_channels))
-        
+
         if is_relu:
             layers.append(nn.ReLU(inplace=True))
-        
+
     return nn.Sequential(*layers)
 
 
@@ -55,15 +54,15 @@ def dot_product(seg, cls):
     else:  # 3D case
         b, n, h, w, d = seg.shape
         seg = seg.view(b, n, -1)
-    
+
     cls = cls.unsqueeze(-1)  # Add an extra dimension for broadcasting
     final = torch.einsum("bik,bi->bik", seg, cls)
-    
+
     if seg.dim() == 4:  # 2D case
         final = final.view(b, n, h, w)
     else:  # 3D case
         final = final.view(b, n, h, w, d)
-    
+
     return final
 
 
@@ -78,7 +77,7 @@ class UNet3Plus(nn.Module):
                  use_torch_checkpoint:bool=False):
         """
         UNet3Plus model with optional deep supervision and classification guided module.
-        
+
         Args:
             input_shape (list): Input shape of the model [channels, height, width] or [channels, height, width, depth].
             output_channels (int): Number of output channels.
@@ -86,13 +85,13 @@ class UNet3Plus(nn.Module):
             ClassificationGuidedModule (bool): Whether to use classification guided module.
             dim (int): Dimensionality of data (2 for 2D, 3 for 3D).
         """
-        
-        super(UNet3Plus, self).__init__()
+
+        super().__init__()
         self.dim = dim
         self.deep_supervision = deep_supervision
         self.CGM = deep_supervision and ClassificationGuidedModule
         self.use_torch_checkpoint = use_torch_checkpoint
-        
+
         Conv, BatchNorm, MaxPool = get_components(dim)
 
         self.filters = filters
@@ -120,6 +119,7 @@ class UNet3Plus(nn.Module):
         )
 
         # Classification Guided Module
+        self.cgm: nn.Sequential | None
         if self.CGM:
             self.cgm = nn.Sequential(
                 nn.Dropout(0.5),
@@ -171,6 +171,7 @@ class UNet3Plus(nn.Module):
         self.final = Conv(self.upsample_channels, output_channels, kernel_size=1)
 
         # Deep Supervision
+        self.deep_sup: nn.ModuleList | None
         if self.deep_supervision:
             self.deep_sup = nn.ModuleList([
                 ConvBlock(self.upsample_channels, output_channels, n=1, is_bn=False, is_relu=False, dim=dim)
@@ -180,7 +181,7 @@ class UNet3Plus(nn.Module):
         else:
             self.deep_sup = None
 
-    def _maybe_checkpoint(self, func, *args):
+    def _maybe_checkpoint(self, func, *args) -> torch.Tensor:
         """使用torch的checkpoint机制来节省内存"""
         if self.use_torch_checkpoint:
             return checkpoint(func, *args)
@@ -286,7 +287,7 @@ if __name__ == "__main__":
     x_2d = torch.randn(3, 1, 320, 320)
     output_2d = unet_3P_2d(x_2d)
     print(f"2D 输出形状: {output_2d.shape}")
-    
+
     # 3D 示例
     unet_3P_3d = UNet3Plus(input_shape=[1, 64, 64, 64],
                            output_channels=4,

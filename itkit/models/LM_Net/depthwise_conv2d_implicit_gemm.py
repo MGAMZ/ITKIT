@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
-import os
-
-import torch
-import torch.nn as nn
-import torch.utils.cpp_extension as cpp_extension
 
 import _depthwise_conv2d_implicit_gemm_C as _extension
+import torch
+import torch.nn as nn
 from depthwise_conv2d_implicit_gemm import *
-
-__all__ = ["DepthWiseConv2dImplicitGEMM"]
 
 
 class _DepthWiseConv2dImplicitGEMMFP32(torch.autograd.Function):
@@ -60,7 +55,7 @@ class DepthWiseConv2dImplicitGEMM(nn.Conv2d):
         elif x.dtype == torch.float16:
             x = _DepthWiseConv2dImplicitGEMMFP16.apply(x, self.weight)
         else:
-            raise TypeError("Only support fp32 and fp16, get {}".format(x.dtype))
+            raise TypeError(f"Only support fp32 and fp16, get {x.dtype}")
         if self.bias is not None:
             x = x + self.bias.to(x).view(1, -1, 1, 1)
         return x

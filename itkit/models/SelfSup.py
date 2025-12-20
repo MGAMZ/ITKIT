@@ -1,19 +1,15 @@
-import os
-import pdb
-from typing_extensions import OrderedDict
 from abc import abstractmethod
+from collections import OrderedDict
 
 import numpy as np
 import torch
-from torch import nn, Tensor
-
 from mmengine.model import BaseModule
 from mmengine.registry import MODELS
-from mmengine.utils.misc import is_list_of
 from mmengine.structures import BaseDataElement
-from mmpretrain.structures import DataSample
+from mmengine.utils.misc import is_list_of
 from mmpretrain.models.selfsup.base import BaseSelfSupervisor
-
+from mmpretrain.structures import DataSample
+from torch import Tensor, nn
 
 
 class AutoEncoderSelfSup(BaseSelfSupervisor):
@@ -29,7 +25,7 @@ class AutoEncoderSelfSup(BaseSelfSupervisor):
         *args,
         **kwargs,
     ) -> None:
-        
+
         encoder_decoder = [MODELS.build(encoder)]
         if neck is not None:
             encoder_decoder.append(MODELS.build(neck))
@@ -89,23 +85,23 @@ class AutoEncoderSelfSup(BaseSelfSupervisor):
 
 class VoxelData(BaseDataElement):
     """Data structure for voxel-level annotations or predictions.
-    
-    All data items in ``data_fields`` of ``VoxelData`` meet the following  
+
+    All data items in ``data_fields`` of ``VoxelData`` meet the following
     requirements:
-    
+
     - They all have 4 dimensions in orders of channel, depth, height, and width
     - They should have the same depth, height and width
-    
+
     Examples:
         >>> metainfo = dict(
         ...     vol_id=random.randint(0, 100),
-        ...     vol_shape=(random.randint(32,64), 
+        ...     vol_shape=(random.randint(32,64),
         ...               random.randint(64,128),
         ...               random.randint(64,128)))
         >>> volume = np.random.randint(0, 255, (4, 32, 64, 64))
         >>> featmap = torch.randint(0, 255, (10, 32, 64, 64))
         >>> voxel_data = VoxelData(metainfo=metainfo,
-        ...                        volume=volume, 
+        ...                        volume=volume,
         ...                        featmap=featmap)
         >>> print(voxel_data.shape)
         (32, 64, 64)
@@ -118,7 +114,7 @@ class VoxelData(BaseDataElement):
             if isinstance(v, (np.ndarray, torch.Tensor)):
                 return v.shape[1:]  # 跳过channel维度
         return None
-    
+
     def __setattr__(self, name, val):
         """设置属性时验证数据维度。"""
         if isinstance(val, (np.ndarray, torch.Tensor)):

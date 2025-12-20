@@ -1,10 +1,12 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
 from resnet import resnet50
+
+
 #from torchvision.models import resnet50
 class TwinTowers(nn.Module):
     def __init__(self, cnn,n_classes=2, filters=[16,32, 64, 128, 256],deep_supervision=False):
-        super(TwinTowers, self).__init__()
+        super().__init__()
         self.cnn=resnet50()
 
 

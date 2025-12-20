@@ -1,10 +1,8 @@
 import os
-from typing_extensions import override
 
+from matplotlib.figure import Figure
 from pytorch_lightning.loggers import Logger
 from pytorch_lightning.utilities.rank_zero import rank_zero_only
-from matplotlib.figure import Figure
-
 
 
 class FigureLogger(Logger):
@@ -26,17 +24,14 @@ class FigureLogger(Logger):
         self.pad_inches = pad_inches
 
     @property
-    @override
     def name(self) -> str:
         return self._name
 
     @property
-    @override
     def version(self):
         return self._version
 
     @property
-    @override
     def root_dir(self):
         return self._root_dir
 
@@ -55,4 +50,3 @@ class FigureLogger(Logger):
 
     def log_hyperparams(self, params, *args, **kwargs) -> None:
         ...
-

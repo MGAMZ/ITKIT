@@ -4,15 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "itkit"
-version = "3.4.0.dev0"
+version = "3.6.0.dev251220"
 requires-python = ">= 3.10"
 description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API"
 readme = "readme.md"
 license = {file = "LICENSE"}
 dependencies = [
-  "numpy>=2.2.6",
-  "SimpleITK>=2.5.0",
-  "opencv-python-headless>=4.11",
+  "numpy; python_version < '3.14'",
+  "numpy>=2.3.5; python_version >= '3.14'",
+  "SimpleITK",
+  "opencv-python-headless",
   "openpyxl",
   "pandas",
   "scikit-image",
@@ -33,6 +34,13 @@ dependencies = [
   "ftfy",
   "deprecated",
   "pydantic",
+  "pydicom",
+  "pynrrd",
+  "nibabel",
+  "tcia_utils",
+  "regex",
+  "lightning",
+  "timm",
 ]
 
 [project.optional-dependencies]
@@ -43,9 +51,21 @@ dev = [
   "pynvml",
   "pytest",
   "psutil",
-  "memory-profiler"
+  "memory-profiler",
+  "types-colorama",
+  "types-tqdm",
+  "types-openpyxl",
+  "pandas-stubs",
+  "scipy-stubs",
+  "pyright",
+  "autopep8",
+  "black",
+  "isort",
+  "mypy",
+  "pyupgrade",
+  "pre-commit"
 ]
-nvidia = [
+advanced = [
   "onnx",
   "onnxruntime",
   "onnxruntime-gpu",
@@ -53,22 +73,10 @@ nvidia = [
   "polygraphy",
   "tensorrt",
 ]
-medical_vision = [
+pathology = [
   "opensdpc",
   "openslide-python",
   "openslide-bin",
-  "pydicom",
-  "pynrrd",
-  "nibabel",
-]
-pytorch = [
-  "lightning",
-  "timm",
-  "deepspeed",
-]
-mm = [
-  "ftfy",
-  "regex",
 ]
 gui = [
   "PyQt6",
@@ -83,8 +91,45 @@ itk_patch = "itkit.process.itk_patch:main"
 itk_check = "itkit.process.itk_check:main"
 itk_aug = "itkit.process.itk_aug:main"
 itk_extract = "itkit.process.itk_extract:main"
+itk_convert = "itkit.process.itk_convert:main"
+itk_evaluate = "itkit.process.itk_evaluate:main"
 itkit-app = "itkit.gui.app:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["itkit*"]
+
+[tool.pyright]
+pythonVersion = "3.14"
+include = ["itkit"]
+exclude = [
+  "**/__pycache__/**",
+  "**/.venv/**",
+  "**/.git/**",
+  "build/**",
+  "dist/**",
+  "**/*.egg-info/**",
+  "itkit/dataset/SA_Med2D",
+  "itkit/models",
+]
+reportMissingImports = false
+reportIncompatibleMethodOverride = false
+reportIncompatibleVariableOverride = false
+reportPrivateImportUsage = false
+reportOptionalMemberAccess = false
+reportOptionalSubscript = false
+
+[tool.isort]
+profile = "black"
+src_paths = ["itkit"]
+line_length = 150
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+markers = [
+    "gui: marks tests that require a Qt GUI context (can run headless with QT_QPA_PLATFORM=offscreen)",
+    "itk_process: marks tests that execute itk process script mains",
+    "mm: marks tests that touch MMEngine runner entry",
+    "torch: marks tests that require PyTorch",
+]

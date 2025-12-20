@@ -1,11 +1,13 @@
-import os, re, pdb
+import os
+import re
 from copy import deepcopy
 from pathlib import Path
-from tqdm import tqdm
-from deprecated import deprecated
 from typing import Literal
 
-from .base import BaseDataset, BaseDataModule
+from deprecated import deprecated
+from tqdm import tqdm
+
+from .base import BaseDataModule, BaseDataset
 
 
 class MhaDataset(BaseDataset):
@@ -20,7 +22,7 @@ class MhaDataset(BaseDataset):
         **kwargs
     ) -> None:
         super().__init__(**kwargs)
-        self.all_seriesUID = None
+        self.all_seriesUID: list[str] | None = None
         self.image_root = Path(image_root)
         self.label_root = Path(label_root)
         self.split_accordance = Path(split_accordance)
@@ -32,10 +34,11 @@ class MhaDataset(BaseDataset):
             all_seriesUID = [file.stem for file in self.split_accordance.glob("*.mha")]
             all_seriesUID = sorted(all_seriesUID, key=lambda x: abs(int(re.search(r"\d+", x).group())))
             self.all_seriesUID = all_seriesUID
-        
+
+        assert self.all_seriesUID is not None
         split_id_train_val = int(len(self.all_seriesUID) * self.SPLIT_RATIO[0])
         split_id_val_test = int(len(self.all_seriesUID) * (self.SPLIT_RATIO[0] + self.SPLIT_RATIO[1]))
-        
+
         if self.split in ('train', 'fit'):
             return self.all_seriesUID[:split_id_train_val]
         elif self.split in ('val', 'validate'):
@@ -53,7 +56,7 @@ class MhaDataset(BaseDataset):
             for seriesUID in self._split()
             for f in self.image_root.glob(f"*{seriesUID}*.mha")
         ]
-        
+
         self.available_series = []
         for avail_file_name in tqdm(available_file_names, f"Indexing Dataset | Split {self.split}"):
             image_mha_path = str(self.image_root / avail_file_name)
@@ -104,13 +107,16 @@ class LargeVolumeDataModule(BaseDataModule):
         self.whole_volume_val_dataset = whole_volume_val_dataset
         self.whole_volume_test_dataset = whole_volume_test_dataset
         super().__init__(**kwargs)
-    
+
     def setup(self, stage: Literal['fit', 'validate', 'test', 'predict']):
         if stage == 'fit':
+            assert self.patched_train_dataset is not None, "Patched train dataset must be provided for training."
             self.train = self.patched_train_dataset.get_self_copy(stage)
         elif stage == 'validate':
+            assert self.whole_volume_val_dataset is not None, "Whole volume val dataset must be provided for validation."
             self.val = self.whole_volume_val_dataset.get_self_copy(stage)
         elif stage in ('test', 'predict'):
+            assert self.whole_volume_test_dataset is not None, "Whole volume test dataset must be provided for testing."
             self.test = self.whole_volume_test_dataset.get_self_copy(stage)
         else:
             raise ValueError(f"Invalid stage: {stage}.")

@@ -1,6 +1,9 @@
 import sys
+
 import pytest
 
+
+@pytest.mark.torch
 @pytest.mark.mm
 def test_mmrun_smoke_empty_configdir(tmp_path, monkeypatch):
     # Skip if heavy deps are missing

@@ -10,14 +10,13 @@ Components:
 This file is intentionally light-touch and does not modify vmamba.py.
 """
 
-import pdb, math
+import math
 
 import torch
 import torch.nn as nn
-
-from selective_scan import selective_scan_fn
 import torch.utils.checkpoint
-from vmamba import mamba_init # pyright: ignore[reportMissingImports]
+from selective_scan import selective_scan_fn
+from vmamba import mamba_init  # pyright: ignore[reportMissingImports]
 
 
 class MambaAggregator1D(nn.Module, mamba_init):
@@ -138,7 +137,7 @@ class SliceFeatureExtractor(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, C, Z, Y, X = x.shape
         slices = x.permute(0, 2, 1, 3, 4).reshape(B * Z, C, Y, X) # [N, C, Z, Y, X] -> [N*Z, C, Y, X]
-        
+
         if self.use_torch_ckpt:
             feats = torch.utils.checkpoint.checkpoint(self.backbone, slices, use_reentrant=False)  # list of [N*Z, latent, Y, X]
         else:
@@ -147,15 +146,15 @@ class SliceFeatureExtractor(nn.Module):
             f = feats[-1]
         else:
             f = feats
-        
+
         _, C, Y, X = f.shape
-        
+
         f = f.reshape(B, Z, C, Y, X).permute(0, 2, 1, 3, 4)  # [N*Z, C, Y, X] -> [N, C, Z, Y, X]
         if self.pool == 'gap':
             f = f.mean(dim=[-1, -2])
         else:
             raise ValueError(f"Unsupported pool {self.pool}")
-        
+
         return f # [N, C, Z]
 
 
@@ -184,8 +183,8 @@ class VolumeVSSM(nn.Module):
     def forward(self, vol: torch.Tensor):
         assert vol.dim() == 5, 'Volume must be (B,C,D,H,W)'
         B, C, D, H, W = vol.shape
-        
+
         slice_emb = self.slice_extractor(vol)  # return: [B, C, Z]
         vol_emb = self.aggregator(slice_emb.permute(0,2,1))  # (B, C_out)
-        
+
         return (vol_emb, )

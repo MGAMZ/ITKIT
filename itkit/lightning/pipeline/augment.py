@@ -1,13 +1,11 @@
 import random
-from typing import Dict, List, Tuple
-from typing_extensions import Literal
 from collections.abc import Callable, Sequence
+from typing import Literal
 
 import numpy as np
 
-from .base import BaseTransform
 from ...process.GeneralPreProcess import RandomRotate3D as mm_RandomRotate3D
-
+from .base import BaseTransform
 
 
 class RandomPatch3D(BaseTransform):
@@ -18,7 +16,7 @@ class RandomPatch3D(BaseTransform):
     ):
         self.patch_size = patch_size
         self.keys = keys
-    
+
     def __call__(self, sample:dict[str, np.ndarray]):
         img = sample.get("image")
         if img is None:
@@ -34,7 +32,7 @@ class RandomPatch3D(BaseTransform):
 
         for key in self.keys:
             sample[key] = sample[key][..., z1:z1+pz, y1:y1+py, x1:x1+px]
-        
+
         return sample
 
 
@@ -50,7 +48,7 @@ class RandomPatch3DIndexing(BaseTransform):
     ):
         self.patch_size = patch_size
         self.num_patches = num_patches
-    
+
     def __call__(self, sample:dict[str, np.ndarray]):
         img = sample.get("image")
         if img is None:
@@ -61,7 +59,7 @@ class RandomPatch3DIndexing(BaseTransform):
         pz, py, px = self.patch_size
         if any(dim < p for dim, p in zip((z, y, x), (pz, py, px))):
             raise ValueError(f"Patch size {self.patch_size} exceeds image shape {(z, y, x)}")
-        
+
         indices = []
         for _ in range(self.num_patches):
             z1 = random.randint(0, z - pz)
@@ -89,7 +87,7 @@ class RandomRotate3D(mm_RandomRotate3D):
 
 class AutoPad(BaseTransform):
     def __init__(
-        self, 
+        self,
         size: Sequence[int],
         dim: Literal["1d", "2d", "3d"],
         pad_val: int = 0,
@@ -107,15 +105,15 @@ class AutoPad(BaseTransform):
         pad_params = []
         # 只处理最后n个维度，n由dim决定
         dims_to_pad = self.dim_map[self.dim]
-        
+
         # 确保current_shape维度足够
         if len(current_shape) < dims_to_pad:
             raise ValueError(f"Input shape {current_shape} has fewer dimensions than required {dims_to_pad}")
-            
+
         # 处理不需要padding的前置维度
         for _ in range(len(current_shape) - dims_to_pad):
             pad_params.append((0, 0))
-            
+
         # 处理需要padding的维度
         for target_size, curr_size in zip(self.size, current_shape[-dims_to_pad:]):
             if curr_size >= target_size:
@@ -125,12 +123,12 @@ class AutoPad(BaseTransform):
                 pad_1 = pad // 2
                 pad_2 = pad - pad_1
                 pad_params.append((pad_1, pad_2))
-                
+
         return pad_params
 
     def __call__(self, sample: dict):
         pad_params = self._get_pad_params(sample["image"].shape)
-        
+
         if any(p[0] > 0 or p[1] > 0 for p in pad_params):
             sample["image"] = np.pad(
                 sample["image"],
@@ -138,7 +136,7 @@ class AutoPad(BaseTransform):
                 mode="constant",
                 constant_values=self.pad_val,
             )
-            
+
             if "label" in sample:
                 label_do_not_have_channel_dimension = (sample["image"].ndim - sample["label"].ndim) == 1
                 sample["label"] = np.pad(
@@ -161,15 +159,14 @@ class BatchAugment(BaseTransform):
     def __init__(self, num_samples:int, pipeline: list[Callable]|Callable):
         self.num_samples = num_samples
         self.pipeline = pipeline if isinstance(pipeline, list) else [pipeline]
-    
+
     def get_one_sample(self, sample: dict):
         for t in self.pipeline:
             sample = t(sample)
         return sample
-    
+
     def __call__(self, sample: dict) -> list[dict]:
         samples = []
         for _ in range(self.num_samples):
             samples.append(self.get_one_sample(sample.copy()))
         return samples
-

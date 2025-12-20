@@ -1,4 +1,7 @@
-import os, sys, signal
+import os
+import signal
+import sys
+
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 
@@ -37,12 +40,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def _build_ui(self):
         # 推迟导入，确保 QApplication 已存在再构建子控件
         from .ItkTabs import (
+            ItkAugTab,
             ItkCheckTab,
-            ItkResampleTab,
+            ItkExtractTab,
             ItkOrientTab,
             ItkPatchTab,
-            ItkAugTab,
-            ItkExtractTab,
+            ItkResampleTab,
         )
         tabs = QtWidgets.QTabWidget()
         tabs.setTabPosition(QtWidgets.QTabWidget.TabPosition.North)
@@ -65,7 +68,7 @@ def main():
     # Restore default SIGINT handler so Ctrl-C immediately terminates the process.
     # Without this, the Qt event loop may swallow SIGINT and prevent KeyboardInterrupt.
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    
+
     scr = app.primaryScreen()
     if scr is not None:
         plug = app.platformName() if hasattr(app, "platformName") else "?"
@@ -97,7 +100,7 @@ def main():
         dark.setColor(QtGui.QPalette.ColorRole.Highlight, QtGui.QColor(142, 45, 197).lighter())
         dark.setColor(QtGui.QPalette.ColorRole.HighlightedText, QtCore.Qt.GlobalColor.black)
         app.setPalette(dark)
-    
+
     win = MainWindow()
     win.show()
     sys.exit(app.exec())

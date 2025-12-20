@@ -1,6 +1,6 @@
-import os
 import sys
 from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -28,7 +28,7 @@ def _make_toy_label(shape=(8, 8, 8), fg=False):
     return arr
 
 
-@pytest.mark.process
+@pytest.mark.itk_process
 def test_itk_check_main(tmp_path, monkeypatch):
     pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
     from itkit.process import itk_check
@@ -48,7 +48,7 @@ def test_itk_check_main(tmp_path, monkeypatch):
     itk_check.main()
 
 
-@pytest.mark.process
+@pytest.mark.itk_process
 def test_itk_resample_main(tmp_path, monkeypatch):
     pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
     from itkit.process import itk_resample
@@ -66,7 +66,7 @@ def test_itk_resample_main(tmp_path, monkeypatch):
     assert (dst / "img.mha").exists()
 
 
-@pytest.mark.process
+@pytest.mark.itk_process
 def test_itk_orient_main(tmp_path, monkeypatch):
     pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
     from itkit.process import itk_orient
@@ -80,7 +80,7 @@ def test_itk_orient_main(tmp_path, monkeypatch):
     assert (dst / "a.mha").exists()
 
 
-@pytest.mark.process
+@pytest.mark.itk_process
 def test_itk_patch_main(tmp_path, monkeypatch):
     pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
     from itkit.process import itk_patch
@@ -109,7 +109,7 @@ def test_itk_patch_main(tmp_path, monkeypatch):
     assert len(lbls) >= 1
 
 
-@pytest.mark.process
+@pytest.mark.itk_process
 def test_itk_aug_main(tmp_path, monkeypatch):
     pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
     from itkit.process import itk_aug
@@ -132,7 +132,7 @@ def test_itk_aug_main(tmp_path, monkeypatch):
     assert len(outs) >= 1
 
 
-@pytest.mark.process
+@pytest.mark.itk_process
 def test_itk_extract_main(tmp_path, monkeypatch):
     pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
     from itkit.process import itk_extract
@@ -149,4 +149,4 @@ def test_itk_extract_main(tmp_path, monkeypatch):
     ])
     itk_extract.main()
     assert (dst / "lab.mha").exists()
-    assert (dst / "extract_meta.json").exists()
+    assert (dst / "meta.json").exists()

@@ -1,13 +1,11 @@
-from torch.autograd import Function
-import torch
-from torch.nn.modules.utils import _pair
-import torch.nn.functional as F
-import torch.nn as nn
-
 from collections import namedtuple
-#import cupy
 from string import Template
 
+import cupy
+import torch
+import torch.nn as nn
+from torch.autograd import Function
+from torch.nn.modules.utils import _pair
 
 Stream = namedtuple('Stream', ['ptr'])
 
@@ -174,7 +172,7 @@ class _involution(Function):
         ctx.save_for_backward(input, weight)
         ctx.stride, ctx.padding, ctx.dilation = stride, padding, dilation
         return output
-    
+
     @staticmethod
     def backward(ctx, grad_output):
         grad_output=grad_output.contiguous()
@@ -225,7 +223,7 @@ class _involution(Function):
                   stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
 
         return grad_input, grad_weight, None, None, None
- 
+
 
 def _involution_cuda(input, weight, bias=None, stride=1, padding=0, dilation=1):
     """ involution kernel
@@ -248,7 +246,7 @@ class involution(nn.Module):
                  in_channels,
                  kernel_size,
                  stride):
-        super(involution, self).__init__()
+        super().__init__()
         self.kernel_size = kernel_size
         self.stride = stride
         self.in_channels = in_channels
