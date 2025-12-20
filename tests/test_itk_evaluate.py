@@ -22,7 +22,7 @@ def _write_mha(path: Path, array: np.ndarray, spacing=(1.0, 1.0, 1.0), origin=(0
 
 def _make_toy_label(shape=(8, 8, 8), pattern='simple'):
     """Create toy label data for testing.
-    
+
     Args:
         shape: Shape of the label array
         pattern: Type of label pattern:
@@ -46,19 +46,19 @@ def test_itk_evaluate_basic(tmp_path, monkeypatch):
     pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
     pytest.importorskip("sklearn", reason="scikit-learn not installed")
     pytest.importorskip("pandas", reason="pandas not installed")
-    
+
     from itkit.process import itk_evaluate
 
     # Create test data
     gt_dir = tmp_path / "gt"
     pred_dir = tmp_path / "pred"
     save_dir = tmp_path / "results"
-    
+
     # Create identical GT and prediction (perfect match)
     gt_label = _make_toy_label(pattern='simple')
     _write_mha(gt_dir / "case1.mha", gt_label)
     _write_mha(pred_dir / "case1.mha", gt_label)
-    
+
     # Run evaluation with CSV format
     monkeypatch.setattr(sys, "argv", [
         "itk_evaluate",
@@ -68,12 +68,12 @@ def test_itk_evaluate_basic(tmp_path, monkeypatch):
         "csv"
     ])
     itk_evaluate.main()
-    
+
     # Check that output files were created
     assert (save_dir / "per_class_sample_avg.csv").exists()
     assert (save_dir / "per_sample_per_class.csv").exists()
     assert (save_dir / "per_sample_class_avg.csv").exists()
-    
+
     # Verify metrics are perfect (Dice=1.0 for perfect match)
     import pandas as pd
     per_class = pd.read_csv(save_dir / "per_class_sample_avg.csv")
@@ -94,18 +94,18 @@ def test_itk_evaluate_excel_format(tmp_path, monkeypatch):
     pytest.importorskip("sklearn", reason="scikit-learn not installed")
     pytest.importorskip("pandas", reason="pandas not installed")
     pytest.importorskip("openpyxl", reason="openpyxl not installed")
-    
+
     from itkit.process import itk_evaluate
 
     gt_dir = tmp_path / "gt"
     pred_dir = tmp_path / "pred"
     save_dir = tmp_path / "results"
-    
+
     # Create test data with multiclass labels
     gt_label = _make_toy_label(pattern='multiclass')
     _write_mha(gt_dir / "case1.mha", gt_label)
     _write_mha(pred_dir / "case1.mha", gt_label)
-    
+
     # Run evaluation with Excel format
     monkeypatch.setattr(sys, "argv", [
         "itk_evaluate",
@@ -115,11 +115,11 @@ def test_itk_evaluate_excel_format(tmp_path, monkeypatch):
         "excel"
     ])
     itk_evaluate.main()
-    
+
     # Check that Excel file was created
     excel_path = save_dir / "evaluation_results.xlsx"
     assert excel_path.exists()
-    
+
     # Verify sheets exist
     import pandas as pd
     xl_file = pd.ExcelFile(excel_path)
@@ -134,21 +134,21 @@ def test_itk_evaluate_resampling(tmp_path, monkeypatch):
     pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
     pytest.importorskip("sklearn", reason="scikit-learn not installed")
     pytest.importorskip("pandas", reason="pandas not installed")
-    
+
     from itkit.process import itk_evaluate
 
     gt_dir = tmp_path / "gt"
     pred_dir = tmp_path / "pred"
     save_dir = tmp_path / "results"
-    
+
     # Create GT with original size
     gt_label = _make_toy_label(shape=(8, 8, 8), pattern='simple')
     _write_mha(gt_dir / "case1.mha", gt_label, spacing=(1.0, 1.0, 1.0))
-    
+
     # Create prediction with different size (should be resampled)
     pred_label = _make_toy_label(shape=(16, 16, 16), pattern='simple')
     _write_mha(pred_dir / "case1.mha", pred_label, spacing=(0.5, 0.5, 0.5))
-    
+
     # Run evaluation (should auto-resample pred to match GT)
     monkeypatch.setattr(sys, "argv", [
         "itk_evaluate",
@@ -158,10 +158,10 @@ def test_itk_evaluate_resampling(tmp_path, monkeypatch):
         "csv"
     ])
     itk_evaluate.main()
-    
+
     # Check that evaluation completed without error
     assert (save_dir / "per_sample_per_class.csv").exists()
-    
+
     # Verify that metrics were calculated (even if not perfect due to resampling)
     import pandas as pd
     per_sample = pd.read_csv(save_dir / "per_sample_per_class.csv")
@@ -176,19 +176,19 @@ def test_itk_evaluate_multiple_samples(tmp_path, monkeypatch):
     pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
     pytest.importorskip("sklearn", reason="scikit-learn not installed")
     pytest.importorskip("pandas", reason="pandas not installed")
-    
+
     from itkit.process import itk_evaluate
 
     gt_dir = tmp_path / "gt"
     pred_dir = tmp_path / "pred"
     save_dir = tmp_path / "results"
-    
+
     # Create multiple samples
     for i in range(3):
         gt_label = _make_toy_label(pattern='multiclass')
         _write_mha(gt_dir / f"case{i}.mha", gt_label)
         _write_mha(pred_dir / f"case{i}.mha", gt_label)
-    
+
     # Run evaluation
     monkeypatch.setattr(sys, "argv", [
         "itk_evaluate",
@@ -198,13 +198,13 @@ def test_itk_evaluate_multiple_samples(tmp_path, monkeypatch):
         "csv"
     ])
     itk_evaluate.main()
-    
+
     # Verify all samples were processed
     import pandas as pd
     per_sample = pd.read_csv(save_dir / "per_sample_per_class.csv")
     assert len(per_sample) == 3
     assert set(per_sample['sample'].values) == {'case0', 'case1', 'case2'}
-    
+
     # Check that averaging was done correctly in per_class_sample_avg
     per_class = pd.read_csv(save_dir / "per_class_sample_avg.csv")
     assert 'metric' in per_class.columns
@@ -217,23 +217,23 @@ def test_itk_evaluate_imperfect_prediction(tmp_path, monkeypatch):
     pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
     pytest.importorskip("sklearn", reason="scikit-learn not installed")
     pytest.importorskip("pandas", reason="pandas not installed")
-    
+
     from itkit.process import itk_evaluate
 
     gt_dir = tmp_path / "gt"
     pred_dir = tmp_path / "pred"
     save_dir = tmp_path / "results"
-    
+
     # Create GT
     gt_label = _make_toy_label(shape=(8, 8, 8), pattern='simple')
     _write_mha(gt_dir / "case1.mha", gt_label)
-    
+
     # Create prediction with some differences
     pred_label = _make_toy_label(shape=(8, 8, 8), pattern='simple')
     # Introduce some errors: change some pixels
     pred_label[3:5, 3:5, 3:5] = 0  # False negatives
     _write_mha(pred_dir / "case1.mha", pred_label)
-    
+
     # Run evaluation
     monkeypatch.setattr(sys, "argv", [
         "itk_evaluate",
@@ -243,12 +243,12 @@ def test_itk_evaluate_imperfect_prediction(tmp_path, monkeypatch):
         "csv"
     ])
     itk_evaluate.main()
-    
+
     # Verify metrics are not perfect (Dice < 1.0)
     import pandas as pd
     per_class = pd.read_csv(save_dir / "per_class_sample_avg.csv")
     dice_row = per_class[per_class['metric'] == 'dice']
-    
+
     # Check class_1 dice is less than 1.0 due to errors
     if 'class_1' in dice_row.columns:
         dice_value = dice_row['class_1'].values[0]
