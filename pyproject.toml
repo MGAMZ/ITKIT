@@ -48,7 +48,7 @@ dev = [
   "h5py",
   "pylint-django",
   "HolisticTraceAnalysis",
-  "pynvml",
+  "nvidia-ml-py",
   "pytest",
   "psutil",
   "memory-profiler",
