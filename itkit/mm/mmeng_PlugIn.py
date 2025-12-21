@@ -423,7 +423,8 @@ class RatioSampler(DefaultSampler):
         self.num_samples_original = super().__len__()
         print_log(f"RatioSampler used, original num of batches "
                   f"{self.num_samples_original} -> used {len(self)}",
-                  MMLogger.get_current_instance())
+                  MMLogger.get_current_instance(),
+                  logging.DEBUG)
 
     def __iter__(self):
         indices = np.array(list(super().__iter__()))
