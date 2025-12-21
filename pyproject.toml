@@ -63,7 +63,8 @@ dev = [
   "isort",
   "mypy",
   "pyupgrade",
-  "pre-commit"
+  "pre-commit",
+  "torchio",
 ]
 advanced = [
   "onnx",
@@ -72,6 +73,7 @@ advanced = [
   "onnx_graphsurgeon",
   "polygraphy",
   "tensorrt",
+  "torchio",
 ]
 pathology = [
   "opensdpc",
