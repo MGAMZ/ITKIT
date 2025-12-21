@@ -4,8 +4,9 @@ import os
 import re
 from abc import abstractmethod
 from collections.abc import Generator, Iterable
-from typing import Literal
+from typing import Any, Literal
 
+import torchio as tio
 from deprecated import deprecated
 from mmengine.dataset import BaseDataset, ConcatDataset
 from mmengine.logging import MMLogger, print_log
@@ -94,23 +95,23 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
                  min_spacing = (-1, -1, -1),
                  min_size = (-1, -1, -1),
                  *args, **kwargs):
-        if data_root_mha is None:
-            print_log(
-                f"data_root_mha is not specified, using `data_root`: {self.data_root_mha}",
-                MMLogger.get_current_instance(),
-                logging.WARNING
-            )
-
         # `Semi` mode will still include those samples without labels
         # `Sup` mode will exclude those samples without labels
         self.mode = mode
-        self.data_root_mha = data_root_mha or self.data_root
         self.min_spacing = min_spacing
         self.min_size = min_size
         if len(self.min_spacing) != 3 or len(self.min_size) != 3:
             raise ValueError('min_spacing 与 min_size 必须长度为 3, 对应 Z Y X. 可用 -1 忽略某维度。')
         self._series_meta_cache = None  # lazy load
 
+        data_root = kwargs.get("data_root")
+        self.data_root_mha: str = data_root_mha or data_root  # pyright: ignore[reportAttributeAccessIssue]
+        if data_root_mha is None:
+            print_log(
+                f"data_root_mha is not specified, using `data_root`: {data_root}",
+                MMLogger.get_current_instance(),
+                logging.WARNING
+            )
         super().__init__(*args, **kwargs)
         self.data_root: str
 
@@ -124,7 +125,7 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
         all_series = sorted(all_series, key=lambda x: abs(int(re.search(r"\d+", x).group())))
         train_end = int(len(all_series) * self.SPLIT_RATIO[0])
         val_end = train_end + int(len(all_series) * self.SPLIT_RATIO[1]) + 1
-        print_log(f"Length {len(all_series)} Train End at {train_end}, Val End at {val_end}", MMLogger.get_current_instance())
+        print_log(f"Length {len(all_series)} Train End at {train_end}, Val End at {val_end}", MMLogger.get_current_instance(), logging.DEBUG)
 
         if self.split == "train":
             return all_series[:train_end]
@@ -367,3 +368,95 @@ class unsup_base:
 
 class unsup_base_Semi_Mha(unsup_base, mgam_SemiSup_3D_Mha):
     pass
+
+
+# --- TorchIO-Based Patching ---
+
+class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
+    def __init__(self,
+                 data_root: str,
+                 queue_max_length: int = 300,
+                 samples_per_volume: int = 10,
+                 patch_size: int | tuple = (96, 96, 96),
+                 sampler_type: Literal['uniform', 'weighted', 'label'] = 'uniform',
+                 queue_num_workers: int = 2,
+                 sampler_parameters: dict | None = None,
+                 *args, **kwargs) -> None:
+        self.queue_max_length = queue_max_length
+        self.samples_per_volume = samples_per_volume
+        self.patch_size = patch_size
+        self.sampler_type = sampler_type
+        self.queue_num_workers = queue_num_workers
+        self.sampler_parameters = sampler_parameters or {}
+
+        self.subjects_dataset: tio.SubjectsDataset | None = None
+        self.tio_queue: tio.Queue | None = None
+
+        super().__init__(data_root=data_root, *args, **kwargs)
+
+    def load_data_list(self) -> list[dict]:
+        # 1. Load original data list (paths)
+        # This calls mgam_BaseSegDataset.load_data_list -> sample_iterator
+        raw_data_list = super().load_data_list()
+
+        # 2. Build TorchIO Subjects
+        subjects = []
+        for item in raw_data_list:
+            subject_dict: dict[str, Any] = {
+                'image': tio.ScalarImage(item['img_path']),
+            }
+            if item.get('seg_map_path'):
+                subject_dict['label'] = tio.LabelMap(item['seg_map_path'])
+
+            # Store original metadata
+            subject = tio.Subject(**subject_dict)
+            subject['mm_meta'] = item
+            subjects.append(subject)
+
+        self.subjects_dataset = tio.SubjectsDataset(subjects)
+
+        # 3. Build Sampler
+        if self.sampler_type == 'uniform':
+            sampler = tio.data.UniformSampler(self.patch_size)
+        elif self.sampler_type == 'weighted':
+            sampler = tio.data.WeightedSampler(self.patch_size, **self.sampler_parameters)
+        elif self.sampler_type == 'label':
+            sampler = tio.data.LabelSampler(self.patch_size, **self.sampler_parameters)
+        else:
+            raise ValueError(f"Unknown sampler type: {self.sampler_type}")
+
+        # 4. Build Queue
+        print_log(f"Initializing TorchIO Queue with {len(subjects)} subjects, "
+                  f"max_len={self.queue_max_length}, workers={self.queue_num_workers}",
+                  MMLogger.get_current_instance(),
+                  logging.DEBUG)
+
+        self.tio_queue = tio.Queue(
+            self.subjects_dataset,
+            self.queue_max_length,
+            self.samples_per_volume,
+            sampler,
+            num_workers=self.queue_num_workers,
+            shuffle_subjects=True,
+            shuffle_patches=True
+        )
+
+        # 5. Return dummy list with correct length
+        return [{} for _ in range(len(self.tio_queue))]  # pyright: ignore[reportArgumentType]
+
+    def prepare_data(self, idx) -> Any:
+        if self.tio_queue is None:
+             raise RuntimeError("Queue not initialized.")
+
+        patch = self.tio_queue[0]
+        data_info = patch.get('mm_meta', {}).copy()
+
+        data_info['img'] = patch['image'][tio.DATA].squeeze(0).numpy()  # pyright: ignore[reportAttributeAccessIssue]
+        if 'label' in patch:
+            data_info['gt_seg_map'] = patch['label'][tio.DATA].squeeze(0).numpy()  # pyright: ignore[reportAttributeAccessIssue]
+            data_info['seg_fields'] = ['gt_seg_map']
+        data_info['img_shape'] = patch['image'][tio.DATA].shape[1:]
+        data_info['ori_shape'] = patch['image'][tio.DATA].shape[1:]
+        data_info['patch_location'] = patch[tio.LOCATION]
+
+        return self.pipeline(data_info)
