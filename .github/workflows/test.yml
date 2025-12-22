@@ -36,7 +36,7 @@ jobs:
       run: |
         uv pip install --system torch torchvision
         uv pip install --system onedl-mmcv onedl-mmengine onedl-mmsegmentation
-        uv pip install --system -e ".[dev,gui]" monai
+        uv pip install --system -e ".[dev,advanced,gui]" monai
     - name: Test with pytest
       env:
         QT_QPA_PLATFORM: offscreen
