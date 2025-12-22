@@ -74,6 +74,9 @@ advanced = [
   "polygraphy",
   "tensorrt",
   "torchio",
+  "onedl-mmcv",
+  "onedl-mmengine",
+  "onedl-mmsegmentation",
 ]
 pathology = [
   "opensdpc",
