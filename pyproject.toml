@@ -4,15 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "itkit"
-version = "3.5.4"
+version = "3.6.0.dev251222"
 requires-python = ">= 3.10"
 description = "mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API"
 readme = "readme.md"
 license = {file = "LICENSE"}
 dependencies = [
-  "numpy>=2.2.6",
-  "SimpleITK>=2.5.0",
-  "opencv-python-headless>=4.11",
+  "numpy; python_version < '3.14'",
+  "numpy>=2.3.5; python_version >= '3.14'",
+  "SimpleITK",
+  "opencv-python-headless",
   "openpyxl",
   "pandas",
   "scikit-image",
@@ -37,14 +38,20 @@ dependencies = [
   "pynrrd",
   "nibabel",
   "tcia_utils",
+  "regex",
+  "lightning",
+  "timm",
 ]
 
 [project.optional-dependencies]
 dev = [
+  "torch",
+  "setuptools",
+  "wheel",
   "h5py",
   "pylint-django",
   "HolisticTraceAnalysis",
-  "pynvml",
+  "nvidia-ml-py",
   "pytest",
   "psutil",
   "memory-profiler",
@@ -59,8 +66,15 @@ dev = [
   "isort",
   "mypy",
   "pyupgrade",
+  "pre-commit",
 ]
-nvidia = [
+advanced = [
+  "torchio",
+  "onedl-mmcv[torch]",
+  "onedl-mmengine",
+  "onedl-mmsegmentation",
+]
+onnx = [
   "onnx",
   "onnxruntime",
   "onnxruntime-gpu",
@@ -72,15 +86,6 @@ pathology = [
   "opensdpc",
   "openslide-python",
   "openslide-bin",
-]
-pytorch = [
-  "lightning",
-  "timm",
-  "deepspeed",
-]
-mm = [
-  "ftfy",
-  "regex",
 ]
 gui = [
   "PyQt6",
@@ -95,6 +100,8 @@ itk_patch = "itkit.process.itk_patch:main"
 itk_check = "itkit.process.itk_check:main"
 itk_aug = "itkit.process.itk_aug:main"
 itk_extract = "itkit.process.itk_extract:main"
+itk_convert = "itkit.process.itk_convert:main"
+itk_evaluate = "itkit.process.itk_evaluate:main"
 itkit-app = "itkit.gui.app:main"
 
 [tool.setuptools.packages.find]

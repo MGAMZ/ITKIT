@@ -2,7 +2,7 @@
 
 # mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API
 
-[![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![SimpleITK >= 2.5.0](https://img.shields.io/badge/SimpleITK-%3E%3D2.5-yellow)](https://github.com/SimpleITK/SimpleITK) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![SimpleITK >= 2.5.0](https://img.shields.io/badge/SimpleITK-%3E%3D2.5-yellow)](https://github.com/SimpleITK/SimpleITK) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) ![CI Status](https://github.com/MGAMZ/ITKIT/actions/workflows/test.yml/badge.svg)
 
 `mgam-ITKIT` is a user-friendly toolkit built on `SimpleITK` and `Python`, designed for common data preprocessing operations in data-driven CT medical image analysis. It assumes a straightforward data sample structure and offers intuitive functions for checking, resampling, pre-segmenting, aligning, and enhancing such data. Each operation is specified by a dedicated command-line entry with a clear parameter list.
 
@@ -65,11 +65,9 @@ pip install ITKIT
 Optional dependencies:
 
 - dev: for development and testing
-- nvidia: onnx, tensorrt.
-- pathology: pathology IO.
-- pytorch: if you want to use the lightning extension. *Note that this dependency does not include `torch` itself, please install it separately according to your system and CUDA version.*
-- mm: if you want to use with OpenMMLab.
-- gui: if you want to use the PyQt6 GUI app.
+- advanced: for advanced image processing and deep learning features
+- pathology: for pathology image processing features
+- gui: for GUI usage
 
 ---
 
@@ -268,13 +266,153 @@ Notes
 - If no matching files are found, the script exits with a message.
 - Safe to combine recursive and mp; progress shown via tqdm.
 
+### itk_convert
+
+Convert ITKIT datasets between different formats and file types.
+
+```bash
+itk_convert <subcommand> <source_folder> <dest_folder> [options]
+```
+
+**Available subcommands:**
+- `format`: Convert medical image file formats (e.g., mha ↔ nii.gz ↔ nrrd)
+- `monai`: Convert to MONAI Decathlon format
+- `torchio`: Convert to TorchIO format
+
+#### Format Conversion (itk_convert format)
+
+Convert medical image files between different formats while preserving metadata and maintaining the ITKIT dataset structure.
+
+```bash
+itk_convert format <target_format> <source_folder> <dest_folder> [options]
+```
+
+Parameters
+
+- **target_format**: Target file format. Supported formats:
+  - `mha`: MetaImage (single file)
+  - `mhd`: MetaImage Header (with separate .raw file)
+  - `nii.gz`: Compressed NIfTI
+  - `nii`: NIfTI (uncompressed)
+  - `nrrd`: Nearly Raw Raster Data
+- **source_folder**: Path to ITKIT dataset (must contain `image/` and `label/` subfolders).
+- **dest_folder**: Path to output dataset (maintains same structure).
+- **--mp**: Enable multiprocessing.
+- **--workers** N: Number of worker processes for multiprocessing.
+
+Features
+
+- **Metadata Preservation**: Spacing, origin, and direction matrix are fully preserved.
+- **Data Integrity**: Pixel values remain unchanged during conversion.
+- **Bidirectional**: All formats can be converted to any other supported format.
+- **Structure Maintained**: Output maintains the ITKIT `image/` and `label/` folder structure with matching filenames.
+
+Examples
+
+```bash
+# Convert MHA to compressed NIfTI
+itk_convert format nii.gz /data/mha_dataset /data/nifti_dataset
+
+# Convert to NRRD with multiprocessing
+itk_convert format nrrd /data/input /data/output --mp --workers 8
+
+# Convert MHD to MHA
+itk_convert format mha /data/mhd_dataset /data/mha_dataset
+```
+
+#### MONAI Conversion (itk_convert monai)
+
+Convert ITKIT dataset to MONAI Decathlon format.
+
+```bash
+itk_convert monai <source_folder> <dest_folder> [options]
+```
+
+Parameters
+
+- **source_folder**: Path to ITKIT dataset (must contain `image/` and `label/` subfolders).
+- **dest_folder**: Path to output dataset in MONAI format.
+
+**MONAI-specific options:**
+- **--name**: Dataset name for the manifest file (default: `ITKITDataset`).
+- **--description**: Dataset description for the manifest file.
+- **--modality**: Primary imaging modality (default: `CT`).
+- **--split**: Which split to treat the data as: `train` | `val` | `test` | `all` (default: `train`).
+- **--labels**: Label names in order (e.g., `background liver tumor`). Index 0 is background.
+
+**Common options:**
+- **--mp**: Enable multiprocessing.
+- **--workers** N: Number of worker processes for multiprocessing.
+
+Outputs
+
+- Converted image and label files in `.nii.gz` format.
+- `dataset.json` manifest file containing metadata and file lists.
+- `meta.json` file containing ITKIT-style metadata for the converted files.
+
+Notes
+
+- Images are saved in `imagesTr/imagesTs/imagesVal` and labels in `labelsTr/Val` based on the `--split` parameter.
+- If `--labels` is not provided, the tool will attempt to discover unique classes from the label files and generate generic names.
+
+Example
+
+```bash
+itk_convert monai /data/itkit_dataset /data/monai_dataset \
+    --name MyDataset \
+    --modality CT \
+    --labels background liver tumor \
+    --mp
+```
+
+#### TorchIO Conversion (itk_convert torchio)
+
+Convert ITKIT dataset to TorchIO format.
+
+```bash
+itk_convert torchio <source_folder> <dest_folder> [options]
+```
+
+Parameters
+
+- **source_folder**: Path to ITKIT dataset (must contain `image/` and `label/` subfolders).
+- **dest_folder**: Path to output dataset in TorchIO format.
+
+**TorchIO-specific options:**
+- **--no-csv**: Skip creating `subjects.csv` manifest file.
+
+**Common options:**
+- **--mp**: Enable multiprocessing.
+- **--workers** N: Number of worker processes for multiprocessing.
+
+Outputs
+
+- Converted image and label files in `.nii.gz` format.
+- `subjects.csv` manifest file with subject paths (unless `--no-csv` is specified).
+- `meta.json` file containing ITKIT-style metadata for the converted files.
+
+Notes
+
+- Images are saved in `images/` and labels in `labels/` directories.
+
+Example
+
+```bash
+itk_convert torchio /data/itkit_dataset /data/torchio_dataset \
+    --mp
+```
+
 ## OpenMMLab Extensions for Medical Vision
 
 [OpenMMLab](https://github.com/open-mmlab) is an outstanding open‑source deep learning image analysis framework. ITKIT carries a set of OpenMMLab extension classes; based on mmengine and mmsegmentation, they define commonly used pipelines and computational modules for the medical imaging domain.
 
-**Unfortunately**, the upstream OpenMMLab project has gradually fallen out of maintenance, and I have to consider abandoning this portion of the development work.
+**Unfortunately**, the upstream `OpenMMLab` project has gradually fallen out of maintenance. `ITKIT` now recommend users to use `OneDL` redistribution of `OpenMMLab` instead. They're:
 
-Please install `monai` package before you use functions in this section.
+- OneDL-mmengine
+- OneDL-mmcv
+- OneDL-mmsegmentation
+
+Note: The `itk_convert monai` and `itk_convert torchio` commands do not require the `monai` or `torchio` Python packages to perform the conversion. Install these packages only if you plan to run MONAI or TorchIO-based deep learning workflows.
 
 ```bash
 pip install --no-deps monai

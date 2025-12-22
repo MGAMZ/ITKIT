@@ -111,7 +111,7 @@ class auto_runner:
             available_model_cfgs = [
                 py_file
                 for py_file in exp_cfg_folder.glob("*.py")
-                if py_file.name != "mgam.py"
+                if py_file.name != "mgam.py"  # TODO reasonlessly exclude mgam.py is confusing
             ]
             if len(available_model_cfgs) == 0:
                 raise FileNotFoundError(f"No available model config files found in directory: {exp_cfg_folder}")
