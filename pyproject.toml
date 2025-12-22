@@ -45,6 +45,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "torch",
+  "setuptools",
+  "wheel",
   "h5py",
   "pylint-django",
   "HolisticTraceAnalysis",
@@ -64,19 +67,20 @@ dev = [
   "mypy",
   "pyupgrade",
   "pre-commit",
-  "torchio",
 ]
 advanced = [
+  "torchio",
+  "onedl-mmcv[torch]",
+  "onedl-mmengine",
+  "onedl-mmsegmentation",
+]
+onnx = [
   "onnx",
   "onnxruntime",
   "onnxruntime-gpu",
   "onnx_graphsurgeon",
   "polygraphy",
   "tensorrt",
-  "torchio",
-  "onedl-mmcv",
-  "onedl-mmengine",
-  "onedl-mmsegmentation",
 ]
 pathology = [
   "opensdpc",
