@@ -14,7 +14,7 @@ def load_case_data(data_root:str, case_name:str):
     ct_path = os.path.join(case_path, 'ct.nii.gz')
     if not os.path.exists(ct_path):
         raise FileNotFoundError(f"CT scan file {ct_path} does not exist.")
-    ct_scan = nib.load(ct_path).get_fdata().astype(np.int16)
+    ct_scan = nib.load(ct_path).get_fdata().astype(np.int16)  # pyright: ignore[reportAttributeAccessIssue]
 
     # 读取所有分割文件
     segmentations_path = os.path.join(case_path, 'segmentations')
@@ -27,7 +27,7 @@ def load_case_data(data_root:str, case_name:str):
         if filename.endswith('.nii.gz'):
             class_name = filename.split('.')[0]
             file_path = os.path.join(segmentations_path, filename)
-            segmentations[class_name] = nib.load(file_path).get_fdata().astype(np.uint8)
+            segmentations[class_name] = nib.load(file_path).get_fdata().astype(np.uint8)  # pyright: ignore[reportAttributeAccessIssue]
 
     return {
         'ct_scan': ct_scan,
@@ -65,6 +65,6 @@ def calculate_overlap(segmentations):
         overlap_matrix += mask
         for index in np.ndindex(mask.shape):
             if mask[index]:
-                overlap_classes[index].append(class_name)
+                overlap_classes[index].append(class_name)  # pyright: ignore[reportAttributeAccessIssue]
 
     return overlap_matrix, overlap_classes

@@ -116,6 +116,7 @@ class SplitZ_Loss(torch.nn.Module):
     def __init__(self, split_Z:bool = False, **kwargs):
         super().__init__()
         self.split_Z = split_Z
+        self.monai_loss: torch.nn.Module
 
     def forward(self, pred: Tensor, target: Tensor, *args, **kwargs):
         """
@@ -166,7 +167,7 @@ class CrossEntropyLoss_3D(torch.nn.CrossEntropyLoss):
         self,
         ignore_1st_index: bool = False,
         batch_z: int | None = None,
-        class_weight: list[float] | None = None,
+        class_weight: Tensor | None = None,
         loss_weight: float = 1.0,
         loss_name: str = "loss_CrossEntropyLoss3D",
         *args, **kwargs,

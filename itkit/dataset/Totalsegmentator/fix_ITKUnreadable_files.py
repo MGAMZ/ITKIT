@@ -11,10 +11,10 @@ def fix_nifti_file(input_path, output_path):
     """修复 NIfTI 文件的 qform 和 sform"""
     try:
         img = nib.load(input_path)
-        qform = img.get_qform()
-        img.set_qform(qform)
-        sform = img.get_sform()
-        img.set_sform(sform)
+        qform = img.get_qform()  # pyright: ignore[reportAttributeAccessIssue]
+        img.set_qform(qform)  # pyright: ignore[reportAttributeAccessIssue]
+        sform = img.get_sform()  # pyright: ignore[reportAttributeAccessIssue]
+        img.set_sform(sform)  # pyright: ignore[reportAttributeAccessIssue]
         output_path.parent.mkdir(parents=True, exist_ok=True)
         nib.save(img, output_path)
         return True

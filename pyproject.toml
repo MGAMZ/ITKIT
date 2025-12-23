@@ -93,7 +93,6 @@ gui = [
 
 [project.scripts]
 mmrun = "itkit.mm.run:main"
-mmconc = "itkit.mm.summarize:main"
 itk_resample = "itkit.process.itk_resample:main"
 itk_orient = "itkit.process.itk_orient:main"
 itk_patch = "itkit.process.itk_patch:main"
@@ -120,7 +119,9 @@ exclude = [
   "**/*.egg-info/**",
   "itkit/dataset/SA_Med2D",
   "itkit/models",
+  "itkit/lightning"
 ]
+reportAttributeAccessIssue = false
 reportMissingImports = false
 reportIncompatibleMethodOverride = false
 reportIncompatibleVariableOverride = false

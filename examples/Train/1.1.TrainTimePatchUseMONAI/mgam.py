@@ -24,7 +24,7 @@ from itkit.process.GeneralPreProcess import WindowSet, TypeConvert
 from itkit.process.LoadBiomedicalData import LoadImageFromMHA, LoadMaskFromMHA
 from itkit.mm.mmseg_Dev3D import PackSeg3DInputs, Seg3DDataPreProcessor
 from itkit.mm.mmseg_PlugIn import IoUMetric_PerClass
-from itkit.dataset.base import mgam_concat_dataset, mgam_TorchIO_Patched_Structure
+from itkit.dataset import mgam_concat_dataset, mgam_MONAI_Patched_Structure
 from itkit.dataset.AbdomenCT_1K.mm_dataset import AbdomenCT_1K_Mha
 from itkit.mm.visualization import SegViser, BaseVisHook, LocalVisBackend
 
@@ -42,7 +42,7 @@ workers = 4 if not debug else 0  # DataLoader Worker
 
 # Starting
 resume = True
-load_from = None  # '/zyq_remote/mmseg/Sarcopenia/work_dirs/1.18.2.AugRot45/SegFormer3D/iter_100000.pth'
+load_from = None
 resume_optimizer = True
 resume_param_scheduler = True
 
@@ -101,10 +101,10 @@ val_pipeline = test_pipeline = [
 
 train_dataloader = dict(
     batch_size=batch_size_loader,
-    num_workers=0,
+    num_workers=workers,
     drop_last=False if debug else True,
     pin_memory=True,
-    persistent_workers=False,
+    persistent_workers=True if workers > 0 else False,
     collate_fn=dict(type=multi_sample_collate),
     sampler=dict(
         type=InfiniteSampler,
@@ -112,15 +112,13 @@ train_dataloader = dict(
     dataset=dict(
         type=mgam_concat_dataset,
         datasets=[
-            dict(type=mgam_TorchIO_Patched_Structure,
+            dict(type=mgam_MONAI_Patched_Structure,
                  data_root=data_root,
                  pipeline=train_pipeline,
                  split='train',
                  debug=debug,
                  patch_size=size,
-                 queue_max_length=500,
-                 samples_per_volume=100,
-                 queue_num_workers=workers),
+                 samples_per_volume=100),
         ]
     )
 )

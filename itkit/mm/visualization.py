@@ -160,7 +160,7 @@ class SegViser(BaseViser):
 
     def _parse_datasample(
         self,
-        image: torch.Tensor,
+        image,
         data_sample: BaseDataElement,
     ):
         """Parse data sample.

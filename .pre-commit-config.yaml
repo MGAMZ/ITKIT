@@ -52,5 +52,6 @@ repos:
         deprecated,
         psutil,
         tabulate,
+        torchio,
       ]
       pass_filenames: false
