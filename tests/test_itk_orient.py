@@ -5,7 +5,7 @@ import tempfile
 import pytest
 import SimpleITK as sitk
 
-from itkit.process.itk_orient import OrientProcessor, main
+from itkit.process.itk_orient import DatasetOrientProcessor, OrientProcessor, main
 
 
 def create_test_image(path: str, size=(10, 10, 10), spacing=(1.0, 1.0, 1.0), direction=None):
@@ -135,3 +135,138 @@ class TestOrientProcessor:
                 assert os.path.exists(os.path.join(dst_dir, 'test.mha'))
             finally:
                 sys.argv = original_argv
+
+
+@pytest.mark.itk_process
+class TestDatasetOrientProcessor:
+    def test_dataset_mode_successful_orientation(self):
+        """Test successful orientation of a dataset with image/label structure."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, 'src')
+            dst_dir = os.path.join(tmpdir, 'dst')
+            
+            # Create standard ITKIT structure
+            img_dir = os.path.join(src_dir, 'image')
+            lbl_dir = os.path.join(src_dir, 'label')
+            os.makedirs(img_dir)
+            os.makedirs(lbl_dir)
+            
+            # Create matching image and label files
+            create_test_image(os.path.join(img_dir, 'case01.mha'), direction=(1, 0, 0, 0, 1, 0, 0, 0, 1))
+            create_test_image(os.path.join(lbl_dir, 'case01.mha'), direction=(1, 0, 0, 0, 1, 0, 0, 0, 1))
+            create_test_image(os.path.join(img_dir, 'case02.mha'), direction=(1, 0, 0, 0, 1, 0, 0, 0, 1))
+            create_test_image(os.path.join(lbl_dir, 'case02.mha'), direction=(1, 0, 0, 0, 1, 0, 0, 0, 1))
+            
+            processor = DatasetOrientProcessor(src_dir, dst_dir, 'LPI', mp=False)
+            processor.process()
+            
+            # Check output structure
+            assert os.path.exists(os.path.join(dst_dir, 'image', 'case01.mha'))
+            assert os.path.exists(os.path.join(dst_dir, 'label', 'case01.mha'))
+            assert os.path.exists(os.path.join(dst_dir, 'image', 'case02.mha'))
+            assert os.path.exists(os.path.join(dst_dir, 'label', 'case02.mha'))
+            
+            # Verify orientation
+            img = sitk.ReadImage(os.path.join(dst_dir, 'image', 'case01.mha'))
+            expected_direction = sitk.DICOMOrient(sitk.Image((10,10,10), sitk.sitkUInt8), 'LPI').GetDirection()
+            assert img.GetDirection() == expected_direction
+
+    def test_dataset_mode_skip_existing(self):
+        """Test skipping when destination files already exist in dataset mode."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, 'src')
+            dst_dir = os.path.join(tmpdir, 'dst')
+            
+            # Create source structure
+            img_dir = os.path.join(src_dir, 'image')
+            lbl_dir = os.path.join(src_dir, 'label')
+            os.makedirs(img_dir)
+            os.makedirs(lbl_dir)
+            
+            create_test_image(os.path.join(img_dir, 'case01.mha'))
+            create_test_image(os.path.join(lbl_dir, 'case01.mha'))
+            
+            # Pre-create destination files
+            dst_img_dir = os.path.join(dst_dir, 'image')
+            dst_lbl_dir = os.path.join(dst_dir, 'label')
+            os.makedirs(dst_img_dir)
+            os.makedirs(dst_lbl_dir)
+            create_test_image(os.path.join(dst_img_dir, 'case01.mha'))
+            create_test_image(os.path.join(dst_lbl_dir, 'case01.mha'))
+            
+            processor = DatasetOrientProcessor(src_dir, dst_dir, 'LPI', mp=False)
+            processor.process()
+            
+            # Should not error, files should still exist
+            assert os.path.exists(os.path.join(dst_dir, 'image', 'case01.mha'))
+            assert os.path.exists(os.path.join(dst_dir, 'label', 'case01.mha'))
+
+    def test_dataset_mode_multiprocessing(self):
+        """Test dataset mode with multiprocessing enabled."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, 'src')
+            dst_dir = os.path.join(tmpdir, 'dst')
+            
+            # Create source structure
+            img_dir = os.path.join(src_dir, 'image')
+            lbl_dir = os.path.join(src_dir, 'label')
+            os.makedirs(img_dir)
+            os.makedirs(lbl_dir)
+            
+            # Create multiple cases
+            for i in range(5):
+                create_test_image(os.path.join(img_dir, f'case{i:02d}.mha'))
+                create_test_image(os.path.join(lbl_dir, f'case{i:02d}.mha'))
+            
+            processor = DatasetOrientProcessor(src_dir, dst_dir, 'LPI', mp=True, workers=2)
+            processor.process()
+            
+            # Check all outputs exist
+            for i in range(5):
+                assert os.path.exists(os.path.join(dst_dir, 'image', f'case{i:02d}.mha'))
+                assert os.path.exists(os.path.join(dst_dir, 'label', f'case{i:02d}.mha'))
+
+    def test_main_dataset_mode_success(self, capsys):
+        """Test main function with dataset mode."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, 'src')
+            dst_dir = os.path.join(tmpdir, 'dst')
+            
+            # Create standard ITKIT structure
+            img_dir = os.path.join(src_dir, 'image')
+            lbl_dir = os.path.join(src_dir, 'label')
+            os.makedirs(img_dir)
+            os.makedirs(lbl_dir)
+            
+            create_test_image(os.path.join(img_dir, 'case01.mha'))
+            create_test_image(os.path.join(lbl_dir, 'case01.mha'))
+            
+            original_argv = sys.argv
+            sys.argv = ['itk_orient.py', src_dir, dst_dir, 'LPI', '--field', 'dataset']
+            try:
+                main()
+                captured = capsys.readouterr()
+                # Check outputs exist
+                assert os.path.exists(os.path.join(dst_dir, 'image', 'case01.mha'))
+                assert os.path.exists(os.path.join(dst_dir, 'label', 'case01.mha'))
+            finally:
+                sys.argv = original_argv
+
+    def test_main_dataset_mode_missing_structure(self, capsys):
+        """Test main function with dataset mode but missing image/label folders."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = os.path.join(tmpdir, 'src')
+            dst_dir = os.path.join(tmpdir, 'dst')
+            os.makedirs(src_dir)
+            
+            # Don't create image/label subfolders
+            
+            original_argv = sys.argv
+            sys.argv = ['itk_orient.py', src_dir, dst_dir, 'LPI', '--field', 'dataset']
+            try:
+                main()
+                captured = capsys.readouterr()
+                assert "Error: Dataset mode requires 'image' and 'label' subfolders" in captured.out
+            finally:
+                sys.argv = original_argv
+
