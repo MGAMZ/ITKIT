@@ -10,13 +10,13 @@ or [B, C_in, H, W] -> [B, C_out, H, W] for 2D models.
 """
 
 import pytest
-import torch
+
+torch = pytest.importorskip("torch", reason="PyTorch not installed")
 
 
 @pytest.mark.torch
 def test_segformer3d_io():
     """Test SegFormer3D IO - reference implementation."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     from itkit.models.SegFormer3D import SegFormer3D
     
     # Create model
@@ -45,7 +45,6 @@ def test_segformer3d_io():
 @pytest.mark.torch
 def test_unetr_io():
     """Test UNETR IO."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     pytest.importorskip("monai", reason="MONAI not installed")
     from itkit.models.UNETR import UNETR
     
@@ -87,7 +86,6 @@ def test_unetr_io():
 @pytest.mark.torch
 def test_mednext_io():
     """Test MedNeXt IO."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     from itkit.models.MedNeXt import MedNeXt
     
     # Create model
@@ -126,7 +124,6 @@ def test_mednext_io():
 @pytest.mark.torch
 def test_mednext_deep_supervision_io():
     """Test MedNeXt with deep supervision IO."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     from itkit.models.MedNeXt import MedNeXt
     
     # Create model with deep supervision
@@ -170,7 +167,6 @@ def test_mednext_deep_supervision_io():
 @pytest.mark.torch
 def test_unet3plus_3d_io():
     """Test UNet3Plus 3D IO."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     from itkit.models.UNet3Plus import UNet3Plus
     
     # Create 3D model
@@ -208,7 +204,6 @@ def test_unet3plus_3d_io():
 @pytest.mark.torch
 def test_unet3plus_2d_io():
     """Test UNet3Plus 2D IO."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     from itkit.models.UNet3Plus import UNet3Plus
     
     # Create 2D model
@@ -246,7 +241,6 @@ def test_unet3plus_2d_io():
 @pytest.mark.torch
 def test_segmamba_io():
     """Test SegMamba IO."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     pytest.importorskip("mamba_ssm", reason="mamba_ssm not installed")
     pytest.importorskip("monai", reason="MONAI not installed")
     from itkit.models.SegMamba import SegMamba
@@ -284,7 +278,6 @@ def test_segmamba_io():
 @pytest.mark.torch
 def test_egeunet_io():
     """Test EGE-UNet IO (2D model)."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     from itkit.models.EGE_UNet import EGEUNet
     
     # Create model
@@ -319,7 +312,6 @@ def test_egeunet_io():
 @pytest.mark.torch
 def test_dconnnet_io():
     """Test DconnNet IO (2D model)."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     from itkit.models.DconnNet.DconnNet import DconnNet
     
     # Create model
@@ -350,7 +342,6 @@ def test_dconnnet_io():
 @pytest.mark.torch
 def test_smp_segformer_io():
     """Test SMP_Segformer IO (2D model using segmentation_models_pytorch)."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     pytest.importorskip("segmentation_models_pytorch", reason="segmentation_models_pytorch not installed")
     from itkit.models.SMP_Segformer import SMP_Segformer
     
@@ -384,7 +375,6 @@ def test_smp_segformer_io():
 @pytest.mark.torch
 def test_dsnet_io():
     """Test DSNet IO (2D model)."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     pytest.importorskip("torchvision", reason="torchvision not installed")
     from itkit.models.DSNet import VGG16_DSNet
     
@@ -412,7 +402,6 @@ def test_dsnet_io():
 @pytest.mark.torch
 def test_efficientnetv2_io():
     """Test EfficientNetV2 IO (classification model)."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     pytest.importorskip("timm", reason="timm not installed")
     from itkit.models.EfficientNet import EfficientNetV2
     
@@ -446,7 +435,6 @@ def test_efficientnetv2_io():
 @pytest.mark.torch
 def test_efficientformerv2_io():
     """Test EfficientFormerV2 IO (classification model)."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     pytest.importorskip("timm", reason="timm not installed")
     from itkit.models.EfficientFormer import EfficientFormerV2
     
@@ -480,7 +468,6 @@ def test_efficientformerv2_io():
 @pytest.mark.torch
 def test_swinumamba_io():
     """Test SwinUMamba IO."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     pytest.importorskip("mamba_ssm", reason="mamba_ssm not installed")
     from itkit.models.SwinUMamba import SwinUMambaD
     
@@ -533,7 +520,6 @@ def test_swinumamba_io():
 @pytest.mark.torch
 def test_volumevssm_io():
     """Test VolumeVSSM IO."""
-    pytest.importorskip("torch", reason="PyTorch not installed")
     pytest.importorskip("mamba_ssm", reason="mamba_ssm not installed")
     
     # For VolumeVSSM, we need a slice extractor backbone and aggregator
