@@ -39,7 +39,6 @@ def test_segformer3d_io():
     assert output.shape == expected_shape, \
         f"SegFormer3D output shape {output.shape} != expected {expected_shape}"
     
-    print(f"✓ SegFormer3D: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
@@ -80,7 +79,6 @@ def test_unetr_io():
     assert output.shape == expected_shape, \
         f"UNETR output shape {output.shape} != expected {expected_shape}"
     
-    print(f"✓ UNETR: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
@@ -118,7 +116,6 @@ def test_mednext_io():
     assert output.shape == expected_shape, \
         f"MedNeXt output shape {output.shape} != expected {expected_shape}"
     
-    print(f"✓ MedNeXt: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
@@ -161,7 +158,6 @@ def test_mednext_deep_supervision_io():
     assert main_output.shape == expected_shape, \
         f"MedNeXt main output shape {main_output.shape} != expected {expected_shape}"
     
-    print(f"✓ MedNeXt (deep supervision): Input {x.shape} -> Output list with main {main_output.shape}")
 
 
 @pytest.mark.torch
@@ -198,7 +194,6 @@ def test_unet3plus_3d_io():
     assert output.shape == expected_shape, \
         f"UNet3Plus 3D output shape {output.shape} != expected {expected_shape}"
     
-    print(f"✓ UNet3Plus 3D: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
@@ -235,7 +230,6 @@ def test_unet3plus_2d_io():
     assert output.shape == expected_shape, \
         f"UNet3Plus 2D output shape {output.shape} != expected {expected_shape}"
     
-    print(f"✓ UNet3Plus 2D: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
@@ -272,7 +266,6 @@ def test_segmamba_io():
     assert output.shape == expected_shape, \
         f"SegMamba output shape {output.shape} != expected {expected_shape}"
     
-    print(f"✓ SegMamba: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
@@ -306,7 +299,6 @@ def test_egeunet_io():
     assert output.shape == expected_shape, \
         f"EGE-UNet output shape {output.shape} != expected {expected_shape}"
     
-    print(f"✓ EGE-UNet: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
@@ -336,7 +328,6 @@ def test_dconnnet_io():
     assert output.shape[2] == height, "Height mismatch"
     assert output.shape[3] == width, "Width mismatch"
     
-    print(f"✓ DconnNet: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
@@ -369,7 +360,6 @@ def test_smp_segformer_io():
     assert output.shape == expected_shape, \
         f"SMP_Segformer output shape {output.shape} != expected {expected_shape}"
     
-    print(f"✓ SMP_Segformer: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
@@ -396,7 +386,6 @@ def test_dsnet_io():
     assert output.shape[0] == batch_size, "Batch size mismatch"
     assert output.shape[1] == 1, "DSNet should output 1 channel"
     
-    print(f"✓ DSNet: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
@@ -429,7 +418,6 @@ def test_efficientnetv2_io():
     assert output.shape == expected_shape, \
         f"EfficientNetV2 output shape {output.shape} != expected {expected_shape}"
     
-    print(f"✓ EfficientNetV2: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
@@ -462,7 +450,6 @@ def test_efficientformerv2_io():
     assert output.shape == expected_shape, \
         f"EfficientFormerV2 output shape {output.shape} != expected {expected_shape}"
     
-    print(f"✓ EfficientFormerV2: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
@@ -514,7 +501,6 @@ def test_swinumamba_io():
     assert output.shape == expected_shape, \
         f"SwinUMamba output shape {output.shape} != expected {expected_shape}"
     
-    print(f"✓ SwinUMamba: Input {x.shape} -> Output {output.shape}")
 
 
 @pytest.mark.torch
