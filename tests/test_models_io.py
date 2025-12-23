@@ -320,7 +320,7 @@ def test_egeunet_io():
 def test_dconnnet_io():
     """Test DconnNet IO (2D model)."""
     pytest.importorskip("torch", reason="PyTorch not installed")
-    from itkit.models.DconnNet import DconnNet
+    from itkit.models.DconnNet.DconnNet import DconnNet
     
     # Create model
     in_chans = 3
@@ -337,9 +337,10 @@ def test_dconnnet_io():
     with torch.no_grad():
         output = model(x)
     
-    # DconnNet outputs num_classes*8 channels, need to check what it actually returns
-    # The output should be [B, num_classes*8, H, W]
+    # DconnNet outputs num_classes*8 channels due to its architecture
+    # Validate basic shape constraints
     assert output.shape[0] == batch_size, "Batch size mismatch"
+    assert output.shape[1] == num_classes * 8, f"Expected {num_classes * 8} channels, got {output.shape[1]}"
     assert output.shape[2] == height, "Height mismatch"
     assert output.shape[3] == width, "Width mismatch"
     
@@ -541,6 +542,7 @@ def test_volumevssm_io():
 
 
 if __name__ == "__main__":
-    # Run tests manually for debugging
+    # Run a basic test manually for debugging
+    print("Running basic SegFormer3D test...")
     test_segformer3d_io()
-    print("All tests passed!")
+    print("\nNote: This only tests SegFormer3D. Run pytest to test all models.")
