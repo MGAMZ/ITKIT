@@ -90,7 +90,7 @@ def test_dataset_initialization_and_fetching(mock_dataset_dir):
 def test_dataloader_multiprocessing(mock_dataset_dir):
     """Test that the dataset works with multiple workers (sharding)"""
     import torch
-    
+
     patch_size = (32, 32, 32)
     # Use 0 queue workers to avoid nested multiprocessing issues in test environment
     dataset = mgam_TorchIO_Patched_Structure(
@@ -103,15 +103,15 @@ def test_dataloader_multiprocessing(mock_dataset_dir):
         queue_num_workers=0,
         mode='sup'
     )
-    
+
     # Use a DataLoader with multiprocessing
     dataloader = torch.utils.data.DataLoader(
-        dataset, 
-        batch_size=2, 
-        num_workers=2, 
+        dataset,
+        batch_size=2,
+        num_workers=2,
         shuffle=True
     )
-    
+
     # Iterate through one batch
     for batch in dataloader:
         assert 'img' in batch
@@ -173,7 +173,7 @@ def test_data_list_conversion(mock_dataset_dir):
     # Verify TorchIO subjects
     assert dataset.subjects_dataset is not None
     assert len(dataset.subjects_dataset) == 4
-    
+
     for subject in dataset.subjects_dataset:
         assert 'image' in subject
         assert 'label' in subject

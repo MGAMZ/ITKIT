@@ -19,13 +19,13 @@ def convert_nii_sitk(nii_path:str,
     # 加载并进行值域修正
     try:
         nib_img = nib.load(nii_path)
-        nib_array:np.ndarray = nib_img.get_fdata()
+        nib_array:np.ndarray = nib_img.get_fdata()  # pyright: ignore[reportAttributeAccessIssue]
         if value_offset is not None:
             nib_array = nib_array + value_offset
         nib_meta = nib_img.header
-        nib_spacing = nib_meta['pixdim'][1:4].tolist() # type: ignore
-        nib_origin = nib_meta.get_qform()[0:3, 3].tolist()
-        nib_direction = nib_meta.get_qform()[0:3, 0:3].flatten().tolist()
+        nib_spacing = nib_meta['pixdim'][1:4].tolist()  # pyright: ignore[reportIndexIssue]
+        nib_origin = nib_meta.get_qform()[0:3, 3].tolist()  # pyright: ignore[reportAttributeAccessIssue]
+        nib_direction = nib_meta.get_qform()[0:3, 0:3].flatten().tolist()  # pyright: ignore[reportAttributeAccessIssue]
     except Exception as e:
         raise ValueError(f"Failed to load NIfTI file: {nii_path}.") from e
 
@@ -72,7 +72,7 @@ def merge_masks(nii_paths: list[str],
 
             # 读取掩码文件
             mask = nib.load(seg_file_path)
-            mask_array = mask.get_fdata()
+            mask_array = mask.get_fdata()  # pyright: ignore[reportAttributeAccessIssue]
             # 初始化合并掩码
             if merged_mask is None:
                 merged_mask = np.zeros_like(mask_array, dtype=dtype)

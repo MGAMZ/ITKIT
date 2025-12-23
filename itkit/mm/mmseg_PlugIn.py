@@ -79,10 +79,10 @@ class IoUMetric_PerClass(IoUMetric):
         total_area_pred_label = torch.sum(torch.stack(results[2]), dim=0).cpu()
         total_area_label = torch.sum(torch.stack(results[3]), dim=0).cpu()
         per_class_eval_metrics = self.total_area_to_metrics(
-            total_area_intersect,
-            total_area_union,
-            total_area_pred_label,
-            total_area_label,
+            total_area_intersect,  # pyright: ignore[reportArgumentType]
+            total_area_union,  # pyright: ignore[reportArgumentType]
+            total_area_pred_label,  # pyright: ignore[reportArgumentType]
+            total_area_label,  # pyright: ignore[reportArgumentType]
             self.metrics,
             self.nan_to_num,
             self.beta,

@@ -91,7 +91,7 @@ def test_dataset_initialization_and_fetching(mock_dataset_dir):
 def test_dataloader_multiprocessing(mock_dataset_dir):
     """Test that the dataset works with multiple workers (sharding)"""
     import torch
-    
+
     patch_size = (32, 32, 32)
     dataset = mgam_MONAI_Patched_Structure(
         data_root=mock_dataset_dir,
@@ -101,17 +101,17 @@ def test_dataloader_multiprocessing(mock_dataset_dir):
         patch_size=patch_size,
         mode='sup'
     )
-    
+
     # Use a DataLoader with multiprocessing
     # num_workers=2 requires at least 2 volumes in the split to ensure each worker gets data
     # The mock dataset has 4 train subjects, so 2 workers is safe.
     dataloader = torch.utils.data.DataLoader(
-        dataset, 
-        batch_size=2, 
-        num_workers=2, 
+        dataset,
+        batch_size=2,
+        num_workers=2,
         shuffle=True
     )
-    
+
     # Iterate through one batch to trigger worker initialization and data fetching
     for batch in dataloader:
         assert 'img' in batch
