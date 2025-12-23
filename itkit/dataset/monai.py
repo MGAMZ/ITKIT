@@ -42,6 +42,10 @@ class mgam_MONAI_Patched_Structure(mgam_SemiSup_3D_Mha):
         data_info['img_shape'] = data_info['img'].shape
         data_info['ori_shape'] = data_info['img'].shape
 
+        # Remove keys with None values to avoid default_collate errors
+        if data_info.get('label_map') is None:
+            del data_info['label_map']
+
         return self.pipeline(data_info)
 
     def load_data_list(self) -> list[dict]:

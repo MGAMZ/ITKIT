@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Literal
 
+import torch
 import torchio as tio
 from mmengine.logging import MMLogger, print_log
 
@@ -24,6 +25,7 @@ class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
         self.queue_num_workers = queue_num_workers
         self.sampler_parameters = sampler_parameters or {}
 
+        self.subjects: list[tio.Subject] = []
         self.subjects_dataset: tio.SubjectsDataset | None = None
         self.tio_queue: tio.Queue | None = None
 
@@ -35,7 +37,7 @@ class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
         raw_data_list = super().load_data_list()
 
         # 2. Build TorchIO Subjects
-        subjects = []
+        self.subjects = []
         for item in raw_data_list:
             subject_dict: dict[str, Any] = {
                 'image': tio.ScalarImage(item['img_path']),
@@ -46,11 +48,31 @@ class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
             # Store original metadata
             subject = tio.Subject(**subject_dict)
             subject['mm_meta'] = item
-            subjects.append(subject)
+            self.subjects.append(subject)
 
-        self.subjects_dataset = tio.SubjectsDataset(subjects)
+        self.subjects_dataset = tio.SubjectsDataset(self.subjects)
 
-        # 3. Build Sampler
+        # 3. Return dummy list with correct length
+        # Length = num_subjects * samples_per_volume
+        return [{} for _ in range(len(self.subjects) * self.samples_per_volume)]
+
+    def _initialize_queue(self):
+        # 1. Determine subset of subjects for this worker
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is None:
+            # Main process or single worker
+            subset_subjects = self.subjects
+        else:
+            # Split subjects among workers
+            subset_subjects = self.subjects[worker_info.id::worker_info.num_workers]
+            if not subset_subjects:
+                 raise RuntimeError(f"Worker {worker_info.id} has no data. "
+                                   f"Reduce num_workers (dataset size: {len(self.subjects)}).")
+
+        # Create a dataset specifically for this queue (might be subset)
+        queue_dataset = tio.SubjectsDataset(subset_subjects)
+
+        # 2. Build Sampler
         if self.sampler_type == 'uniform':
             sampler = tio.data.UniformSampler(self.patch_size)
         elif self.sampler_type == 'weighted':
@@ -60,14 +82,14 @@ class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
         else:
             raise ValueError(f"Unknown sampler type: {self.sampler_type}")
 
-        # 4. Build Queue
-        print_log(f"Initializing TorchIO Queue with {len(subjects)} subjects, "
+        # 3. Build Queue
+        print_log(f"Initializing TorchIO Queue with {len(subset_subjects)} subjects (subset), "
                   f"max_len={self.queue_max_length}, workers={self.queue_num_workers}",
                   MMLogger.get_current_instance(),
                   logging.DEBUG)
 
         self.tio_queue = tio.Queue(
-            self.subjects_dataset,
+            queue_dataset,
             self.queue_max_length,
             self.samples_per_volume,
             sampler,
@@ -76,12 +98,12 @@ class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
             shuffle_patches=True
         )
 
-        # 5. Return dummy list with correct length
-        return [{} for _ in range(len(self.tio_queue))]  # pyright: ignore[reportArgumentType]
-
     def prepare_data(self, idx) -> Any:
         if self.tio_queue is None:
-             raise RuntimeError("Queue not initialized.")
+             self._initialize_queue()
+
+        if self.tio_queue is None: # Should not happen
+            raise RuntimeError("Queue initialization failed.")
 
         patch = self.tio_queue[0]
         data_info = patch.get('mm_meta', {}).copy()

@@ -42,7 +42,7 @@ workers = 4 if not debug else 0  # DataLoader Worker
 
 # Starting
 resume = True
-load_from = None  # '/zyq_remote/mmseg/Sarcopenia/work_dirs/1.18.2.AugRot45/SegFormer3D/iter_100000.pth'
+load_from = None
 resume_optimizer = True
 resume_param_scheduler = True
 
