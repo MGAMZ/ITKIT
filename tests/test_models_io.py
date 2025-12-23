@@ -381,6 +381,34 @@ def test_smp_segformer_io():
 
 
 @pytest.mark.torch
+def test_dsnet_io():
+    """Test DSNet IO (2D model)."""
+    pytest.importorskip("torch", reason="PyTorch not installed")
+    pytest.importorskip("torchvision", reason="torchvision not installed")
+    from itkit.models.DSNet import VGG16_DSNet
+    
+    # Create model
+    model = VGG16_DSNet(logits_resize=None)
+    model.eval()
+    
+    # Test input (2D)
+    batch_size = 2
+    in_channels = 3
+    height, width = 224, 224
+    x = torch.randn(batch_size, in_channels, height, width)
+    
+    # Forward pass
+    with torch.no_grad():
+        output = model(x)
+    
+    # Check output - DSNet outputs single channel saliency map
+    assert output.shape[0] == batch_size, "Batch size mismatch"
+    assert output.shape[1] == 1, "DSNet should output 1 channel"
+    
+    print(f"✓ DSNet: Input {x.shape} -> Output {output.shape}")
+
+
+@pytest.mark.torch
 def test_efficientnetv2_io():
     """Test EfficientNetV2 IO (classification model)."""
     pytest.importorskip("torch", reason="PyTorch not installed")
