@@ -267,8 +267,14 @@ class DatasetCheckProcessor(DatasetProcessor, CheckMixin):
 
     def op_symlink(self, name: str, paths: Any, output_dir: str):
         img_src, lbl_src = paths
-        os.symlink(img_src, os.path.join(output_dir, "image", name))
-        os.symlink(lbl_src, os.path.join(output_dir, "label", name))
+
+        img_dst = os.path.join(output_dir, "image", name)
+        img_target = os.path.relpath(os.path.abspath(img_src), os.path.dirname(os.path.abspath(img_dst)))
+        os.symlink(img_target, img_dst)
+
+        lbl_dst = os.path.join(output_dir, "label", name)
+        lbl_target = os.path.relpath(os.path.abspath(lbl_src), os.path.dirname(os.path.abspath(lbl_dst)))
+        os.symlink(lbl_target, lbl_dst)
 
     def op_copy(self, name: str, paths: Any, output_dir: str):
         img_src, lbl_src = paths
@@ -345,7 +351,9 @@ class SingleCheckProcessor(SingleFolderProcessor, CheckMixin):
         if os.path.exists(paths): os.remove(paths)
 
     def op_symlink(self, name: str, paths: Any, output_dir: str):
-        os.symlink(paths, os.path.join(output_dir, name))
+        dst = os.path.join(output_dir, name)
+        target = os.path.relpath(os.path.abspath(paths), os.path.dirname(os.path.abspath(dst)))
+        os.symlink(target, dst)
 
     def op_copy(self, name: str, paths: Any, output_dir: str):
         shutil.copy(paths, output_dir)
