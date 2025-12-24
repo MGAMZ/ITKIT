@@ -86,7 +86,9 @@ class group_aggregation_bridge(nn.Module):
             LayerNorm(normalized_shape=dim_xl * 2 + 4, data_format='channels_first'),
             nn.Conv2d(dim_xl * 2 + 4, dim_xl, 1)
         )
-    def forward(self, xh, xl, mask):
+    def forward(self, xh, xl, mask=None):
+        if mask is None:
+            mask = torch.zeros(xl.size(0), 1, xl.size(2), xl.size(3)).to(xl.device)
         xh = self.pre_project(xh)
         xh = F.interpolate(xh, size=[xl.size(2), xl.size(3)], mode ='bilinear', align_corners=True)
         xh = torch.chunk(xh, 4, dim=1)
