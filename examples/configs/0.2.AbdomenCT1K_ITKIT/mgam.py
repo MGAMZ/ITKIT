@@ -24,8 +24,8 @@ from itkit.process.GeneralPreProcess import WindowSet, TypeConvert
 from itkit.process.LoadBiomedicalData import LoadImageFromMHA, LoadMaskFromMHA
 from itkit.mm.mmseg_Dev3D import PackSeg3DInputs, Seg3DDataPreProcessor
 from itkit.mm.mmseg_PlugIn import IoUMetric_PerClass
-from itkit.dataset import mgam_concat_dataset, mgam_MONAI_Patched_Structure
-from itkit.dataset.AbdomenCT_1K.mm_dataset import AbdomenCT_1K_Mha
+from itkit.dataset import mgam_concat_dataset
+from itkit.dataset.AbdomenCT_1K.mm_dataset import AbdomenCT_1K_Mha, AbdomenCT_1K_Patch
 from itkit.mm.visualization import SegViser, BaseVisHook, LocalVisBackend
 
 
@@ -33,7 +33,7 @@ from itkit.mm.visualization import SegViser, BaseVisHook, LocalVisBackend
 # --------------------PARAMETERS-------------------- #
 
 # PyTorchz
-debug = False   # 调试模式
+debug = True   # 调试模式
 use_AMP = True  # AMP加速
 dist = False if not debug else False  # distribution
 MP_mode = "ddp"  # 分布式计算模式 Literal[`"ddp", "fsdp", "deepspeed"]
@@ -54,7 +54,7 @@ weight_decay = 1e-2
 in_channels = 1
 
 # 流程控制
-iters = 500000 if not debug else 3
+iters = 100000 if not debug else 3
 logger_interval = 200 if not debug else 1
 val_on_train = True
 val_sample_ratio = 0.1 if not debug else 0.01
@@ -69,7 +69,7 @@ dynamic_intervals = [ # 动态验证间隔
 dynamic_intervals = None
 
 # Dataset
-data_root = '/mnt/wsl/Fwsldatavhdx/mgam_datasets/AbdomenCT_1K/spacing1/'
+data_root = "/mnt/wsl/Fwsldatavhdx/mgam_datasets/AbdomenCT_1K/original"
 num_classes = 5
 wl = 50     # window level
 ww = 300    # window width
@@ -87,6 +87,8 @@ meta_keys = ('img_path', 'seg_map_path', 'ori_shape',
              'img_shape', 'reduce_zero_label', 'seg_fields')
 
 train_pipeline = [
+    dict(type=LoadImageFromMHA),
+    dict(type=LoadMaskFromMHA),
     dict(type=WindowSet, level=wl, width=ww),
     dict(type=TypeConvert, key=['img'], dtype='float16'),
     dict(type=PackSeg3DInputs, meta_keys=meta_keys),
@@ -112,13 +114,11 @@ train_dataloader = dict(
     dataset=dict(
         type=mgam_concat_dataset,
         datasets=[
-            dict(type=mgam_MONAI_Patched_Structure,
+            dict(type=AbdomenCT_1K_Patch+"/patch96",
                  data_root=data_root,
                  pipeline=train_pipeline,
                  split='train',
-                 debug=debug,
-                 patch_size=size,
-                 samples_per_volume=100),
+                 debug=debug),
         ]
     )
 )
@@ -329,5 +329,5 @@ env_cfg = dict(
     torch_logging_level="ERROR",
 )
 log_processor = dict(by_epoch=False)
-log_level = 'INFO'
+log_level = 'DEBUG'
 tta_model = None
