@@ -11,7 +11,7 @@ from itkit.process.metadata_models import SeriesMetadata
 
 class DatasetOrientProcessor(DatasetProcessor):
     """Processor for orienting datasets with image/label structure."""
-    
+
     def __init__(self,
                  source_folder: str,
                  dest_folder: str,
@@ -20,23 +20,25 @@ class DatasetOrientProcessor(DatasetProcessor):
                  workers: int | None = None):
         super().__init__(source_folder, dest_folder, mp=mp, workers=workers)
         self.orient = orient
-    
+
     def process_one(self, args: tuple[str, str]) -> SeriesMetadata | None:
         """Process one image-label pair."""
         img_path, lbl_path = args
-        
+
         # Compute output paths preserving structure
         img_rel_path = os.path.relpath(img_path, os.path.join(self.source_folder, "image"))
         lbl_rel_path = os.path.relpath(lbl_path, os.path.join(self.source_folder, "label"))
-        
+
+        if self.dest_folder is None:
+            raise ValueError("Destination folder is not set.")
         img_dst_path = os.path.join(self.dest_folder, "image", img_rel_path)
         lbl_dst_path = os.path.join(self.dest_folder, "label", lbl_rel_path)
-        
+
         # Skip if both already exist
         if os.path.exists(img_dst_path) and os.path.exists(lbl_dst_path):
             print(f"Target files already exist, skipping: {img_dst_path}, {lbl_dst_path}")
             return None
-        
+
         # Process image
         try:
             img = sitk.ReadImage(img_path)
@@ -46,7 +48,7 @@ class DatasetOrientProcessor(DatasetProcessor):
         except Exception as e:
             print(f"Error processing image {img_path}: {e}")
             return None
-        
+
         # Process label
         try:
             lbl = sitk.ReadImage(lbl_path)
@@ -56,7 +58,7 @@ class DatasetOrientProcessor(DatasetProcessor):
         except Exception as e:
             print(f"Error processing label {lbl_path}: {e}")
             return None
-        
+
         # Return metadata from label (include_classes will be computed)
         return SeriesMetadata(
             name=Path(lbl_dst_path).name,
