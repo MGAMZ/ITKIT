@@ -91,7 +91,7 @@ class TestCheckProcessor:
 
             assert len(valid_items) == 2
             assert len(invalid_items) == 2
-            assert os.path.exists(os.path.join(tmpdir, 'series_meta.json'))
+            assert os.path.exists(os.path.join(tmpdir, 'meta.json'))
 
     def test_single_check_mode(self):
         """Test single folder mode with check operation"""
@@ -111,10 +111,10 @@ class TestCheckProcessor:
 
             assert len(valid_items) == 2
             assert len(invalid_items) == 1
-            assert os.path.exists(os.path.join(tmpdir, 'series_meta.json'))
+            assert os.path.exists(os.path.join(tmpdir, 'meta.json'))
 
     def test_fast_check_with_existing_meta(self):
-        """Test fast check when series_meta.json already exists"""
+        """Test fast check when meta.json already exists"""
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [
                 ('test1', (64, 128, 128), (1.0, 0.5, 0.5)),
@@ -126,7 +126,7 @@ class TestCheckProcessor:
 
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
 
-            meta_path = os.path.join(tmpdir, 'series_meta.json')
+            meta_path = os.path.join(tmpdir, 'meta.json')
             assert os.path.exists(meta_path)
 
             processor2 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
@@ -214,8 +214,8 @@ class TestCheckProcessor:
                 out_lbl_link = os.path.join(out_dir, 'label', 'valid.mha')
                 assert os.path.islink(out_img_link)
                 assert os.path.islink(out_lbl_link)
-                assert os.readlink(out_img_link) == valid_img
-                assert os.readlink(out_lbl_link) == valid_lbl
+                assert os.path.realpath(out_img_link) == os.path.realpath(valid_img)
+                assert os.path.realpath(out_lbl_link) == os.path.realpath(valid_lbl)
             else:  # single
                 src_dir = os.path.join(tmpdir, 'source')
                 out_dir = os.path.join(tmpdir, 'output')
@@ -233,7 +233,7 @@ class TestCheckProcessor:
                 valid_path = os.path.join(src_dir, 'valid.mha')
                 out_link = os.path.join(out_dir, 'valid.mha')
                 assert os.path.islink(out_link)
-                assert os.readlink(out_link) == valid_path
+                assert os.path.realpath(out_link) == os.path.realpath(valid_path)
 
     def test_validation_rules(self):
         """Test various validation rules"""
@@ -250,7 +250,7 @@ class TestCheckProcessor:
             assert len(self._get_valid_items(processor)) == 1
 
     def test_series_meta_persistence(self):
-        """Test that series_meta.json is correctly saved"""
+        """Test that meta.json is correctly saved"""
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [('test1', (64, 128, 128), (1.0, 0.5, 0.5))]
             setup_dataset_test_data(tmpdir, image_specs)
@@ -258,7 +258,7 @@ class TestCheckProcessor:
             cfg = create_default_cfg()
             processor = run_check_processor(tmpdir, cfg, mode='check', mp=False)
 
-            meta_path = os.path.join(tmpdir, 'series_meta.json')
+            meta_path = os.path.join(tmpdir, 'meta.json')
             assert os.path.exists(meta_path)
 
             with open(meta_path, 'r') as f:
@@ -369,7 +369,7 @@ class TestCheckProcessor:
             assert len(invalid_items) == 1
 
     def test_corrupted_meta_json_misleads_check(self):
-        """Test that corrupted series_meta.json can mislead validation results"""
+        """Test that corrupted meta.json can mislead validation results"""
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [
                 ('sample1', (64, 128, 128), (1.0, 0.5, 0.5)),
@@ -379,7 +379,7 @@ class TestCheckProcessor:
 
             cfg = create_default_cfg(min_size=[50, 100, 100])
 
-            # First check: generate series_meta.json
+            # First check: generate meta.json
             processor1 = run_check_processor(tmpdir, cfg, mode='check', mp=False)
 
             valid_items1 = self._get_valid_items(processor1)
@@ -391,10 +391,10 @@ class TestCheckProcessor:
             assert valid_items1[0].name == 'sample1.mha'
             assert invalid_items1[0].name == 'sample2.mha'
 
-            meta_path = os.path.join(tmpdir, 'series_meta.json')
+            meta_path = os.path.join(tmpdir, 'meta.json')
             assert os.path.exists(meta_path)
 
-            # Corrupt series_meta.json: change sample2's size to look valid
+            # Corrupt meta.json: change sample2's size to look valid
             with open(meta_path, 'r') as f:
                 meta = json.load(f)
 
@@ -435,8 +435,8 @@ class TestCheckProcessor:
             assert len(invalid_items1) == 1, f"Expected 1 invalid, got {len(invalid_items1)}"
             assert 'spacing' in invalid_items1[0].reasons[0], f"Expected spacing error, got {invalid_items1[0].reasons}"
 
-            meta_path = os.path.join(tmpdir, 'series_meta.json')
-            assert os.path.exists(meta_path), "series_meta.json should be created"
+            meta_path = os.path.join(tmpdir, 'meta.json')
+            assert os.path.exists(meta_path), "meta.json should be created"
 
             # Corrupt metadata to hide the high Z spacing
             with open(meta_path, 'r') as f:
@@ -470,7 +470,7 @@ class TestCheckProcessor:
             assert real_spacing[2] == 5.0, "Real file still has high Z spacing"
 
     def test_meta_json_missing_entries(self):
-        """Test behavior when series_meta.json is missing some entries"""
+        """Test behavior when meta.json is missing some entries"""
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [
                 ('sample1', (64, 128, 128), (1.0, 0.5, 0.5)),
@@ -485,7 +485,7 @@ class TestCheckProcessor:
 
             assert len(self._get_valid_items(processor1)) == 2
 
-            meta_path = os.path.join(tmpdir, 'series_meta.json')
+            meta_path = os.path.join(tmpdir, 'meta.json')
 
             # Remove sample2 from metadata
             with open(meta_path, 'r') as f:
@@ -521,7 +521,7 @@ class TestCheckProcessor:
             assert len(self._get_invalid_items(processor1)) == 2
             assert len(self._get_valid_items(processor1)) == 0
 
-            meta_path = os.path.join(tmpdir, 'series_meta.json')
+            meta_path = os.path.join(tmpdir, 'meta.json')
 
             # Corrupt all entries to appear valid
             with open(meta_path, 'r') as f:
@@ -560,7 +560,7 @@ class TestCheckProcessor:
             assert len(invalid_items1) == 1
             assert invalid_items1[0].name == 'img2.mha'
 
-            meta_path = os.path.join(tmpdir, 'series_meta.json')
+            meta_path = os.path.join(tmpdir, 'meta.json')
 
             # Corrupt metadata
             with open(meta_path, 'r') as f:
@@ -647,13 +647,13 @@ class TestCheckProcessor:
             assert len(self._get_valid_items(processor)) == 1  # Z=32 <50 but skipped, Y,X ok
 
     def test_empty_series_meta_json(self):
-        """Test fast check with empty series_meta.json"""
+        """Test fast check with empty meta.json"""
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [('test', (64, 128, 128), (1.0, 0.5, 0.5))]
             setup_dataset_test_data(tmpdir, image_specs)
 
             # Create empty meta
-            meta_path = os.path.join(tmpdir, 'series_meta.json')
+            meta_path = os.path.join(tmpdir, 'meta.json')
             with open(meta_path, 'w') as f:
                 json.dump({}, f)
 
@@ -665,13 +665,13 @@ class TestCheckProcessor:
             assert len(self._get_invalid_items(processor)) == 0
 
     def test_invalid_json_meta(self):
-        """Test with invalid JSON in series_meta.json"""
+        """Test with invalid JSON in meta.json"""
         with tempfile.TemporaryDirectory() as tmpdir:
             image_specs = [('test', (64, 128, 128), (1.0, 0.5, 0.5))]
             setup_dataset_test_data(tmpdir, image_specs)
 
             # Create invalid JSON
-            meta_path = os.path.join(tmpdir, 'series_meta.json')
+            meta_path = os.path.join(tmpdir, 'meta.json')
             with open(meta_path, 'w') as f:
                 f.write("invalid json")
 
@@ -698,14 +698,35 @@ class TestCheckProcessor:
             assert len(self._get_valid_items(processor)) == 1  # Would be valid if processed
             assert not os.path.exists(os.path.join(tmpdir, 'output'))  # No output dir created
 
-    def test_symlink_mode_no_output_dir(self):
-        """Test symlink mode without output_dir"""
+    def test_multiprocessing_full_check_symlink(self):
+        """Test that multiprocessing full check correctly populates results and performs symlink"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            image_specs = [('test', (64, 128, 128), (1.0, 0.5, 0.5))]
-            setup_single_folder_test_data(tmpdir, image_specs)
+            source_dir = os.path.join(tmpdir, 'source')
+            output_dir = os.path.join(tmpdir, 'output')
+            os.makedirs(source_dir)
 
-            cfg = create_default_cfg()
-            processor = CheckProcessor(tmpdir, cfg, 'symlink', mp=False)
-            processor.process()  # Should print error and not crash
-            assert len(self._get_valid_items(processor)) == 1  # Would be valid if processed
-            assert not os.path.exists(os.path.join(tmpdir, 'output'))  # No output dir created
+            image_specs = [
+                ('valid1', (64, 128, 128), (1.0, 0.5, 0.5)),
+                ('valid2', (80, 128, 128), (1.0, 0.5, 0.5)),
+            ]
+            setup_dataset_test_data(source_dir, image_specs)
+
+            cfg = create_default_cfg(min_size=[50, 100, 100])
+
+            # Run with mp=True and no existing meta.json (full check)
+            processor = run_check_processor(source_dir, cfg, mode='symlink', output_dir=output_dir, mp=True, workers=2)
+
+            valid_items = self._get_valid_items(processor)
+            assert len(valid_items) == 2
+
+            # Check if meta.json was created in source folder (as per the fix)
+            assert os.path.exists(os.path.join(source_dir, 'meta.json'))
+
+            # Check if symlinks were created in output folder
+            assert os.path.exists(os.path.join(output_dir, 'image', 'valid1.mha'))
+            assert os.path.exists(os.path.join(output_dir, 'image', 'valid2.mha'))
+            assert os.path.exists(os.path.join(output_dir, 'label', 'valid1.mha'))
+            assert os.path.exists(os.path.join(output_dir, 'label', 'valid2.mha'))
+
+            # Verify they are indeed symlinks
+            assert os.path.islink(os.path.join(output_dir, 'image', 'valid1.mha'))

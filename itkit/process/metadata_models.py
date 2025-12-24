@@ -92,11 +92,15 @@ class MetadataManager:
         if (meta_file_path is None) or (not Path(meta_file_path).exists()):
             self.meta: dict[str, SeriesMetadata] = {}
         else:
-            data = json.loads(Path(meta_file_path).read_text())
-            self.meta = {
-                name: SeriesMetadata.model_validate({"name": name, **meta})
-                for name, meta in data.items()
-            }
+            try:
+                data = json.loads(Path(meta_file_path).read_text())
+                self.meta = {
+                    name: SeriesMetadata.model_validate({"name": name, **meta})
+                    for name, meta in data.items()
+                }
+            except (json.JSONDecodeError, Exception):
+                # If file is corrupted or invalid, start with empty metadata
+                self.meta = {}
 
     @property
     def series_uids(self) -> list[str]:

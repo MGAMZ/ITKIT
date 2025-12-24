@@ -140,10 +140,10 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
     def _load_series_meta(self):
         if self._series_meta_cache is not None:
             return self._series_meta_cache
-        meta_path = os.path.join(self.data_root_mha, 'series_meta.json')
+        meta_path = os.path.join(self.data_root_mha, "meta.json")
 
         if not os.path.isfile(meta_path):
-            print_log(f'series_meta.json 未找到: {meta_path}. 将跳过 size/spacing 过滤。', MMLogger.get_current_instance(), logging.WARNING)
+            print_log(f'meta.json 未找到: {meta_path}. 将跳过 size/spacing 过滤。', MMLogger.get_current_instance(), logging.WARNING)
             self._series_meta_cache = {}
             return self._series_meta_cache
 
@@ -151,7 +151,7 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
             with open(meta_path) as f:
                 self._series_meta_cache = json.load(f)
         except Exception as e:
-            print_log(f'读取 series_meta.json 失败 ({e}), 跳过过滤。', MMLogger.get_current_instance(), logging.ERROR)
+            print_log(f'读取 meta.json 失败 ({e}), 跳过过滤。', MMLogger.get_current_instance(), logging.ERROR)
             self._series_meta_cache = {}
 
         return self._series_meta_cache
