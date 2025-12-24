@@ -59,7 +59,7 @@ def test_unetr_io():
         hidden_size=256,
         mlp_dim=1024,
         num_heads=4,
-        pos_embed="perceptron",
+        pos_embed="learnable",
         norm_name="instance",
         res_block=True,
     )
@@ -319,7 +319,7 @@ def test_dconnnet_io():
 
     # Forward pass
     with torch.no_grad():
-        output = model(x)
+        output, _ = model(x)
 
     # DconnNet outputs num_classes*8 channels due to its architecture
     # Validate basic shape constraints
@@ -390,15 +390,15 @@ def test_dsnet_io():
 
 @pytest.mark.torch
 def test_efficientnetv2_io():
-    """Test EfficientNetV2 IO (classification model)."""
+    """Test EfficientNetV2 IO (segmentation model)."""
     pytest.importorskip("timm", reason="timm not installed")
     from itkit.models.EfficientNet import EfficientNetV2
 
     # Create model
     num_classes = 10
     model = EfficientNetV2(
+        out_channels=num_classes,
         model_name="efficientnetv2_rw_s",
-        num_classes=num_classes,
         in_chans=3,
     )
     model.eval()
@@ -413,8 +413,8 @@ def test_efficientnetv2_io():
     with torch.no_grad():
         output = model(x)
 
-    # Classification output should be [B, num_classes]
-    expected_shape = (batch_size, num_classes)
+    # Segmentation output should be [B, num_classes, H, W]
+    expected_shape = (batch_size, num_classes, height, width)
     assert output.shape == expected_shape, \
         f"EfficientNetV2 output shape {output.shape} != expected {expected_shape}"
 
@@ -422,15 +422,15 @@ def test_efficientnetv2_io():
 
 @pytest.mark.torch
 def test_efficientformerv2_io():
-    """Test EfficientFormerV2 IO (classification model)."""
+    """Test EfficientFormerV2 IO (segmentation model)."""
     pytest.importorskip("timm", reason="timm not installed")
     from itkit.models.EfficientFormer import EfficientFormerV2
 
     # Create model
     num_classes = 10
     model = EfficientFormerV2(
+        out_channels=num_classes,
         model_name="efficientformer_l1",
-        num_classes=num_classes,
         in_chans=3,
     )
     model.eval()
@@ -445,8 +445,8 @@ def test_efficientformerv2_io():
     with torch.no_grad():
         output = model(x)
 
-    # Classification output should be [B, num_classes]
-    expected_shape = (batch_size, num_classes)
+    # Segmentation output should be [B, num_classes, H, W]
+    expected_shape = (batch_size, num_classes, height, width)
     assert output.shape == expected_shape, \
         f"EfficientFormerV2 output shape {output.shape} != expected {expected_shape}"
 

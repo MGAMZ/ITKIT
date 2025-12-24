@@ -85,7 +85,7 @@ dataset_root
 │   ├── a.mha
 │   ├── b.mha
 │   └── ...
-└── series_meta.json
+└── meta.json
 ```
 
 ## ITK Preprocessing
@@ -163,7 +163,7 @@ Notes
 
 - `--target-folder` is mutually exclusive with `--spacing/--size`.
 - Triplets use Z, Y, X order.
-- Outputs: resampled files in dest_folder, plus `resample_configs.json` and `series_meta.json`.
+- Outputs: resampled files in dest_folder, plus `resample_configs.json` and `meta.json`.
 
 ### itk_orient
 

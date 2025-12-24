@@ -54,7 +54,7 @@ weight_decay = 1e-2
 in_channels = 1
 
 # 流程控制
-iters = 500000 if not debug else 3
+iters = 100000 if not debug else 3
 logger_interval = 200 if not debug else 1
 val_on_train = True
 val_sample_ratio = 0.1 if not debug else 0.01
@@ -69,7 +69,7 @@ dynamic_intervals = [ # 动态验证间隔
 dynamic_intervals = None
 
 # Dataset
-data_root = '/mnt/wsl/Fwsldatavhdx/mgam_datasets/AbdomenCT_1K/spacing1/'
+data_root = "/mnt/wsl/Fwsldatavhdx/mgam_datasets/AbdomenCT_1K/original"
 num_classes = 5
 wl = 50     # window level
 ww = 300    # window width
@@ -329,5 +329,5 @@ env_cfg = dict(
     torch_logging_level="ERROR",
 )
 log_processor = dict(by_epoch=False)
-log_level = 'INFO'
+log_level = 'DEBUG'
 tta_model = None

@@ -35,6 +35,8 @@ class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
         # 1. Load original data list (paths)
         # This calls mgam_BaseSegDataset.load_data_list -> sample_iterator
         raw_data_list = super().load_data_list()
+        print_log(f"Loaded {len(raw_data_list)} subjects from data list.",
+                  MMLogger.get_current_instance(), logging.DEBUG)
 
         # 2. Build TorchIO Subjects
         self.subjects = []

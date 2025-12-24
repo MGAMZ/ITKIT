@@ -10,27 +10,29 @@ import torch.nn.functional as F
 class EfficientFormerV2(torch.nn.Module):
     def __init__(self,
                  out_channels:int=1,
-                 embed_dims:list[int]=[32, 64, 144, 288],
+                 model_name:str='efficientformerv2_s2.snap_dist_in1k',
+                 in_chans:int=3,
                  activation:Callable|None=None,
                  *args, **kwargs):
         super().__init__()
 
         self.encoder = timm.create_model(
-            model_name='efficientformerv2_s2.snap_dist_in1k',
+            model_name=model_name,
             pretrained=False,
             features_only=True,
+            in_chans=in_chans,
             *args, **kwargs)
         self.activation = activation if activation is not None else nn.Identity()
-        encoder_channels = embed_dims
-        decoder_channels = embed_dims[::-1]
+        encoder_channels = self.encoder.feature_info.channels()
+        decoder_channels = encoder_channels[::-1]
         self.decoder_blocks = nn.ModuleList()
         self.decoder_blocks.append(
-            self._make_decoder_block(encoder_channels[3], decoder_channels[0])
+            self._make_decoder_block(encoder_channels[-1], decoder_channels[0])
         )
 
         # 其余解码器块（包含跳跃连接）
-        for i in range(1, 4):
-            in_channels = decoder_channels[i-1] + encoder_channels[4-i]  # 上采样特征 + 跳跃连接特征
+        for i in range(1, len(encoder_channels)):
+            in_channels = decoder_channels[i-1] + encoder_channels[-(i+1)]  # 上采样特征 + 跳跃连接特征
             layer_out_channels = decoder_channels[i]
             self.decoder_blocks.append(
                 self._make_decoder_block(in_channels, layer_out_channels)
@@ -55,19 +57,19 @@ class EfficientFormerV2(torch.nn.Module):
         encoder_features = self.encoder(x)
 
         # 解码器前向传播
-        decoder_output = self.decoder_blocks[0](encoder_features[3])
+        decoder_output = self.decoder_blocks[0](encoder_features[-1])
         # 逐层上采样并融合跳跃连接
-        for i in range(1, 4):
+        for i in range(1, len(self.decoder_blocks)):
             # 上采样到与跳跃连接特征相同的尺寸
             decoder_output = F.interpolate(
                 decoder_output,
-                size=encoder_features[4-i].shape[2:],
+                size=encoder_features[-(i+1)].shape[2:],
                 mode='bilinear',
                 align_corners=False
             )
 
             # 融合跳跃连接特征
-            decoder_output = torch.cat([decoder_output, encoder_features[4-i]], dim=1)
+            decoder_output = torch.cat([decoder_output, encoder_features[-(i+1)]], dim=1)
 
             # 通过解码器块
             decoder_output = self.decoder_blocks[i](decoder_output)

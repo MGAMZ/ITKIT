@@ -135,3 +135,4 @@ work_dirs/
 dist/
 tmp/
 temp/
+examples/workdir

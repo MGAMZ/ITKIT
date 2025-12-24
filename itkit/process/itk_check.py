@@ -98,7 +98,7 @@ class CheckMixin:
         return reasons
 
     def fast_check_with_meta(self, series_meta: dict, item_dict: dict):
-        """Fast check using existing series_meta.json
+        """Fast check using existing meta.json
 
         Args:
             series_meta: Loaded metadata dictionary
@@ -207,7 +207,7 @@ class DatasetCheckProcessor(DatasetProcessor, CheckMixin):
         CheckMixin.__init__(self, cfg, mode)
         self.output_dir = output_dir
 
-    def process_one(self, args: tuple[str, str]) -> SeriesMetadata | None:
+    def process_one(self, args: tuple[str, str]) -> tuple[SeriesMetadata | None, ValidationResult]:
         """Process one image/label pair"""
         img_path, lbl_path = args
         name = os.path.basename(img_path)
@@ -219,12 +219,20 @@ class DatasetCheckProcessor(DatasetProcessor, CheckMixin):
             reasons = self.validate_sample_metadata(size, spacing)
 
             is_valid = len(reasons) == 0
-            self.results.append(ValidationResult(name, is_valid, reasons, (img_path, lbl_path)))
+            res = ValidationResult(name, is_valid, reasons, (img_path, lbl_path))
 
-            return SeriesMetadata.from_sitk_image(lbl, name)
+            return SeriesMetadata.from_sitk_image(lbl, name), res
         except Exception as e:
-            self.results.append(ValidationResult(name, False, [f"Failed to read: {str(e)}"], (img_path, lbl_path)))
-            return None
+            res = ValidationResult(name, False, [f"Failed to read: {str(e)}"], (img_path, lbl_path))
+            return None, res
+
+    def _collect_results(self, results: list):
+        """Collect both metadata and validation results from workers"""
+        for meta, res in results:
+            if res:
+                self.results.append(res)
+            if meta:
+                self.meta_manager.update(meta, allow_and_overwrite_existed=self.ALLOW_AND_OVERWRITE_EXISTED_METADATA)
 
     def process(self, desc="Checking"):
         """Main processing with fast check support"""
@@ -232,27 +240,27 @@ class DatasetCheckProcessor(DatasetProcessor, CheckMixin):
         try:
             series_meta = load_series_meta(self.source_folder)
         except json.JSONDecodeError:
-            print("series_meta.json is corrupted, removing and performing full check.")
+            print("meta.json is corrupted, removing and performing full check.")
             meta_path = get_series_meta_path(self.source_folder)
             os.remove(meta_path)
             series_meta = None
 
         run_full_check = False
         if series_meta is not None:
-            print("Found existing series_meta.json, performing fast check.")
+            print("Found existing meta.json, performing fast check.")
             items = self.get_items_to_process()
             item_dict = {os.path.basename(img): (img, lbl) for img, lbl in items}
             self.fast_check_with_meta(series_meta, item_dict)
         else:
-            print("No series_meta.json found, performing full check.")
+            print("No meta.json found, performing full check.")
             super().process(desc)
             run_full_check = True
 
         # Execute operations based on mode
         self.execute_operation(self.output_dir)
 
-        # Save metadata to source folder in check mode ONLY if full check was run
-        if not self.output_dir and run_full_check:
+        # Save metadata to source folder if full check was run
+        if run_full_check:
             meta_path = get_series_meta_path(self.source_folder)
             self.save_meta(meta_path)
 
@@ -267,8 +275,14 @@ class DatasetCheckProcessor(DatasetProcessor, CheckMixin):
 
     def op_symlink(self, name: str, paths: Any, output_dir: str):
         img_src, lbl_src = paths
-        os.symlink(img_src, os.path.join(output_dir, "image", name))
-        os.symlink(lbl_src, os.path.join(output_dir, "label", name))
+
+        img_dst = os.path.join(output_dir, "image", name)
+        img_target = os.path.relpath(os.path.abspath(img_src), os.path.dirname(os.path.abspath(img_dst)))
+        os.symlink(img_target, img_dst)
+
+        lbl_dst = os.path.join(output_dir, "label", name)
+        lbl_target = os.path.relpath(os.path.abspath(lbl_src), os.path.dirname(os.path.abspath(lbl_dst)))
+        os.symlink(lbl_target, lbl_dst)
 
     def op_copy(self, name: str, paths: Any, output_dir: str):
         img_src, lbl_src = paths
@@ -294,7 +308,7 @@ class SingleCheckProcessor(SingleFolderProcessor, CheckMixin):
         CheckMixin.__init__(self, cfg, mode)
         self.output_dir = output_dir
 
-    def process_one(self, args) -> SeriesMetadata | None:
+    def process_one(self, args) -> tuple[SeriesMetadata | None, ValidationResult]:
         """Process one image file"""
         img_path = args
         name = os.path.basename(img_path)
@@ -306,13 +320,22 @@ class SingleCheckProcessor(SingleFolderProcessor, CheckMixin):
             reasons = self.validate_sample_metadata(size, spacing)
 
             is_valid = len(reasons) == 0
-            self.results.append(ValidationResult(name, is_valid, reasons, img_path))
+            res = ValidationResult(name, is_valid, reasons, img_path)
 
             # Always return metadata if image can be read
-            return SeriesMetadata.from_sitk_image(img, name)
+            return SeriesMetadata.from_sitk_image(img, name), res
+
         except Exception as e:
-            self.results.append(ValidationResult(name, False, [f"Failed to read: {str(e)}"], img_path))
-            return None
+            res = ValidationResult(name, False, [f"Failed to read: {str(e)}"], img_path)
+            return None, res
+
+    def _collect_results(self, results: list):
+        """Collect both metadata and validation results from workers"""
+        for meta, res in results:
+            if res:
+                self.results.append(res)
+            if meta:
+                self.meta_manager.update(meta, allow_and_overwrite_existed=self.ALLOW_AND_OVERWRITE_EXISTED_METADATA)
 
     def process(self, desc="Checking"):
         """Main processing with fast check support"""
@@ -321,20 +344,20 @@ class SingleCheckProcessor(SingleFolderProcessor, CheckMixin):
         run_full_check = False
 
         if series_meta is not None:
-            print("Found existing series_meta.json, performing fast check.")
+            print("Found existing meta.json, performing fast check.")
             items = self.get_items_to_process()
             item_dict = {os.path.basename(img): img for img in items}
             self.fast_check_with_meta(series_meta, item_dict)
         else:
-            print("No series_meta.json found, performing full check.")
+            print("No meta.json found, performing full check.")
             super().process(desc)
             run_full_check = True
 
         # Execute operations based on mode
         self.execute_operation(self.output_dir)
 
-        # Save metadata to source folder in check mode ONLY if full check was run
-        if not self.output_dir and run_full_check:
+        # Save metadata to source folder if full check was run
+        if run_full_check:
             meta_path = get_series_meta_path(self.source_folder)
             self.save_meta(meta_path)
 
@@ -345,7 +368,9 @@ class SingleCheckProcessor(SingleFolderProcessor, CheckMixin):
         if os.path.exists(paths): os.remove(paths)
 
     def op_symlink(self, name: str, paths: Any, output_dir: str):
-        os.symlink(paths, os.path.join(output_dir, name))
+        dst = os.path.join(output_dir, name)
+        target = os.path.relpath(os.path.abspath(paths), os.path.dirname(os.path.abspath(dst)))
+        os.symlink(target, dst)
 
     def op_copy(self, name: str, paths: Any, output_dir: str):
         shutil.copy(paths, output_dir)
