@@ -9,7 +9,6 @@ import tempfile
 
 import numpy as np
 import pydicom
-import pytest
 import SimpleITK as sitk
 from pydicom.dataset import Dataset, FileDataset
 
@@ -40,7 +39,7 @@ class TestReadDcmAsSitk:
         ds.SOPInstanceUID = f"1.2.3.4.5.6.7.8.9.{instance_number}"
         ds.SOPClassUID = pydicom.uid.CTImageStorage
         ds.Modality = "CT"
-        
+
         # Image-related tags
         ds.SamplesPerPixel = 1
         ds.PhotometricInterpretation = "MONOCHROME2"
@@ -50,18 +49,18 @@ class TestReadDcmAsSitk:
         ds.BitsStored = 16
         ds.HighBit = 15
         ds.PixelRepresentation = 1  # signed
-        
+
         # Position and orientation
         ds.ImagePositionPatient = [0.0, 0.0, z_position]
         ds.ImageOrientationPatient = [1, 0, 0, 0, 1, 0]
         ds.PixelSpacing = [1.0, 1.0]
         ds.SliceThickness = 2.0
         ds.InstanceNumber = instance_number
-        
+
         # Pixel data
         pixel_array = np.random.randint(-1000, 1000, (64, 64), dtype=np.int16)
         ds.PixelData = pixel_array.tobytes()
-        
+
         ds.save_as(path, write_like_original=False)
         return ds
 
@@ -143,7 +142,7 @@ class TestReadDcmAsSitk:
     def test_read_dcm_function_signature(self):
         """Test function signature and parameters."""
         sig = inspect.signature(read_dcm_as_sitk)
-        
+
         assert 'data_directory' in sig.parameters
         assert 'need_dcms' in sig.parameters
         assert sig.parameters['need_dcms'].default is True

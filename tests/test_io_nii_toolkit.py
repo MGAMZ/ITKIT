@@ -82,7 +82,7 @@ class TestConvertNiiSitk:
             nib.save(nii_img, nii_path)
 
             # Convert with offset
-            result = convert_nii_sitk(nii_path, nii_fdata_order='zyx', 
+            result = convert_nii_sitk(nii_path, nii_fdata_order='zyx',
                                      dtype=np.float32, value_offset=50)
 
             result_arr = sitk.GetArrayFromImage(result)
@@ -182,7 +182,7 @@ class TestConvertNiiSitk:
             nii_path = os.path.join(tmpdir, "test_no_offset.nii.gz")
             nib.save(nii_img, nii_path)
 
-            result = convert_nii_sitk(nii_path, nii_fdata_order='zyx', 
+            result = convert_nii_sitk(nii_path, nii_fdata_order='zyx',
                                      dtype=np.float32, value_offset=None)
 
             result_arr = sitk.GetArrayFromImage(result)

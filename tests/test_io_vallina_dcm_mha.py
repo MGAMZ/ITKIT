@@ -7,7 +7,6 @@ import os
 import tempfile
 
 import numpy as np
-import pytest
 import SimpleITK as sitk
 
 from itkit.io.VallinaIO_DcmMha import (
@@ -127,9 +126,9 @@ class TestConvertNpyImage2Sitk:
         direction = (1, 0, 0, 0, 1, 0, 0, 0, 1)
 
         result = convert_npy_image_2_sitk(
-            npy_image, 
-            origin=origin, 
-            spacing=spacing, 
+            npy_image,
+            origin=origin,
+            spacing=spacing,
             direction=direction,
             sitk_type=sitk.sitkFloat32
         )
@@ -301,7 +300,7 @@ class TestSaveCtFromNpy:
             direction = (1, 0, 0, 0, 1, 0, 0, 0, 1)
 
             save_ct_from_npy(
-                npy_image, 
+                npy_image,
                 save_path,
                 origin=origin,
                 spacing=spacing,
@@ -355,7 +354,7 @@ class TestSaveCtFromNpy:
 
 class TestDcm2Mha:
     """Test dcm_2_mha function.
-    
+
     Note: This function relies on load_ct_info which requires actual DICOM files.
     We test the function signature and basic error handling.
     """
@@ -368,7 +367,7 @@ class TestDcm2Mha:
         """Test function signature."""
         import inspect
         sig = inspect.signature(dcm_2_mha)
-        
+
         assert 'dcm_path' in sig.parameters
         assert 'mha_path' in sig.parameters
         assert 'use_compress' in sig.parameters
@@ -377,7 +376,7 @@ class TestDcm2Mha:
         """Test with non-existent DICOM path."""
         with tempfile.TemporaryDirectory() as tmpdir:
             mha_path = os.path.join(tmpdir, "output.mha")
-            
+
             # This should handle the error gracefully
             # The function may raise an error or return None depending on implementation
             try:

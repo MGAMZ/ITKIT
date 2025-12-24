@@ -533,7 +533,7 @@ class TestSplitImageLabelPairsTo2D:
 
 class TestLoadDcmAsSitkImage:
     """Test LoadDcmAsSitkImage function.
-    
+
     Note: This test requires actual DICOM files, so we test error handling
     and basic functionality with mock data where possible.
     """
