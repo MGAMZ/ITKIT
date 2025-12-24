@@ -33,7 +33,7 @@ from itkit.mm.visualization import SegViser, BaseVisHook, LocalVisBackend
 # --------------------PARAMETERS-------------------- #
 
 # PyTorchz
-debug = True   # 调试模式
+debug = False   # 调试模式
 use_AMP = True  # AMP加速
 dist = False if not debug else False  # distribution
 MP_mode = "ddp"  # 分布式计算模式 Literal[`"ddp", "fsdp", "deepspeed"]
