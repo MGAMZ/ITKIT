@@ -118,7 +118,7 @@ train_dataloader = dict(
                  split='train',
                  debug=debug,
                  patch_size=size,
-                 queue_max_length=500,
+                 queue_max_length=300,
                  samples_per_volume=100,
                  queue_num_workers=workers),
         ]
