@@ -32,11 +32,11 @@ from itkit.mm.visualization import SegViser, BaseVisHook, LocalVisBackend
 
 # --------------------PARAMETERS-------------------- #
 
-# PyTorchz
-debug = False   # 调试模式
-use_AMP = True  # AMP加速
+# PyTorch
+debug = False
+use_AMP = True
 dist = False if not debug else False  # distribution
-MP_mode = "ddp"  # 分布式计算模式 Literal[`"ddp", "fsdp", "deepspeed"]
+MP_mode = "ddp"  # Literal[`"ddp", "fsdp", "deepspeed"]
 Compile = False if not debug else False  # torch.dynamo
 workers = 4 if not debug else 0  # DataLoader Worker
 
@@ -46,14 +46,14 @@ load_from = None
 resume_optimizer = True
 resume_param_scheduler = True
 
-# 神经网络超参
+# NN Hyper Params
 lr = 1e-4
 batch_size_loader = 8
 grad_accumulation = 1
 weight_decay = 1e-2
 in_channels = 1
 
-# 流程控制
+# Train Process
 iters = 100000 if not debug else 3
 logger_interval = 200 if not debug else 1
 val_on_train = True
@@ -61,11 +61,6 @@ val_sample_ratio = 0.1 if not debug else 0.01
 val_interval = 10000 if not debug else 2
 vis_interval = 1 if not debug else 1
 save_interval = val_interval
-dynamic_intervals = [ # 动态验证间隔
-    (1, 200),
-    (200, 1000),
-    (1000, 5000)
-]
 dynamic_intervals = None
 
 # Dataset
@@ -82,10 +77,9 @@ seg_pad_val = 0
 # \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ #
 # --------------------COMPONENTS-------------------- #
 
-# 数据读取与预处理管线
+# Data Load and Preprocess
 meta_keys = ('img_path', 'seg_map_path', 'ori_shape',
              'img_shape', 'reduce_zero_label', 'seg_fields')
-
 train_pipeline = [
     dict(type=WindowSet, level=wl, width=ww),
     dict(type=TypeConvert, key=['img'], dtype='float16'),
@@ -118,7 +112,7 @@ train_dataloader = dict(
                  split='train',
                  debug=debug,
                  patch_size=size,
-                 queue_max_length=500,
+                 queue_max_length=300,
                  samples_per_volume=100,
                  queue_num_workers=workers),
         ]
@@ -167,7 +161,6 @@ test_dataloader = dict(
     )
 )
 
-# 评估器
 val_evaluator = test_evaluator = dict(
     type=IoUMetric_PerClass,
     prefix='Perf',
@@ -183,7 +176,6 @@ data_preprocessor = dict(
     non_blocking=True,
 )
 
-# 训练策略
 train_cfg = dict(
     type=IterBasedTrainLoop,
     max_iters=iters,
@@ -198,7 +190,7 @@ if not val_on_train:
     val_evaluator = None
     val_cfg = None
 
-# 优化器
+# Optimizer
 if MP_mode == "deepspeed" and dist:
     optim_wrapper = dict(
         type=DeepSpeedOptimWrapper,
@@ -215,7 +207,7 @@ else:
 if use_AMP and dist and MP_mode=='fsdp':
     optim_wrapper["use_fsdp"] = True
 
-# 学习率调整策略
+# LR Strategy
 param_scheduler = [
     dict(
         type=LinearLR,
@@ -270,7 +262,7 @@ compile = dict(
     disable=not Compile,
 )
 
-# 分布式训练
+# Distributed Training
 runner_type = "mgam_Runner"
 if dist:
     launcher = "pytorch"
@@ -315,10 +307,8 @@ if dist:
 else:
     launcher = "none"
 
-# 运行环境
+# Runtime Environment
 env_cfg = dict(
-    # 子进程中使用CUDA的话必须使用spawn, 需要保证所有参数可pickle
-    # 一般情况下可以使用fork, 可以共享内存空间
     mp_cfg=dict(mp_start_method="fork", opencv_num_threads=4),
     dist_cfg=dict(backend="nccl"),
     allow_tf32=True,

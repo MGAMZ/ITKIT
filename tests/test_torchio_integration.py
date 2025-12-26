@@ -40,7 +40,7 @@ def mock_dataset_dir():
 
 def test_dataset_initialization_and_fetching(mock_dataset_dir):
     # Define parameters
-    patch_size = (32, 32, 32)
+    patch_size = (16, 32, 64) # (Z, Y, X)
     queue_length = 20
     samples_per_volume = 2
 
@@ -78,9 +78,10 @@ def test_dataset_initialization_and_fetching(mock_dataset_dir):
     assert 'patch_location' in data
 
     # 5. Verify Shapes
-    # img should be (D, H, W) because of squeeze(0) in prepare_data for single channel
+    # img should be (Z, Y, X) because of transpose(2, 1, 0) in prepare_data
     assert data['img'].shape == patch_size
     assert data['gt_seg_map'].shape == patch_size
+    assert data['img_shape'] == patch_size
 
     # 6. Verify Data Types
     assert isinstance(data['img'], np.ndarray)
@@ -91,7 +92,7 @@ def test_dataloader_multiprocessing(mock_dataset_dir):
     """Test that the dataset works with multiple workers (sharding)"""
     import torch
 
-    patch_size = (32, 32, 32)
+    patch_size = (16, 32, 64)
     # Use 0 queue workers to avoid nested multiprocessing issues in test environment
     dataset = mgam_TorchIO_Patched_Structure(
         data_root=mock_dataset_dir,
@@ -116,6 +117,11 @@ def test_dataloader_multiprocessing(mock_dataset_dir):
     for batch in dataloader:
         assert 'img' in batch
         assert batch['img'].shape == (2, *patch_size)
+        assert 'img_shape' in batch
+        # data_info['img_shape'] is a tuple (16, 32, 64)
+        # default_collate for a tuple of 3 ints returns a list of 3 tensors, each of shape (batch_size,)
+        img_shape = tuple(t[0].item() for t in batch['img_shape'])
+        assert img_shape == patch_size
         break
 
 

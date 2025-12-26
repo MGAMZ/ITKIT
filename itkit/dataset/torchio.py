@@ -115,12 +115,12 @@ class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
         data_info = patch.get('mm_meta', {}).copy()
 
         data_info['img'] = patch['image'][tio.DATA].squeeze(0).numpy().transpose(2, 1, 0)  # pyright: ignore[reportAttributeAccessIssue]
-
         if 'label' in patch:
             data_info['gt_seg_map'] = patch['label'][tio.DATA].squeeze(0).numpy().transpose(2, 1, 0)  # pyright: ignore[reportAttributeAccessIssue]
             data_info['seg_fields'] = ['gt_seg_map']
-        data_info['img_shape'] = patch['image'][tio.DATA].shape[1:]
-        data_info['ori_shape'] = patch['image'][tio.DATA].shape[1:]
+
+        data_info['img_shape'] = data_info['img'].shape
+        data_info['ori_shape'] = data_info['gt_seg_map'].shape
         data_info['patch_location'] = patch[tio.LOCATION]
 
         return self.pipeline(data_info)
