@@ -20,7 +20,8 @@ class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
                  *args, **kwargs) -> None:
         self.queue_max_length = queue_max_length
         self.samples_per_volume = samples_per_volume
-        self.patch_size = patch_size
+        # TorchIO uses (X, Y, Z) ordering
+        self.patch_size = patch_size[::-1] if isinstance(patch_size, tuple) else (patch_size, patch_size, patch_size)
         self.sampler_type = sampler_type
         self.queue_num_workers = queue_num_workers
         self.sampler_parameters = sampler_parameters or {}
@@ -72,7 +73,10 @@ class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
                                    f"Reduce num_workers (dataset size: {len(self.subjects)}).")
 
         # Create a dataset specifically for this queue (might be subset)
-        queue_dataset = tio.SubjectsDataset(subset_subjects)
+        queue_dataset = tio.SubjectsDataset(
+            subjects=subset_subjects,
+            transform=tio.ToOrientation("LPI")
+        )
 
         # 2. Build Sampler
         if self.sampler_type == 'uniform':
@@ -110,9 +114,10 @@ class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
         patch = self.tio_queue[0]
         data_info = patch.get('mm_meta', {}).copy()
 
-        data_info['img'] = patch['image'][tio.DATA].squeeze(0).numpy()  # pyright: ignore[reportAttributeAccessIssue]
+        data_info['img'] = patch['image'][tio.DATA].squeeze(0).numpy().transpose(2, 1, 0)  # pyright: ignore[reportAttributeAccessIssue]
+
         if 'label' in patch:
-            data_info['gt_seg_map'] = patch['label'][tio.DATA].squeeze(0).numpy()  # pyright: ignore[reportAttributeAccessIssue]
+            data_info['gt_seg_map'] = patch['label'][tio.DATA].squeeze(0).numpy().transpose(2, 1, 0)  # pyright: ignore[reportAttributeAccessIssue]
             data_info['seg_fields'] = ['gt_seg_map']
         data_info['img_shape'] = patch['image'][tio.DATA].shape[1:]
         data_info['ori_shape'] = patch['image'][tio.DATA].shape[1:]
