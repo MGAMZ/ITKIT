@@ -48,7 +48,7 @@ resume_param_scheduler = True
 
 # NN Hyper Params
 lr = 1e-4
-batch_size_loader = 8
+batch_size_loader = 4
 grad_accumulation = 1
 weight_decay = 1e-2
 in_channels = 1
