@@ -8,7 +8,7 @@ from mmengine.runner import load_checkpoint
 from torch import Tensor
 from tqdm import tqdm
 
-from ..mm.mgam_models import mgam_Seg3D_Lite
+from .task_models import SemSeg3D
 
 
 class Inferencer:
@@ -42,7 +42,7 @@ class Inferencer_Seg3D(Inferencer):
 
     @torch.inference_mode()
     def Inference_FromNDArray(self, inputs:np.ndarray) -> tuple[Tensor, Tensor]:
-        self.model: mgam_Seg3D_Lite
+        self.model: SemSeg3D
         assert inputs.ndim == 3, f"Input image must be (Z, Y, X), got: {inputs.shape}."
 
         inputs = inputs.astype(np.float16 if self.fp16 else np.float32)

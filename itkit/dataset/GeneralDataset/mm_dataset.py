@@ -3,10 +3,10 @@ import re
 
 import numpy as np
 
-from ..base import mgam_BaseSegDataset
+from ..base import ITKITBaseSegDataset
 
 
-class mgam_Standard_2D(mgam_BaseSegDataset):
+class mgam_Standard_2D(ITKITBaseSegDataset):
     def __init__(self, suffix:str="png", *args, **kwargs) -> None:
         # HACK: Most implementations use the more elastic dataset,
         # which is `mgam_SemiSup_2D_png`, and it contains a `mode` parameter.

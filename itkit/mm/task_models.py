@@ -94,7 +94,7 @@ class ArgmaxProcessor:
         return pred
 
 
-class mgam_Seg_Lite(BaseModel):
+class SemanticSegment(BaseModel):
     def __init__(self,
                  backbone: ConfigDict,
                  criterion: ConfigDict|list[ConfigDict],
@@ -106,7 +106,7 @@ class mgam_Seg_Lite(BaseModel):
                  allow_pbar: bool = False,
                  *args, **kwargs):
         """
-        mgam_Seg_Lite is a Lite form of `mmseg` core model implementation,
+        SemanticSegment is a Lite form of `mmseg` core model implementation,
         without decouple decoder_head, loss, neck design, allowing easier coding experiments.
         Meanwhile, it provides several args to support sliding window inference for large image/volume,
         especially useful for medical image segmentation tasks.
@@ -198,7 +198,7 @@ class mgam_Seg_Lite(BaseModel):
         ...
 
 
-class mgam_Seg2D_Lite(mgam_Seg_Lite):
+class SemSeg2D(SemanticSegment):
     def loss(self, inputs:Tensor, data_samples:Sequence[BaseDataElement]) -> dict:
         """Calculate losses from a batch of inputs and data samples.
 
@@ -399,7 +399,7 @@ class mgam_Seg2D_Lite(mgam_Seg_Lite):
         return seg_logits
 
 
-class mgam_Seg3D_Lite(mgam_Seg_Lite):
+class SemSeg3D(SemanticSegment):
     def loss(self, inputs:Tensor, data_samples:Sequence[BaseDataElement]) -> dict:
         """Calculate losses from a batch of inputs and data samples.
 
@@ -474,8 +474,8 @@ class mgam_Seg3D_Lite(mgam_Seg_Lite):
                     i_seg_pred = (i_seg_logits_sigmoid > self.binary_segment_threshold).to(i_seg_logits)
 
                 # Store results into data_samples
-                data_samples[i].seg_logits = VolumeData(**{"data": i_seg_logits})
-                data_samples[i].pred_sem_seg = VolumeData(**{"data": i_seg_pred})
+                data_samples[i].seg_logits = VolumeData(**{"data": i_seg_logits})  # pyright: ignore[reportArgumentType]
+                data_samples[i].pred_sem_seg = VolumeData(**{"data": i_seg_pred})  # pyright: ignore[reportArgumentType]
 
             return data_samples
 

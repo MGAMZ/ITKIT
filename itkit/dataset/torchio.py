@@ -5,10 +5,10 @@ import torch
 import torchio as tio
 from mmengine.logging import MMLogger, print_log
 
-from .base import mgam_SemiSup_3D_Mha
+from .base import SeriesVolumeDataset
 
 
-class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
+class TorchIO_PatchedDataset(SeriesVolumeDataset):
     def __init__(self,
                  data_root: str,
                  queue_max_length: int = 300,
@@ -34,7 +34,7 @@ class mgam_TorchIO_Patched_Structure(mgam_SemiSup_3D_Mha):
 
     def load_data_list(self) -> list[dict]:
         # 1. Load original data list (paths)
-        # This calls mgam_BaseSegDataset.load_data_list -> sample_iterator
+        # This calls ITKITBaseSegDataset.load_data_list -> sample_iterator
         raw_data_list = super().load_data_list()
         print_log(f"Loaded {len(raw_data_list)} subjects from data list.",
                   MMLogger.get_current_instance(), logging.DEBUG)

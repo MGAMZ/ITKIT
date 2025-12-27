@@ -5,11 +5,11 @@ from typing import Literal
 import numpy as np
 from mmcv.transforms import BaseTransform
 
-from ..base import mgam_BaseSegDataset
+from ..base import ITKITBaseSegDataset
 from .meta import BraTs2024_MODALITIES
 
 
-class BraTs2024_Dataset(mgam_BaseSegDataset):
+class BraTs2024_Dataset(ITKITBaseSegDataset):
     def __init__(self, modality:str, *args, **kwargs):
         super().__init__(*args, **kwargs)
         assert modality in BraTs2024_MODALITIES

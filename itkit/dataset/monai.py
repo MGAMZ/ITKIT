@@ -7,10 +7,10 @@ import numpy as np
 import SimpleITK as sitk
 import torch
 
-from .base import mgam_SemiSup_3D_Mha
+from .base import SeriesVolumeDataset
 
 
-class mgam_MONAI_Patched_Structure(mgam_SemiSup_3D_Mha):
+class mgam_MONAI_Patched_Structure(SeriesVolumeDataset):
     def __init__(self,
                  data_root: str,
                  samples_per_volume: int = 10,

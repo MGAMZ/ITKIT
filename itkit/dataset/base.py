@@ -13,7 +13,7 @@ from mmseg.datasets.basesegdataset import BaseSegDataset
 from tqdm import tqdm
 
 
-class mgam_BaseSegDataset(BaseSegDataset):
+class ITKITBaseSegDataset(BaseSegDataset):
     SPLIT_RATIO = [0.8, 0.05, 0.15]
 
     def __init__(
@@ -86,7 +86,7 @@ class mgam_BaseSegDataset(BaseSegDataset):
             return data_list
 
 
-class mgam_SeriesVolume(mgam_BaseSegDataset):
+class SeriesVolumeDataset(ITKITBaseSegDataset):
     def __init__(self,
                  data_root_mha: str | None = None,
                  mode: Literal["semi", "sup"] = "sup",
@@ -200,23 +200,6 @@ class mgam_SeriesVolume(mgam_BaseSegDataset):
 
         return kept
 
-
-class mgam_2D_MhaVolumeSlices(mgam_SeriesVolume):
-    def sample_iterator(self) -> Generator[tuple[str, str]]:
-        for series in self._split():
-            series_folder = os.path.join(self.data_root, 'label' if self.mode=='sup' else 'image', series)
-            if not os.path.exists(series_folder):
-                print_log(f"{series} not found.\nFullPath: {series_folder}",
-                          MMLogger.get_current_instance(),
-                          logging.WARN)
-                continue
-            for sample in os.listdir(series_folder):
-                if sample.endswith(self.img_suffix):
-                    yield (os.path.join(self.data_root, 'image', series, sample),
-                           os.path.join(self.data_root, 'label', series, sample))
-
-
-class mgam_SemiSup_3D_Mha(mgam_SeriesVolume):
     def sample_iterator(self) -> Generator[tuple[str, str]]:
         for series in self._split():
             image_mha_path = os.path.join(self.data_root, "image", series + ".mha")
@@ -229,10 +212,10 @@ class mgam_SemiSup_3D_Mha(mgam_SeriesVolume):
             yield (image_mha_path, label_mha_path)
 
 
-class mgam_SeriesPatched_Structure(mgam_SeriesVolume):
+class PatchedDataset(SeriesVolumeDataset):
     def __init__(self, *args, **kwargs) -> None:
         if kwargs.get("data_root_mha") is None:
-            raise ValueError("data_root_mha must be specified for `mgam_SeriesPatched_Structure` dataset.")
+            raise ValueError("data_root_mha must be specified for `PatchedDataset` dataset.")
         with open(os.path.join(kwargs["data_root"], "crop_meta.json")) as f:
             self.precrop_meta = json.load(f)
         super().__init__(*args, **kwargs)
@@ -275,7 +258,7 @@ class mgam_SeriesPatched_Structure(mgam_SeriesVolume):
                 yield (image_path, label_path)
 
 
-class mgam_concat_dataset(ConcatDataset):
+class ITKITConcatDataset(ConcatDataset):
     def __init__(
         self,
         datasets: list[BaseDataset | dict],
@@ -317,14 +300,3 @@ class mgam_concat_dataset(ConcatDataset):
             self.full_init()
 
         print_log(f"ConcatDataset loaded {len(self)} samples.", MMLogger.get_current_instance())
-
-
-# --- Unsupervised Dataset ---
-
-
-class unsup_base:
-    METAINFO = dict(classes=["background"])
-
-
-class unsup_base_Semi_Mha(unsup_base, mgam_SemiSup_3D_Mha):
-    pass
