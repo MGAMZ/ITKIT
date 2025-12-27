@@ -118,7 +118,9 @@ exclude = [
   "build/**",
   "dist/**",
   "**/*.egg-info/**",
-  "itkit/lightning"
+  "itkit/lightning",
+  "tests/**",
+  "examples/**"
 ]
 reportAttributeAccessIssue = false
 reportMissingImports = false
