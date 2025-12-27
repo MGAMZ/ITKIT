@@ -11,14 +11,14 @@ class MedNeXt(nn.Module):
         in_channels: int,
         n_channels: int,
         n_classes: int,
-        exp_r: int = 4,                            # Expansion ratio as in Swin Transformers
+        exp_r: int | list[int] = 4,                            # Expansion ratio as in Swin Transformers
         kernel_size: int = 7,                      # Ofcourse can test kernel_size
-        enc_kernel_size: int = None,
-        dec_kernel_size: int = None,
+        enc_kernel_size: int | None = None,
+        dec_kernel_size: int | None = None,
         deep_supervision: bool = False,             # Can be used to test deep supervision
         do_res: bool = False,                       # Can be used to individually test residual connection
         do_res_up_down: bool = False,             # Additional 'res' connection on up and down convs
-        checkpoint_style: bool = None,            # Either inside block or outside block
+        checkpoint_style: bool | None = None,            # Either inside block or outside block
         block_counts: list = [2,2,2,2,2,2,2,2,2], # Can be used to test staging ratio:
                                             # [3,3,9,3] in Swin as opposed to [2,2,2,2,2] in nnUNet
         norm_type = 'group',
@@ -44,16 +44,20 @@ class MedNeXt(nn.Module):
             conv = nn.Conv2d
         elif dim == '3d':
             conv = nn.Conv3d
+        else:
+            raise ValueError(f"Invalid dim: {dim}")
 
         self.stem = conv(in_channels, n_channels, kernel_size=1)
-        if type(exp_r) == int:
+        if isinstance(exp_r, int):
             exp_r = [exp_r for i in range(len(block_counts))]
+        # exp_r is now guaranteed to be a list
+        exp_r_list: list[int] = exp_r
 
         self.enc_block_0 = nn.Sequential(*[
             MedNeXtBlock(
                 in_channels=n_channels,
                 out_channels=n_channels,
-                exp_r=exp_r[0],
+                exp_r=exp_r_list[0],
                 kernel_size=enc_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -66,7 +70,7 @@ class MedNeXt(nn.Module):
         self.down_0 = MedNeXtDownBlock(
             in_channels=n_channels,
             out_channels=2*n_channels,
-            exp_r=exp_r[1],
+            exp_r=exp_r_list[1],
             kernel_size=enc_kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -77,7 +81,7 @@ class MedNeXt(nn.Module):
             MedNeXtBlock(
                 in_channels=n_channels*2,
                 out_channels=n_channels*2,
-                exp_r=exp_r[1],
+                exp_r=exp_r_list[1],
                 kernel_size=enc_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -90,7 +94,7 @@ class MedNeXt(nn.Module):
         self.down_1 = MedNeXtDownBlock(
             in_channels=2*n_channels,
             out_channels=4*n_channels,
-            exp_r=exp_r[2],
+            exp_r=exp_r_list[2],
             kernel_size=enc_kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -102,7 +106,7 @@ class MedNeXt(nn.Module):
             MedNeXtBlock(
                 in_channels=n_channels*4,
                 out_channels=n_channels*4,
-                exp_r=exp_r[2],
+                exp_r=exp_r_list[2],
                 kernel_size=enc_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -115,7 +119,7 @@ class MedNeXt(nn.Module):
         self.down_2 = MedNeXtDownBlock(
             in_channels=4*n_channels,
             out_channels=8*n_channels,
-            exp_r=exp_r[3],
+            exp_r=exp_r_list[3],
             kernel_size=enc_kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -127,7 +131,7 @@ class MedNeXt(nn.Module):
             MedNeXtBlock(
                 in_channels=n_channels*8,
                 out_channels=n_channels*8,
-                exp_r=exp_r[3],
+                exp_r=exp_r_list[3],
                 kernel_size=enc_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -140,7 +144,7 @@ class MedNeXt(nn.Module):
         self.down_3 = MedNeXtDownBlock(
             in_channels=8*n_channels,
             out_channels=16*n_channels,
-            exp_r=exp_r[4],
+            exp_r=exp_r_list[4],
             kernel_size=enc_kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -152,7 +156,7 @@ class MedNeXt(nn.Module):
             MedNeXtBlock(
                 in_channels=n_channels*16,
                 out_channels=n_channels*16,
-                exp_r=exp_r[4],
+                exp_r=exp_r_list[4],
                 kernel_size=dec_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -165,7 +169,7 @@ class MedNeXt(nn.Module):
         self.up_3 = MedNeXtUpBlock(
             in_channels=16*n_channels,
             out_channels=8*n_channels,
-            exp_r=exp_r[5],
+            exp_r=exp_r_list[5],
             kernel_size=dec_kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -177,7 +181,7 @@ class MedNeXt(nn.Module):
             MedNeXtBlock(
                 in_channels=n_channels*8,
                 out_channels=n_channels*8,
-                exp_r=exp_r[5],
+                exp_r=exp_r_list[5],
                 kernel_size=dec_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -190,7 +194,7 @@ class MedNeXt(nn.Module):
         self.up_2 = MedNeXtUpBlock(
             in_channels=8*n_channels,
             out_channels=4*n_channels,
-            exp_r=exp_r[6],
+            exp_r=exp_r_list[6],
             kernel_size=dec_kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -202,7 +206,7 @@ class MedNeXt(nn.Module):
             MedNeXtBlock(
                 in_channels=n_channels*4,
                 out_channels=n_channels*4,
-                exp_r=exp_r[6],
+                exp_r=exp_r_list[6],
                 kernel_size=dec_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -215,7 +219,7 @@ class MedNeXt(nn.Module):
         self.up_1 = MedNeXtUpBlock(
             in_channels=4*n_channels,
             out_channels=2*n_channels,
-            exp_r=exp_r[7],
+            exp_r=exp_r_list[7],
             kernel_size=dec_kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -227,7 +231,7 @@ class MedNeXt(nn.Module):
             MedNeXtBlock(
                 in_channels=n_channels*2,
                 out_channels=n_channels*2,
-                exp_r=exp_r[7],
+                exp_r=exp_r_list[7],
                 kernel_size=dec_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -240,7 +244,7 @@ class MedNeXt(nn.Module):
         self.up_0 = MedNeXtUpBlock(
             in_channels=2*n_channels,
             out_channels=n_channels,
-            exp_r=exp_r[8],
+            exp_r=exp_r_list[8],
             kernel_size=dec_kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -252,7 +256,7 @@ class MedNeXt(nn.Module):
             MedNeXtBlock(
                 in_channels=n_channels,
                 out_channels=n_channels,
-                exp_r=exp_r[8],
+                exp_r=exp_r_list[8],
                 kernel_size=dec_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -291,6 +295,7 @@ class MedNeXt(nn.Module):
     def forward(self, x):
 
         x = self.stem(x)
+        x_ds_1 = x_ds_2 = x_ds_3 = x_ds_4 = None
         if self.outside_block_checkpointing:
             x_res_0 = self.iterative_checkpoint(self.enc_block_0, x)
             x = checkpoint.checkpoint(self.down_0, x_res_0, self.dummy_tensor)
@@ -390,14 +395,14 @@ class MM_MedNext_Encoder(BaseModule):
     def __init__(self,
         in_channels: int,
         embed_dims: int,
-        exp_r = 4,                            # Expansion ratio as in Swin Transformers
+        exp_r: int | list[int] = 4,                            # Expansion ratio as in Swin Transformers
         kernel_size: int = 7,                      # Ofcourse can test kernel_size
-        enc_kernel_size: int = None,
-        dec_kernel_size: int = None,
+        enc_kernel_size: int | None = None,
+        dec_kernel_size: int | None = None,
         deep_supervision: bool = False,             # Can be used to test deep supervision
         do_res: bool = False,                       # Can be used to individually test residual connection
         do_res_up_down: bool = False,             # Additional 'res' connection on up and down convs
-        checkpoint_style: bool = None,            # Either inside block or outside block
+        checkpoint_style: bool | None = None,            # Either inside block or outside block
         block_counts: list = [2,2,2,2,2,2,2,2,2], # Can be used to test staging ratio:
                                             # [3,3,9,3] in Swin as opposed to [2,2,2,2,2] in nnUNet
         norm_type = 'group',
@@ -422,18 +427,22 @@ class MM_MedNext_Encoder(BaseModule):
             conv = nn.Conv2d
         elif dim == '3d':
             conv = nn.Conv3d
+        else:
+            raise ValueError(f"Invalid dim: {dim}")
         self.stem = conv(in_channels, embed_dims, kernel_size=1)
 
-        if type(exp_r) == int:
+        if isinstance(exp_r, int):
             exp_r = [exp_r] * len(block_counts)
         else:
             assert isinstance(exp_r, list)
+        # exp_r is now guaranteed to be a list
+        exp_r_list: list[int] = exp_r
 
         self.enc_block_0 = nn.Sequential(*[
             MedNeXtBlock(
                 in_channels=embed_dims,
                 out_channels=embed_dims,
-                exp_r=exp_r[0],
+                exp_r=exp_r_list[0],
                 kernel_size=enc_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -446,7 +455,7 @@ class MM_MedNext_Encoder(BaseModule):
         self.down_0 = MedNeXtDownBlock(
             in_channels=embed_dims,
             out_channels=2*embed_dims,
-            exp_r=exp_r[1],
+            exp_r=exp_r_list[1],
             kernel_size=enc_kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -457,7 +466,7 @@ class MM_MedNext_Encoder(BaseModule):
             MedNeXtBlock(
                 in_channels=embed_dims*2,
                 out_channels=embed_dims*2,
-                exp_r=exp_r[1],
+                exp_r=exp_r_list[1],
                 kernel_size=enc_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -470,7 +479,7 @@ class MM_MedNext_Encoder(BaseModule):
         self.down_1 = MedNeXtDownBlock(
             in_channels=2*embed_dims,
             out_channels=4*embed_dims,
-            exp_r=exp_r[2],
+            exp_r=exp_r_list[2],
             kernel_size=enc_kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -482,7 +491,7 @@ class MM_MedNext_Encoder(BaseModule):
             MedNeXtBlock(
                 in_channels=embed_dims*4,
                 out_channels=embed_dims*4,
-                exp_r=exp_r[2],
+                exp_r=exp_r_list[2],
                 kernel_size=enc_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -495,7 +504,7 @@ class MM_MedNext_Encoder(BaseModule):
         self.down_2 = MedNeXtDownBlock(
             in_channels=4*embed_dims,
             out_channels=8*embed_dims,
-            exp_r=exp_r[3],
+            exp_r=exp_r_list[3],
             kernel_size=enc_kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -507,7 +516,7 @@ class MM_MedNext_Encoder(BaseModule):
             MedNeXtBlock(
                 in_channels=embed_dims*8,
                 out_channels=embed_dims*8,
-                exp_r=exp_r[3],
+                exp_r=exp_r_list[3],
                 kernel_size=enc_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -520,7 +529,7 @@ class MM_MedNext_Encoder(BaseModule):
         self.down_3 = MedNeXtDownBlock(
             in_channels=8*embed_dims,
             out_channels=16*embed_dims,
-            exp_r=exp_r[4],
+            exp_r=exp_r_list[4],
             kernel_size=enc_kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -532,7 +541,7 @@ class MM_MedNext_Encoder(BaseModule):
             MedNeXtBlock(
                 in_channels=embed_dims*16,
                 out_channels=embed_dims*16,
-                exp_r=exp_r[4],
+                exp_r=exp_r_list[4],
                 kernel_size=dec_kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -565,7 +574,7 @@ class MM_MedNext_Decoder(BaseDecodeHead):
         embed_dims: int,
         num_classes: int,
         out_channels: int,
-        exp_r = 4,                            # Expansion ratio as in Swin Transformers
+        exp_r: int | list[int] = 4,                            # Expansion ratio as in Swin Transformers
         kernel_size: int = 7,                      # Ofcourse can test kernel_size
         do_res: bool = False,                       # Can be used to individually test residual connection
         do_res_up_down: bool = False,             # Additional 'res' connection on up and down convs
@@ -588,15 +597,17 @@ class MM_MedNext_Decoder(BaseDecodeHead):
                          in_index=[0,1,2,3,4],
                          **kwargs)
 
-        if type(exp_r) == int:
+        if isinstance(exp_r, int):
             exp_r = [exp_r] * len(block_counts)
         else:
             assert isinstance(exp_r, list)
+        # exp_r is now guaranteed to be a list
+        exp_r_list: list[int] = exp_r
 
         self.up_3 = MedNeXtUpBlock(
             in_channels=16*embed_dims,
             out_channels=8*embed_dims,
-            exp_r=exp_r[5],
+            exp_r=exp_r_list[5],
             kernel_size=kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -608,7 +619,7 @@ class MM_MedNext_Decoder(BaseDecodeHead):
             MedNeXtBlock(
                 in_channels=embed_dims*8,
                 out_channels=embed_dims*8,
-                exp_r=exp_r[5],
+                exp_r=exp_r_list[5],
                 kernel_size=kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -621,7 +632,7 @@ class MM_MedNext_Decoder(BaseDecodeHead):
         self.up_2 = MedNeXtUpBlock(
             in_channels=8*embed_dims,
             out_channels=4*embed_dims,
-            exp_r=exp_r[6],
+            exp_r=exp_r_list[6],
             kernel_size=kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -633,7 +644,7 @@ class MM_MedNext_Decoder(BaseDecodeHead):
             MedNeXtBlock(
                 in_channels=embed_dims*4,
                 out_channels=embed_dims*4,
-                exp_r=exp_r[6],
+                exp_r=exp_r_list[6],
                 kernel_size=kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -646,7 +657,7 @@ class MM_MedNext_Decoder(BaseDecodeHead):
         self.up_1 = MedNeXtUpBlock(
             in_channels=4*embed_dims,
             out_channels=2*embed_dims,
-            exp_r=exp_r[7],
+            exp_r=exp_r_list[7],
             kernel_size=kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -658,7 +669,7 @@ class MM_MedNext_Decoder(BaseDecodeHead):
             MedNeXtBlock(
                 in_channels=embed_dims*2,
                 out_channels=embed_dims*2,
-                exp_r=exp_r[7],
+                exp_r=exp_r_list[7],
                 kernel_size=kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
@@ -671,7 +682,7 @@ class MM_MedNext_Decoder(BaseDecodeHead):
         self.up_0 = MedNeXtUpBlock(
             in_channels=2*embed_dims,
             out_channels=embed_dims,
-            exp_r=exp_r[8],
+            exp_r=exp_r_list[8],
             kernel_size=kernel_size,
             do_res=do_res_up_down,
             norm_type=norm_type,
@@ -683,7 +694,7 @@ class MM_MedNext_Decoder(BaseDecodeHead):
             MedNeXtBlock(
                 in_channels=embed_dims,
                 out_channels=embed_dims,
-                exp_r=exp_r[8],
+                exp_r=exp_r_list[8],
                 kernel_size=kernel_size,
                 do_res=do_res,
                 norm_type=norm_type,
