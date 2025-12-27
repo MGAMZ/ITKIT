@@ -570,6 +570,7 @@ pip install --no-deps monai
 5. `itkit.mm`
    1. `mgam_Runner` -> `ITKITRunner`
    2. `mgam_PerClassMetricLogger_OnTest` -> `PerClassMetricLogger_OnTest`
+   3. Removed: `mgam_OptimWrapperConstructor`
 6. Removed: Trivial `mgam` anywhere
 
 ## Citation

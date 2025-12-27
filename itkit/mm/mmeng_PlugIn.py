@@ -21,7 +21,7 @@ from mmengine.model.wrappers import (
     MMDistributedDataParallel,
     MMFullyShardedDataParallel,
 )
-from mmengine.optim import AmpOptimWrapper, DefaultOptimWrapperConstructor
+from mmengine.optim import AmpOptimWrapper
 from mmengine.runner import (
     FlexibleRunner,
     IterBasedTrainLoop,
@@ -468,16 +468,3 @@ def multi_sample_collate(data_batch: Sequence[dict]):
     data_batch = flattened
 
     return default_collate(data_batch)
-
-
-class mgam_OptimWrapperConstructor(DefaultOptimWrapperConstructor):
-    def __call__(self, model: nn.Module):
-        if hasattr(model, 'module'):
-            assert isinstance(model.module, nn.Module), \
-                f'`model.module` is not an instance of `nn.Module`, got{model.module}.'
-            model = model.module
-
-        filtered_params = filter(lambda p: p.requires_grad, model.parameters())
-        model.parameters = lambda recurse=True: filtered_params
-
-        return super().__call__(model)
