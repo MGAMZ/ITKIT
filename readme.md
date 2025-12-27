@@ -562,6 +562,9 @@ pip install --no-deps monai
    4. `mgam_SeriesPatched_Structure` -> `PatchedDataset`
    5. `mgam_concat_dataset` -> `ITKITConcatDataset`
    6. Removed: `mgam_2D_MhaVolumeSlices`, `unsup_base`, `unsup_base_Semi_Mha`
+3. `itkit.dataset`
+   1. `mgam_MONAI_Patched_Structure` -> `MONAI_PatchedDataset`
+   2. `mgam_TorchIO_Patched_Structure` -> `TorchIO_PatchedDataset`
 
 ## Citation
 
