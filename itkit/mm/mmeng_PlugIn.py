@@ -160,7 +160,7 @@ class IterBasedTrainLoop_SupportProfiler(IterBasedTrainLoop):
 
 
 # support for better class-wise performance logging
-class mgam_PerClassMetricLogger_OnTest(LoggerHook):
+class PerClassMetricLogger_OnTest(LoggerHook):
     def after_test_epoch(self, runner, metrics: dict) -> None:
         PerClassResult_FromIoUMetric = metrics.pop("Perf/PerClass")
         data_df = pd.DataFrame(PerClassResult_FromIoUMetric)  # [Class, metrics...]

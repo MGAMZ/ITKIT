@@ -569,6 +569,7 @@ pip install --no-deps monai
 4. `itkit.lightning.utils`: `mgam_bar` -> `RefinedLightningPbar`
 5. `itkit.mm`
    1. `mgam_Runner` -> `ITKITRunner`
+   2. `mgam_PerClassMetricLogger_OnTest` -> `PerClassMetricLogger_OnTest`
 6. Removed: Trivial `mgam` anywhere
 
 ## Citation
