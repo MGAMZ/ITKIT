@@ -40,7 +40,7 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
         RunnerChoice = Runner
 
     class mgam_Runner(RunnerChoice): # type: ignore
-        """MGAM Customized MMEngine Runner"""
+        """Customized MMEngine Runner"""
         def __init__(self, **kwargs):
             self.resume_optimizer = kwargs.get("cfg", {}).pop("resume_optimizer", True)
             self.resume_param_scheduler = kwargs.get("cfg", {}).pop("resume_param_scheduler", True)

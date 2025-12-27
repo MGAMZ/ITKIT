@@ -648,7 +648,7 @@ class Seg3DLocalVisualizer(SegLocalVisualizer):
         palette: list,
         with_labels: bool = True,
     ) -> np.ndarray:
-        "NOTE MGAM improve: configurable font size"
+        "NOTE improve: configurable font size"
 
         num_classes = len(classes)
 

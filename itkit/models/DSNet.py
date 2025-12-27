@@ -1,6 +1,6 @@
 """
 2024.11.02
-Implemented by Yiqin Zhang ~ MGAM.
+Implemented by Yiqin Zhang.
 Used for Rose Thyroid Cell Count project.
 """
 
