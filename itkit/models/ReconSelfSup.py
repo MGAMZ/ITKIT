@@ -181,6 +181,8 @@ class Reconstructor(AutoEncoderSelfSup):
             reconed = self.whole_inference(inputs)
         elif self.test_cfg["mode"] == "slide":
             reconed = self.slide_inference(inputs)
+        else:
+            raise ValueError(f"Unsupported test mode: {self.test_cfg['mode']}")
 
         for i, sample in enumerate(data_samples):
             sample.set_pred_data(VoxelData(data=reconed[i]))

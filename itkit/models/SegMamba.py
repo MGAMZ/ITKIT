@@ -209,7 +209,7 @@ class SegMamba(nn.Module):
         out_chans=13,
         depths=[2, 2, 2, 2],
         feat_size=[48, 96, 192, 384],
-        drop_path_rate=0,
+        drop_path_rate: float = 0,
         layer_scale_init_value=1e-6,
         hidden_size: int = 768,
         norm_name = "instance",

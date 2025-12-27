@@ -435,15 +435,17 @@ class DA_Transformer(nn.Module):
                 ntok_new = posemb_new.size(1)
                 if self.classifier == "seg":
                     _, posemb_grid = posemb[:, :1], posemb[0, 1:]
-                gs_old = int(np.sqrt(len(posemb_grid)))
-                gs_new = int(np.sqrt(ntok_new))
-                print(f'load_pretrained: grid-size from {gs_old} to {gs_new}')
-                posemb_grid = posemb_grid.reshape(gs_old, gs_old, -1)
-                zoom = (gs_new / gs_old, gs_new / gs_old, 1)
-                posemb_grid = ndimage.zoom(posemb_grid, zoom, order=1)  # th2np
-                posemb_grid = posemb_grid.reshape(1, gs_new * gs_new, -1)
-                posemb = posemb_grid
-                self.transformer.embeddings.position_embeddings.copy_(np2th(posemb))
+                    gs_old = int(np.sqrt(len(posemb_grid)))
+                    gs_new = int(np.sqrt(ntok_new))
+                    print(f'load_pretrained: grid-size from {gs_old} to {gs_new}')
+                    posemb_grid = posemb_grid.reshape(gs_old, gs_old, -1)
+                    zoom = (gs_new / gs_old, gs_new / gs_old, 1)
+                    posemb_grid = ndimage.zoom(posemb_grid, zoom, order=1)  # th2np
+                    posemb_grid = posemb_grid.reshape(1, gs_new * gs_new, -1)
+                    posemb = posemb_grid
+                    self.transformer.embeddings.position_embeddings.copy_(np2th(posemb))
+                else:
+                    logger.warning(f"Skipping position embedding resize for classifier: {self.classifier}")
 
             # Encoder whole
             for bname, block in self.transformer.encoder.named_children():

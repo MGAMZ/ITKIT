@@ -252,6 +252,8 @@ class EGEUNet(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x):
+        # Initialize gt_pre variables for type checker
+        gt_pre1 = gt_pre2 = gt_pre3 = gt_pre4 = gt_pre5 = None
 
         out = F.gelu(F.max_pool2d(self.ebn1(self.encoder1(x)),2,2))
         t1 = out # b, c0, H/2, W/2

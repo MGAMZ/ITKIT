@@ -211,7 +211,7 @@ class ParseCoords(BaseTransform):
             # v_c +/- derterimines the sub-view center
             # and the center +/- sub_v_c determines the sub-view boundary,
             # then slice index is available to directly sample from view array.
-            indices[idx_pair] = [
+            indices[idx_pair] = [  # type: ignore[index]
                 # adj1
                 (i, ) + tuple(slice(v_c[x] + offset[x] - sub_v_c[x],
                                     v_c[x] + offset[x] + sub_v_c[x]
@@ -778,7 +778,7 @@ class SimPairDiscriminator(BaseModule):
                 # v_c +/- derterimines the sub-view center
                 # and the center +/- sub_v_c determines the sub-view boundary,
                 # then slice index is available to directly sample from view array.
-                indices[n][idx_pair] = [
+                indices[n][idx_pair] = [  # type: ignore[index]
                     # adj1
                     (i, ) + tuple(slice(v_c[x] + offset[x] - sub_v_c[x],
                                         v_c[x] + offset[x] + sub_v_c[x]
@@ -1196,7 +1196,7 @@ class RelSim_Metric(BaseMetric):
             "sim_loss": c("sim_loss", results) if results else None,
             "vec_loss": c("vec_loss", results) if results else None,
         }
-        context["all_loss"] = sum(context.values())
+        context["all_loss"] = sum(v for v in context.values() if v is not None)  # type: ignore[misc]
         return context
 
 

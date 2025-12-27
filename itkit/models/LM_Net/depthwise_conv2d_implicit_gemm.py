@@ -65,7 +65,7 @@ if __name__ == "__main__":
     torch.random.manual_seed(0)
     if torch.cuda.is_available():
         x = torch.randn(64, 384, 32, 32).cuda()
-        m1 = DepthWiseConv2dImplicitGEMM(384, 31, bias=False).cuda()
+        m1 = DepthWiseConv2dImplicitGEMM(384, 31, groups=384, bias=False).cuda()
         m2 = nn.Conv2d(384, 384, 31, padding=31 // 2, bias=False, groups=384).cuda()
         m2.load_state_dict(m1.state_dict())
         with torch.cuda.amp.autocast(True):

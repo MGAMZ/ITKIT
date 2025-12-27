@@ -48,6 +48,7 @@ def ConvBlock(in_channels, out_channels, kernel_size=3, stride=1, padding='same'
 
 
 def dot_product(seg, cls):
+    d = 0  # Initialize for type checker
     if seg.dim() == 4:  # 2D case
         b, n, h, w = seg.shape
         seg = seg.view(b, n, -1)
@@ -197,6 +198,7 @@ class UNet3Plus(nn.Module):
         e5 = self._maybe_checkpoint(self.e5, e4)
 
         # Classification Guided Module
+        cls = None  # Initialize for type checker
         if self.CGM:
             assert self.cgm is not None, "Classification Guided Module is enabled but CGM layer is not defined."
             cls = self.cgm(e5)
