@@ -109,6 +109,7 @@ include = ["itkit*"]
 
 [tool.pyright]
 pythonVersion = "3.14"
+analyzeUnannotatedFunctions = true
 include = ["itkit"]
 exclude = [
   "**/__pycache__/**",
