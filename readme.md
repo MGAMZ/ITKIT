@@ -567,7 +567,9 @@ pip install --no-deps monai
    2. `mgam_TorchIO_Patched_Structure` -> `TorchIO_PatchedDataset`
    3. Removed: `GeneralDataset`, `SA_Med2D`
 4. `itkit.lightning.utils`: `mgam_bar` -> `RefinedLightningPbar`
-5. Removed: Trivial `mgam` anywhere
+5. `itkit.mm`
+   1. `mgam_Runner` -> `ITKITRunner`
+6. Removed: Trivial `mgam` anywhere
 
 ## Citation
 
