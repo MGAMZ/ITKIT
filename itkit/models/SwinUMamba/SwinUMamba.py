@@ -180,7 +180,7 @@ class SS2D(nn.Module):
         self.d_conv = d_conv
         self.expand = expand
         self.d_inner = int(self.expand * self.d_model)
-        self.dt_rank = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
+        self.dt_rank: int = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
 
         self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias, **factory_kwargs)
         self.conv2d = nn.Conv2d(
@@ -195,10 +195,10 @@ class SS2D(nn.Module):
         self.act = nn.SiLU()
 
         self.x_proj = (
-            nn.Linear(self.d_inner, (self.dt_rank + self.d_state * 2), bias=False, **factory_kwargs),
-            nn.Linear(self.d_inner, (self.dt_rank + self.d_state * 2), bias=False, **factory_kwargs),
-            nn.Linear(self.d_inner, (self.dt_rank + self.d_state * 2), bias=False, **factory_kwargs),
-            nn.Linear(self.d_inner, (self.dt_rank + self.d_state * 2), bias=False, **factory_kwargs),
+            nn.Linear(self.d_inner, int(self.dt_rank + self.d_state * 2), bias=False, **factory_kwargs),
+            nn.Linear(self.d_inner, int(self.dt_rank + self.d_state * 2), bias=False, **factory_kwargs),
+            nn.Linear(self.d_inner, int(self.dt_rank + self.d_state * 2), bias=False, **factory_kwargs),
+            nn.Linear(self.d_inner, int(self.dt_rank + self.d_state * 2), bias=False, **factory_kwargs),
         )
         self.x_proj_weight = nn.Parameter(torch.stack([t.weight for t in self.x_proj], dim=0)) # (K=4, N, inner)
         del self.x_proj
@@ -373,7 +373,7 @@ class VSSLayer(nn.Module):
         dim,
         depth,
         attn_drop=0.,
-        drop_path=0.,
+        drop_path: float | list[float] = 0.,
         norm_layer=nn.LayerNorm,
         downsample=None,
         use_checkpoint=False,
@@ -523,7 +523,7 @@ class UNetResDecoder(nn.Module):
             self,
             num_classes:int=1,
             deep_supervision=False,
-            features_per_stage: tuple[int, ...] | list[int] = None,
+            features_per_stage: tuple[int, ...] | list[int] | None = None,
             drop_path_rate: float = 0.2,
             d_state: int = 16,
         ):
@@ -544,6 +544,8 @@ class UNetResDecoder(nn.Module):
         """
         super().__init__()
 
+        if features_per_stage is None:
+            raise ValueError("features_per_stage cannot be None")
         encoder_output_channels = features_per_stage
         self.deep_supervision = deep_supervision
         # self.encoder = encoder
@@ -558,6 +560,7 @@ class UNetResDecoder(nn.Module):
         expand_layers = []
         seg_layers = []
         concat_back_dim = []
+        input_features_skip = encoder_output_channels[0]  # Initialize with default value
         for s in range(1, n_stages_encoder):
             input_features_below = encoder_output_channels[-s]
             input_features_skip = encoder_output_channels[-(s + 1)]
