@@ -38,6 +38,8 @@ class MedNeXtBlock(nn.Module):
             conv = nn.Conv2d
         elif self.dim == "3d":
             conv = nn.Conv3d
+        else:
+            raise ValueError(f"Invalid dim: {dim}")
 
         # First convolution layer with DepthWise Convolutions
         self.conv1 = conv(
@@ -114,6 +116,8 @@ class MedNeXtBlock(nn.Module):
                 gx = torch.norm(x1, p=2, dim=(-2, -1), keepdim=True)
             elif self.dim == "1d":
                 gx = torch.norm(x1, p=2, dim=-1, keepdim=True)
+            else:
+                raise ValueError(f"Invalid dim: {self.dim}")
             nx = gx / (gx.mean(dim=1, keepdim=True) + 1e-6)
             x1 = self.grn_gamma * (x1 * nx) + self.grn_beta + x1
         x1 = self.conv3(x1)
@@ -151,6 +155,8 @@ class MedNeXtDownBlock(MedNeXtBlock):
             conv = nn.Conv2d
         elif dim == "3d":
             conv = nn.Conv3d
+        else:
+            raise ValueError(f"Invalid dim: {dim}")
         self.resample_do_res = do_res
         if do_res:
             self.res_conv = conv(
@@ -212,6 +218,8 @@ class MedNeXtUpBlock(MedNeXtBlock):
             conv = nn.ConvTranspose2d
         elif dim == "3d":
             conv = nn.ConvTranspose3d
+        else:
+            raise ValueError(f"Invalid dim: {dim}")
         if do_res:
             self.res_conv = conv(
                 in_channels=in_channels,
@@ -256,6 +264,8 @@ class MedNeXtUpBlock(MedNeXtBlock):
                 # res = torch.nn.functional.pad(res, (1, 0, 1, 0))
             elif self.dim == "3d":
                 res_padded = torch.nn.functional.pad(res, (1, 0, 1, 0, 1, 0))
+            else:
+                raise ValueError(f"Invalid dim: {self.dim}")
 
             x1_padded = x1_padded + res_padded
 
@@ -271,6 +281,8 @@ class OutBlock(nn.Module):
             conv = nn.ConvTranspose2d
         elif dim == "3d":
             conv = nn.ConvTranspose3d
+        else:
+            raise ValueError(f"Invalid dim: {dim}")
         self.conv_out = conv(in_channels, n_classes, kernel_size=1)
 
     def forward(self, x, dummy_tensor=None):
@@ -357,6 +369,8 @@ class MedNeXt(nn.Module):
             conv = nn.Conv2d
         elif dim == "3d":
             conv = nn.Conv3d
+        else:
+            raise ValueError(f"Invalid dim: {dim}")
 
         self.stem = conv(in_channels, n_channels, kernel_size=1)
         if isinstance(exp_r, int):
@@ -628,6 +642,7 @@ class MedNeXt(nn.Module):
     def forward(self, x):
 
         x = self.stem(x)
+        x_ds_1 = x_ds_2 = x_ds_3 = x_ds_4 = None
         if self.outside_block_checkpointing:
             x_res_0 = self.iterative_checkpoint(self.enc_block_0, x)
             x = checkpoint(self.down_0, x_res_0, self.dummy_tensor)
@@ -753,6 +768,8 @@ class MM_MedNext_Encoder(BaseModule):
             conv = nn.Conv2d
         elif dim == "3d":
             conv = nn.Conv3d
+        else:
+            raise ValueError(f"Invalid dim: {dim}")
 
         # NOTE The stem uses the actual embedding dims.
         #      The pixel unshuffle will increase the number of channels,
@@ -1126,6 +1143,7 @@ class MM_MedNext_Decoder(BaseModule):
 
     def forward(self, inputs):
         (x_res_0, x_res_1, x_res_2, x_res_3, x) = inputs
+        x_ds_1 = x_ds_2 = x_ds_3 = x_ds_4 = None
         if self.deep_supervision:
             x_ds_4 = self.checkpoint(self.out_4, x)
 
