@@ -24,7 +24,7 @@ from itkit.process.GeneralPreProcess import WindowSet, TypeConvert
 from itkit.process.LoadBiomedicalData import LoadImageFromMHA, LoadMaskFromMHA
 from itkit.mm.mmseg_Dev3D import PackSeg3DInputs, Seg3DDataPreProcessor
 from itkit.mm.mmseg_PlugIn import IoUMetric_PerClass
-from itkit.dataset import mgam_concat_dataset
+from itkit.dataset import ITKITConcatDataset
 from itkit.dataset.AbdomenCT_1K.mm_dataset import AbdomenCT_1K_Mha, AbdomenCT_1K_Patch
 from itkit.mm.visualization import SegViser, BaseVisHook, LocalVisBackend
 
@@ -48,7 +48,7 @@ resume_param_scheduler = True
 
 # NN Hyper Params
 lr = 1e-4
-batch_size_loader = 8
+batch_size_loader = 4
 grad_accumulation = 1
 weight_decay = 1e-2
 in_channels = 1
@@ -106,7 +106,7 @@ train_dataloader = dict(
         type=InfiniteSampler,
         shuffle=False),
     dataset=dict(
-        type=mgam_concat_dataset,
+        type=ITKITConcatDataset,
         datasets=[
             dict(type=AbdomenCT_1K_Patch,
                  data_root=data_root+"/patch96",
@@ -128,7 +128,7 @@ val_dataloader = dict(
                  shuffle=False if debug else True),
     collate_fn=dict(type=default_collate),
     dataset=dict(
-        type=mgam_concat_dataset,
+        type=ITKITConcatDataset,
         datasets=[
             dict(type=AbdomenCT_1K_Mha,
                  data_root=data_root,
@@ -148,7 +148,7 @@ test_dataloader = dict(
     sampler=dict(type=DefaultSampler),
     collate_fn=dict(type=default_collate),
     dataset=dict(
-        type=mgam_concat_dataset,
+        type=ITKITConcatDataset,
         datasets=[
             dict(type=AbdomenCT_1K_Mha,
                  data_root=data_root,
@@ -262,7 +262,7 @@ compile = dict(
 )
 
 # Distributed Training
-runner_type = "mgam_Runner"
+runner_type = "ITKITRunner"
 if dist:
     launcher = "pytorch"
     if MP_mode == "deepspeed":

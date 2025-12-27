@@ -3,11 +3,11 @@ with read_base():
     from .mgam import *
 
 from itkit.criterions.segment import DiceCELoss_3D
-from itkit.mm.mgam_models import mgam_Seg3D_Lite
+from itkit.mm.task_models import SemSeg3D
 from itkit.models.SegFormer3D import SegFormer3D
 
 model = dict(
-    type=mgam_Seg3D_Lite,
+    type=SemSeg3D,
     binary_segment_threshold=None,
     num_classes=num_classes,
     backbone=dict(

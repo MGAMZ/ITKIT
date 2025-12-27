@@ -551,27 +551,27 @@ pip install --no-deps monai
 
 ## Namespace BC in `v4.0`
 
-1. `itkit.mm.mgam_models` -> `itkit.mm.task_models`
-   1. `mgam_Seg_Lite` -> `SemanticSegment`
-   2. `mgam_Seg2D_Lite` -> `SemSeg2D`
-   3. `mgam_Seg3D_Lite` -> `SemSeg3D`
-2. `itkit.dataset.base`
-   1. `mgam_BaseSegDataset` -> `ITKITBaseSegDataset`
-   2. `mgam_SeriesVolume` -> `SeriesVolumeDataset`
-   3. `mgam_SemiSup_3D_Mha` -> `SeriesVolumeDataset` (Level Up)
-   4. `mgam_SeriesPatched_Structure` -> `PatchedDataset`
-   5. `mgam_concat_dataset` -> `ITKITConcatDataset`
-   6. Removed: `mgam_2D_MhaVolumeSlices`, `unsup_base`, `unsup_base_Semi_Mha`
-3. `itkit.dataset`
-   1. `mgam_MONAI_Patched_Structure` -> `MONAI_PatchedDataset`
-   2. `mgam_TorchIO_Patched_Structure` -> `TorchIO_PatchedDataset`
-   3. Removed: `GeneralDataset`, `SA_Med2D`
-4. `itkit.lightning.utils`: `mgam_bar` -> `RefinedLightningPbar`
-5. `itkit.mm`
+1. `itkit.dataset`
+   1. `itkit.mm.mgam_models` -> `itkit.mm.task_models`
+   2. `mgam_Seg_Lite` -> `SemanticSegment`
+   3. `mgam_Seg2D_Lite` -> `SemSeg2D`
+   4. `mgam_Seg3D_Lite` -> `SemSeg3D`
+   5. `mgam_MONAI_Patched_Structure` -> `MONAI_PatchedDataset`
+   6. `mgam_TorchIO_Patched_Structure` -> `TorchIO_PatchedDataset`
+   7. `mgam_BaseSegDataset` -> `ITKITBaseSegDataset`
+   8. `mgam_SeriesVolume` -> `SeriesVolumeDataset`
+   9. `mgam_SemiSup_3D_Mha` -> `SeriesVolumeDataset` (Level Up)
+   10. `mgam_SeriesPatched_Structure` -> `PatchedDataset`
+   11. `mgam_concat_dataset` -> `ITKITConcatDataset`
+   12. Removed: `GeneralDataset`, `SA_Med2D`, `mgam_2D_MhaVolumeSlices`, `unsup_base`, `unsup_base_Semi_Mha`
+2. `itkit.lightning`
+   1. `mgam_bar` -> `RefinedLightningPbar`
+3. `itkit.mm`
    1. `mgam_Runner` -> `ITKITRunner`
    2. `mgam_PerClassMetricLogger_OnTest` -> `PerClassMetricLogger_OnTest`
-   3. Removed: `mgam_OptimWrapperConstructor`
-6. Removed: Trivial `mgam` anywhere
+   3. `mgam_TensorboardVisBackend` -> `ITKITTensorboardVisBackend`
+   4. Removed: `mgam_OptimWrapperConstructor`
+4. Removed: Trivial `mgam` anywhere
 
 ## Citation
 
