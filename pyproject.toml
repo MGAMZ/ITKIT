@@ -117,8 +117,6 @@ exclude = [
   "build/**",
   "dist/**",
   "**/*.egg-info/**",
-  "itkit/dataset/SA_Med2D",
-  "itkit/models",
   "itkit/lightning"
 ]
 reportAttributeAccessIssue = false
