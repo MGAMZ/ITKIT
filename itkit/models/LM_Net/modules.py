@@ -1,5 +1,5 @@
-from collections import OrderedDict
 import math
+from collections import OrderedDict
 
 import torch
 import torch.nn as nn
@@ -14,11 +14,10 @@ from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 #from carafe import CARAFEPack
 from torch.nn.modules.utils import _pair
 from torchvision.ops.deform_conv import DeformConv2d  # type: ignore
-from torchvision.ops.ps_roi_pool import PSRoIPool  # type: ignore
 
 # Try to import optional dependencies
 try:
-    from .nattencuda import NEWNeighborhoodAttention, NeighborhoodAttention  # type: ignore
+    from .nattencuda import NeighborhoodAttention, NEWNeighborhoodAttention  # type: ignore
 except ImportError:
     NEWNeighborhoodAttention = None  # type: ignore
     NeighborhoodAttention = None  # type: ignore
