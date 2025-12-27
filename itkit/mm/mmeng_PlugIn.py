@@ -21,7 +21,7 @@ from mmengine.model.wrappers import (
     MMDistributedDataParallel,
     MMFullyShardedDataParallel,
 )
-from mmengine.optim import AmpOptimWrapper, DefaultOptimWrapperConstructor
+from mmengine.optim import AmpOptimWrapper
 from mmengine.runner import (
     FlexibleRunner,
     IterBasedTrainLoop,
@@ -39,8 +39,8 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
     else:
         RunnerChoice = Runner
 
-    class mgam_Runner(RunnerChoice): # type: ignore
-        """MGAM Customized MMEngine Runner"""
+    class ITKITRunner(RunnerChoice): # type: ignore
+        """Customized MMEngine Runner"""
         def __init__(self, **kwargs):
             self.resume_optimizer = kwargs.get("cfg", {}).pop("resume_optimizer", True)
             self.resume_param_scheduler = kwargs.get("cfg", {}).pop("resume_param_scheduler", True)
@@ -96,7 +96,7 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
                         "current")
                     cfg[key] = num_classes
                 elif isinstance(value, ConfigType):
-                    cfg[key] = mgam_Runner.auto_configure_num_classes_from_Databackend(
+                    cfg[key] = ITKITRunner.auto_configure_num_classes_from_Databackend(
                         value, num_classes)
             return cfg
 
@@ -121,7 +121,7 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
                 self.load_checkpoint(self._load_from)
                 self._has_loaded = True
 
-    return mgam_Runner.from_cfg(cfg)
+    return ITKITRunner.from_cfg(cfg)
 
 
 # for debug
@@ -160,7 +160,7 @@ class IterBasedTrainLoop_SupportProfiler(IterBasedTrainLoop):
 
 
 # support for better class-wise performance logging
-class mgam_PerClassMetricLogger_OnTest(LoggerHook):
+class PerClassMetricLogger_OnTest(LoggerHook):
     def after_test_epoch(self, runner, metrics: dict) -> None:
         PerClassResult_FromIoUMetric = metrics.pop("Perf/PerClass")
         data_df = pd.DataFrame(PerClassResult_FromIoUMetric)  # [Class, metrics...]
@@ -468,16 +468,3 @@ def multi_sample_collate(data_batch: Sequence[dict]):
     data_batch = flattened
 
     return default_collate(data_batch)
-
-
-class mgam_OptimWrapperConstructor(DefaultOptimWrapperConstructor):
-    def __call__(self, model: nn.Module):
-        if hasattr(model, 'module'):
-            assert isinstance(model.module, nn.Module), \
-                f'`model.module` is not an instance of `nn.Module`, got{model.module}.'
-            model = model.module
-
-        filtered_params = filter(lambda p: p.requires_grad, model.parameters())
-        model.parameters = lambda recurse=True: filtered_params
-
-        return super().__call__(model)

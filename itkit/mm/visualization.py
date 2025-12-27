@@ -37,7 +37,7 @@ class LocalVisBackend(_LocalVisBackend):
         cv2.imwrite(os.path.join(self._img_save_dir, save_file_name), drawn_image)
 
 
-class mgam_TensorboardVisBackend(_TensorboardVisBackend):
+class ITKITTensorboardVisBackend(_TensorboardVisBackend):
     def add_image(self, *args, **kwargs):
         super().add_image(*args, **kwargs)
         self._tensorboard.flush()

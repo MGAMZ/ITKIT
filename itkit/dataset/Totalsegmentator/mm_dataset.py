@@ -5,10 +5,10 @@ import orjson
 import pandas as pd
 from tqdm import tqdm
 
-from ..base import mgam_SemiSup_3D_Mha, mgam_SeriesPatched_Structure
+from ..base import PatchedDataset, SeriesVolumeDataset
 
 if TYPE_CHECKING:
-    from ..base import mgam_SeriesVolume
+    from ..base import SeriesVolumeDataset
 
 from .meta import (
     CLASS_INDEX_MAP,
@@ -55,7 +55,7 @@ class TotalsegmentatorIndexer:
                               image_path.replace('img_dir', 'ann_dir')))
                 for image_path in selected_split_image_paths]
 
-class Tsd_base(mgam_SeriesVolume if TYPE_CHECKING else object):
+class Tsd_base(SeriesVolumeDataset if TYPE_CHECKING else object):
     METAINFO = dict(classes=list(CLASS_INDEX_MAP.keys()))
 
     def __init__(self, meta_csv:str|None, class_reduction: dict|None=None, subset:str|None=None, **kwargs) -> None:
@@ -83,8 +83,8 @@ class Tsd_base(mgam_SeriesVolume if TYPE_CHECKING else object):
             activate_series = self.meta_table[self.meta_table['split']==self.split]
             return activate_series['image_id'].tolist()
 
-class Tsd_Mha(Tsd_base, mgam_SemiSup_3D_Mha):
+class Tsd_Mha(Tsd_base, SeriesVolumeDataset):
     ...
 
-class Tsd_Patch(Tsd_base, mgam_SeriesPatched_Structure):
+class Tsd_Patch(Tsd_base, PatchedDataset):
     ...

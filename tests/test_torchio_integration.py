@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import SimpleITK as sitk
 import torchio as tio
-from itkit.dataset.torchio import mgam_TorchIO_Patched_Structure
+from itkit.dataset.torchio import TorchIO_PatchedDataset
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def test_dataset_initialization_and_fetching(mock_dataset_dir):
 
     # Initialize dataset
     # We use an empty pipeline so we can inspect the raw output of prepare_data
-    dataset = mgam_TorchIO_Patched_Structure(
+    dataset = TorchIO_PatchedDataset(
         data_root=mock_dataset_dir,
         pipeline=[],
         split='train',
@@ -94,7 +94,7 @@ def test_dataloader_multiprocessing(mock_dataset_dir):
 
     patch_size = (16, 32, 64)
     # Use 0 queue workers to avoid nested multiprocessing issues in test environment
-    dataset = mgam_TorchIO_Patched_Structure(
+    dataset = TorchIO_PatchedDataset(
         data_root=mock_dataset_dir,
         pipeline=[],
         split='train',
@@ -145,7 +145,7 @@ def test_volume_padding(mock_dataset_dir):
 
     try:
         patch_size = (32, 32, 32)
-        dataset = mgam_TorchIO_Patched_Structure(
+        dataset = TorchIO_PatchedDataset(
             data_root=test_dir,
             pipeline=[],
             split='train',
@@ -166,7 +166,7 @@ def test_volume_padding(mock_dataset_dir):
 
 def test_data_list_conversion(mock_dataset_dir):
     """Test that mmseg format is correctly converted to TorchIO format"""
-    dataset = mgam_TorchIO_Patched_Structure(
+    dataset = TorchIO_PatchedDataset(
         data_root=mock_dataset_dir,
         pipeline=[],
         split='train',

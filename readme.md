@@ -1,10 +1,10 @@
 ![LOGO](ITKIT-LOGO.png)
 
-# mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API
+# ITKIT: Feasible Medical Image Operation based on SimpleITK API
 
 [![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![SimpleITK >= 2.5.0](https://img.shields.io/badge/SimpleITK-%3E%3D2.5-yellow)](https://github.com/SimpleITK/SimpleITK) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) ![CI Status](https://github.com/MGAMZ/ITKIT/actions/workflows/test.yml/badge.svg)
 
-`mgam-ITKIT` is a user-friendly toolkit built on `SimpleITK` and `Python`, designed for common data preprocessing operations in data-driven CT medical image analysis. It assumes a straightforward data sample structure and offers intuitive functions for checking, resampling, pre-segmenting, aligning, and enhancing such data. Each operation is specified by a dedicated command-line entry with a clear parameter list.
+`ITKIT` is a user-friendly toolkit built on `SimpleITK` and `Python`, designed for common data preprocessing operations in data-driven CT medical image analysis. It assumes a straightforward data sample structure and offers intuitive functions for checking, resampling, pre-segmenting, aligning, and enhancing such data. Each operation is specified by a dedicated command-line entry with a clear parameter list.
 
 Feel free to reach out to me for any questions or suggestions at [my Email](mailto:312065559@qq.com).
 
@@ -466,7 +466,7 @@ The configuration files' format aligns with the OpenMIM specification, we recomm
 
 `ITKIT` also provides several remastered implementation based on `mmengine` BaseModel, its design is inspired by `mmsegmentation` but more lightweight.
 
-See `itkit/mm/mgam_models.py` for details.
+See `itkit/mm/task_models.py` for details.
 
 ### Neural Networks
 
@@ -549,14 +549,38 @@ pip install --no-deps monai
 
 **Development:** All development occurs on other branches, but only merges to release branches trigger releases.
 
+## Namespace BC in `v4.0`
+
+1. `itkit.dataset`
+   1. `itkit.mm.mgam_models` -> `itkit.mm.task_models`
+   2. `mgam_Seg_Lite` -> `SemanticSegment`
+   3. `mgam_Seg2D_Lite` -> `SemSeg2D`
+   4. `mgam_Seg3D_Lite` -> `SemSeg3D`
+   5. `mgam_MONAI_Patched_Structure` -> `MONAI_PatchedDataset`
+   6. `mgam_TorchIO_Patched_Structure` -> `TorchIO_PatchedDataset`
+   7. `mgam_BaseSegDataset` -> `ITKITBaseSegDataset`
+   8. `mgam_SeriesVolume` -> `SeriesVolumeDataset`
+   9. `mgam_SemiSup_3D_Mha` -> `SeriesVolumeDataset` (Level Up)
+   10. `mgam_SeriesPatched_Structure` -> `PatchedDataset`
+   11. `mgam_concat_dataset` -> `ITKITConcatDataset`
+   12. Removed: `GeneralDataset`, `SA_Med2D`, `mgam_2D_MhaVolumeSlices`, `unsup_base`, `unsup_base_Semi_Mha`
+2. `itkit.lightning`
+   1. `mgam_bar` -> `RefinedLightningPbar`
+3. `itkit.mm`
+   1. `mgam_Runner` -> `ITKITRunner`
+   2. `mgam_PerClassMetricLogger_OnTest` -> `PerClassMetricLogger_OnTest`
+   3. `mgam_TensorboardVisBackend` -> `ITKITTensorboardVisBackend`
+   4. Removed: `mgam_OptimWrapperConstructor`
+4. Removed: Trivial `mgam` anywhere
+
 ## Citation
 
 If you find this repo helpful in your research, please consider citing:
 
 ```bibtex
-@misc{mgam-ITKIT,
+@misc{ITKIT,
     author = {Yiqin Zhang},
-    title = {mgam-ITKIT: Feasible Medical Image Operation based on SimpleITK API},
+    title = {ITKIT: Feasible Medical Image Operation based on SimpleITK API},
     year = {2025},
     url = {https://gitee.com/MGAM/ITKIT}
 }
