@@ -293,7 +293,7 @@ class ITKITConcatDataset(ConcatDataset):
         # Only use metainfo of first dataset.
         self._metainfo = self.datasets[0].metainfo
 
-        # HACK MGAM: Skip dataset-wise metainfo consistent check
+        # HACK Skip dataset-wise metainfo consistent check
 
         self._fully_initialized = False
         if not lazy_init:

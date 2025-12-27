@@ -565,6 +565,7 @@ pip install --no-deps monai
 3. `itkit.dataset`
    1. `mgam_MONAI_Patched_Structure` -> `MONAI_PatchedDataset`
    2. `mgam_TorchIO_Patched_Structure` -> `TorchIO_PatchedDataset`
+4. Removed: `itkit.dataset.SA_Med2D`
 
 ## Citation
 

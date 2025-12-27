@@ -10,7 +10,7 @@ import torch
 from .base import SeriesVolumeDataset
 
 
-class mgam_MONAI_Patched_Structure(SeriesVolumeDataset):
+class MONAI_PatchedDataset(SeriesVolumeDataset):
     def __init__(self,
                  data_root: str,
                  samples_per_volume: int = 10,

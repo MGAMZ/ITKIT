@@ -4,7 +4,7 @@ import tempfile
 import numpy as np
 import pytest
 import SimpleITK as sitk
-from itkit.dataset.monai import mgam_MONAI_Patched_Structure
+from itkit.dataset.monai import MONAI_PatchedDataset
 
 
 @pytest.fixture
@@ -44,7 +44,7 @@ def test_dataset_initialization_and_fetching(mock_dataset_dir):
     samples_per_volume = 2
 
     # Initialize dataset with empty pipeline to inspect raw output
-    dataset = mgam_MONAI_Patched_Structure(
+    dataset = MONAI_PatchedDataset(
         data_root=mock_dataset_dir,
         pipeline=[],
         split='train',
@@ -93,7 +93,7 @@ def test_dataloader_multiprocessing(mock_dataset_dir):
     import torch
 
     patch_size = (32, 32, 32)
-    dataset = mgam_MONAI_Patched_Structure(
+    dataset = MONAI_PatchedDataset(
         data_root=mock_dataset_dir,
         pipeline=[],
         split='train',
@@ -127,7 +127,7 @@ def test_infinite_iterator_behavior(mock_dataset_dir):
     patch_size = (32, 32, 32)
     samples_per_volume = 2
 
-    dataset = mgam_MONAI_Patched_Structure(
+    dataset = MONAI_PatchedDataset(
         data_root=mock_dataset_dir,
         pipeline=[],
         split='train',
@@ -168,7 +168,7 @@ def test_volume_padding(mock_dataset_dir):
 
     try:
         patch_size = (32, 32, 32)
-        dataset = mgam_MONAI_Patched_Structure(
+        dataset = MONAI_PatchedDataset(
             data_root=test_dir,
             pipeline=[],
             split='train',
@@ -187,7 +187,7 @@ def test_volume_padding(mock_dataset_dir):
 
 def test_data_list_conversion(mock_dataset_dir):
     """Test that mmseg format is correctly converted to MONAI format"""
-    dataset = mgam_MONAI_Patched_Structure(
+    dataset = MONAI_PatchedDataset(
         data_root=mock_dataset_dir,
         pipeline=[],
         split='train',
