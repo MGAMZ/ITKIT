@@ -48,18 +48,22 @@ def ConvBlock(in_channels, out_channels, kernel_size=3, stride=1, padding='same'
 
 
 def dot_product(seg, cls):
-    d = 0  # Initialize for type checker
-    if seg.dim() == 4:  # 2D case
-        b, n, h, w = seg.shape
+    # Store original shape information
+    original_shape = seg.shape
+    is_2d = seg.dim() == 4
+    
+    if is_2d:  # 2D case
+        b, n, h, w = original_shape
         seg = seg.view(b, n, -1)
     else:  # 3D case
-        b, n, h, w, d = seg.shape
+        b, n, h, w, d = original_shape
         seg = seg.view(b, n, -1)
 
     cls = cls.unsqueeze(-1)  # Add an extra dimension for broadcasting
     final = torch.einsum("bik,bi->bik", seg, cls)
 
-    if seg.dim() == 4:  # 2D case
+    # Restore original shape
+    if is_2d:  # 2D case
         final = final.view(b, n, h, w)
     else:  # 3D case
         final = final.view(b, n, h, w, d)
