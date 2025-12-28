@@ -39,6 +39,12 @@ repos:
     hooks:
       - id: isort
         files: ^itkit/
+  - repo: https://github.com/jackdewinter/pymarkdown
+    rev: main
+    hooks:
+      - id: pymarkdown
+        args: [scan]
+        files: ^(docs/|README\.md)
   - repo: https://github.com/RobertCraigie/pyright-python
     rev: v1.1.407
     hooks:

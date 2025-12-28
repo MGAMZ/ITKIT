@@ -119,9 +119,9 @@ When reporting bugs or requesting features:
 
 1. **Create a new branch** for your feature/fix:
 
-```bash
-git checkout -b feature/my-new-feature
-```
+   ```bash
+   git checkout -b feature/my-new-feature
+   ```
 
 2. **Make your changes** following code style guidelines
 
@@ -131,21 +131,21 @@ git checkout -b feature/my-new-feature
 
 5. **Run tests** to ensure nothing breaks:
 
-```bash
-pytest
-```
+   ```bash
+   pytest
+   ```
 
 6. **Commit your changes** with clear messages:
 
-```bash
-git commit -m "Add feature: description of feature"
-```
+   ```bash
+   git commit -m "Add feature: description of feature"
+   ```
 
 7. **Push to your fork:**
 
-```bash
-git push origin feature/my-new-feature
-```
+   ```bash
+   git push origin feature/my-new-feature
+   ```
 
 8. **Create a Pull Request** on GitHub
 

@@ -138,7 +138,7 @@ QT_SCALE_FACTOR=0.5 itkit-app
 
 **A:** You need to reorganize your data. ITKIT requires:
 
-```
+```plaintext
 dataset/
 ├── image/
 │   └── files
@@ -215,7 +215,7 @@ mm_configdir = "/path/to/configs"
 
 And verify config directory structure:
 
-```
+```plaintext
 configs/
 └── 0.1.MyExperiment/
     ├── mgam.py
