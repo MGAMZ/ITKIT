@@ -32,7 +32,7 @@ class SegFormer3D_Encoder_MM(BaseModule):
 
         self.embeds = nn.ModuleList([
             PatchEmbedding(
-                in_channel=(in_channels if i == 0 else embed_dims[i-1]),
+                in_channels=(in_channels if i == 0 else embed_dims[i-1]),
                 embed_dim=embed_dims[i],
                 kernel_size=patch_kernel_size[i],
                 stride=patch_stride[i],
@@ -87,6 +87,7 @@ class SegFormer3D_Decoder_MM(BaseDecodeHead_3D):
         num_classes:int|None=None,
         embed_dims:list[int]=[64, 128, 320, 512],
         head_embed_dims:int=256,
+        final_upsampler_scale_factor: int | tuple[int, int, int] = 4,
         *args, **kwargs
     ):
         if num_classes is None:
@@ -103,6 +104,7 @@ class SegFormer3D_Decoder_MM(BaseDecodeHead_3D):
         self.segformer = SegFormerDecoderHead(
             input_feature_dims=embed_dims[::-1],
             decoder_head_embedding_dim=head_embed_dims,
+            final_upsampler_scale_factor=final_upsampler_scale_factor,
             num_classes=num_classes,
         )
 

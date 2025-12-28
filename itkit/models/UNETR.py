@@ -303,10 +303,10 @@ class UNETR(nn.Module):
             # copy weights from patch embedding
             for i in weights["state_dict"]:
                 print(i)
-            self.vit.patch_embedding.position_embeddings.copy_(
+            self.vit.patch_embedding.position_embeddings.copy_( # type: ignore
                 weights["state_dict"]["module.transformer.patch_embedding.position_embeddings_3d"]
             )
-            self.vit.patch_embedding.cls_token.copy_(
+            self.vit.patch_embedding.cls_token.copy_( # type: ignore
                 weights["state_dict"]["module.transformer.patch_embedding.cls_token"]
             )
             self.vit.patch_embedding.patch_embeddings[1].weight.copy_(# type: ignore
@@ -319,10 +319,10 @@ class UNETR(nn.Module):
             # copy weights from  encoding blocks (default: num of blocks: 12)
             for bname, block in self.vit.blocks.named_children():
                 print(block)
-                block.loadFrom(weights, n_block=bname)
+                block.loadFrom(weights, n_block=bname) # type: ignore
             # last norm layer of transformer
-            self.vit.norm.weight.copy_(weights["state_dict"]["module.transformer.norm.weight"])
-            self.vit.norm.bias.copy_(weights["state_dict"]["module.transformer.norm.bias"])
+            self.vit.norm.weight.copy_(weights["state_dict"]["module.transformer.norm.weight"]) # type: ignore
+            self.vit.norm.bias.copy_(weights["state_dict"]["module.transformer.norm.bias"]) # type: ignore
 
     def forward(self, x_in):
         x, hidden_states_out = self.vit(x_in)

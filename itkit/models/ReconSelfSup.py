@@ -173,14 +173,18 @@ class Reconstructor(AutoEncoderSelfSup):
     @torch.inference_mode()
     def predict(
         self,
-        inputs: Tensor,
+        inputs: Tensor | list[Tensor],
         data_samples: list[ReconDataSample]
     ) -> list[ReconDataSample]:
 
+        input_tensor = torch.stack(inputs) if isinstance(inputs, list) else inputs
+
         if self.test_cfg["mode"] == "whole":
-            reconed = self.whole_inference(inputs)
+            reconed = self.whole_inference(input_tensor)
         elif self.test_cfg["mode"] == "slide":
-            reconed = self.slide_inference(inputs)
+            reconed = self.slide_inference(input_tensor)
+        else:
+            raise ValueError(f"Unsupported test mode: {self.test_cfg['mode']}")
 
         for i, sample in enumerate(data_samples):
             sample.set_pred_data(VoxelData(data=reconed[i]))
@@ -188,11 +192,13 @@ class Reconstructor(AutoEncoderSelfSup):
         return data_samples
 
     def forward(self,
-                inputs: Tensor,
+                inputs: Tensor | list[Tensor],
                 data_samples: list[ReconDataSample],
                 mode: str = 'tensor'
     ):
         if mode == 'loss':
+            if isinstance(inputs, Tensor):
+                inputs = [inputs]
             return self.loss(inputs, data_samples)
         elif mode == 'predict':
             return self.predict(inputs, data_samples)

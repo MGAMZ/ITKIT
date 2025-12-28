@@ -36,11 +36,13 @@ class PatchEmbed2D(nn.Module):
         super().__init__()
         if isinstance(patch_size, int):
             patch_size = (patch_size, patch_size)
+        self.patch_size = patch_size
         self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
         if norm_layer is not None:
             self.norm = norm_layer(embed_dim)
         else:
             self.norm = None
+        self.patches_resolution = (0, 0)
 
     def forward(self, x):
         x = self.proj(x).permute(0, 2, 3, 1)
@@ -180,9 +182,9 @@ class SS2D(nn.Module):
         self.d_conv = d_conv
         self.expand = expand
         self.d_inner = int(self.expand * self.d_model)
-        self.dt_rank = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
+        self.dt_rank: int = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
 
-        self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias, **factory_kwargs)
+        self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias, device=device, dtype=dtype)
         self.conv2d = nn.Conv2d(
             in_channels=self.d_inner,
             out_channels=self.d_inner,
@@ -190,15 +192,16 @@ class SS2D(nn.Module):
             bias=conv_bias,
             kernel_size=d_conv,
             padding=(d_conv - 1) // 2,
-            **factory_kwargs,
+            device=device,
+            dtype=dtype,
         )
         self.act = nn.SiLU()
 
         self.x_proj = (
-            nn.Linear(self.d_inner, (self.dt_rank + self.d_state * 2), bias=False, **factory_kwargs),
-            nn.Linear(self.d_inner, (self.dt_rank + self.d_state * 2), bias=False, **factory_kwargs),
-            nn.Linear(self.d_inner, (self.dt_rank + self.d_state * 2), bias=False, **factory_kwargs),
-            nn.Linear(self.d_inner, (self.dt_rank + self.d_state * 2), bias=False, **factory_kwargs),
+            nn.Linear(self.d_inner, int(self.dt_rank + self.d_state * 2), bias=False, device=device, dtype=dtype),
+            nn.Linear(self.d_inner, int(self.dt_rank + self.d_state * 2), bias=False, device=device, dtype=dtype),
+            nn.Linear(self.d_inner, int(self.dt_rank + self.d_state * 2), bias=False, device=device, dtype=dtype),
+            nn.Linear(self.d_inner, int(self.dt_rank + self.d_state * 2), bias=False, device=device, dtype=dtype),
         )
         self.x_proj_weight = nn.Parameter(torch.stack([t.weight for t in self.x_proj], dim=0)) # (K=4, N, inner)
         del self.x_proj
@@ -373,7 +376,7 @@ class VSSLayer(nn.Module):
         dim,
         depth,
         attn_drop=0.,
-        drop_path=0.,
+        drop_path: float | list[float] = 0.,
         norm_layer=nn.LayerNorm,
         downsample=None,
         use_checkpoint=False,
@@ -492,11 +495,11 @@ class VSSMEncoder(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    @torch.jit.ignore
+    @torch.jit.ignore()
     def no_weight_decay(self):
         return {'absolute_pos_embed'}
 
-    @torch.jit.ignore
+    @torch.jit.ignore()
     def no_weight_decay_keywords(self):
         return {'relative_position_bias_table'}
 
@@ -523,7 +526,7 @@ class UNetResDecoder(nn.Module):
             self,
             num_classes:int=1,
             deep_supervision=False,
-            features_per_stage: tuple[int, ...] | list[int] = None,
+            features_per_stage: tuple[int, ...] | list[int] | None = None,
             drop_path_rate: float = 0.2,
             d_state: int = 16,
         ):
@@ -544,6 +547,8 @@ class UNetResDecoder(nn.Module):
         """
         super().__init__()
 
+        if features_per_stage is None:
+            raise ValueError("features_per_stage cannot be None")
         encoder_output_channels = features_per_stage
         self.deep_supervision = deep_supervision
         # self.encoder = encoder
@@ -558,6 +563,7 @@ class UNetResDecoder(nn.Module):
         expand_layers = []
         seg_layers = []
         concat_back_dim = []
+        input_features_skip = encoder_output_channels[0]  # Initialize with default value
         for s in range(1, n_stages_encoder):
             input_features_below = encoder_output_channels[-s]
             input_features_skip = encoder_output_channels[-(s + 1)]

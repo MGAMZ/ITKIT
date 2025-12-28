@@ -12,7 +12,7 @@ class MedNeXtBlock(nn.Module):
                 kernel_size:int=7,
                 do_res:int=True,
                 norm_type:str = 'group',
-                n_groups:int or None = None,
+                n_groups:int | None = None,
                 dim = '3d',
                 grn = False
                 ):
@@ -27,6 +27,8 @@ class MedNeXtBlock(nn.Module):
             conv = nn.Conv2d
         elif self.dim == '3d':
             conv = nn.Conv3d
+        else:
+            raise ValueError(f"Invalid dim: {dim}")
 
         # First convolution layer with DepthWise Convolutions
         self.conv1 = conv(
@@ -93,6 +95,8 @@ class MedNeXtBlock(nn.Module):
                 gx = torch.norm(x1, p=2, dim=(-3, -2, -1), keepdim=True)
             elif self.dim == '2d':
                 gx = torch.norm(x1, p=2, dim=(-2, -1), keepdim=True)
+            else:
+                raise ValueError(f"Invalid dim: {self.dim}")
             nx = gx / (gx.mean(dim=1, keepdim=True)+1e-6)
             x1 = self.grn_gamma * (x1 * nx) + self.grn_beta + x1
         x1 = self.conv3(x1)
@@ -114,6 +118,8 @@ class MedNeXtDownBlock(MedNeXtBlock):
             conv = nn.Conv2d
         elif dim == '3d':
             conv = nn.Conv3d
+        else:
+            raise ValueError(f"Invalid dim: {dim}")
         self.resample_do_res = do_res
         if do_res:
             self.res_conv = conv(
@@ -158,6 +164,8 @@ class MedNeXtUpBlock(MedNeXtBlock):
             conv = nn.ConvTranspose2d
         elif dim == '3d':
             conv = nn.ConvTranspose3d
+        else:
+            raise ValueError(f"Invalid dim: {dim}")
         if do_res:
             self.res_conv = conv(
                 in_channels = in_channels,
@@ -206,6 +214,8 @@ class OutBlock(nn.Module):
             conv = nn.ConvTranspose2d
         elif dim == '3d':
             conv = nn.ConvTranspose3d
+        else:
+            raise ValueError(f"Invalid dim: {dim}")
         self.conv_out = conv(in_channels, n_classes, kernel_size=1)
 
     def forward(self, x, dummy_tensor=None):

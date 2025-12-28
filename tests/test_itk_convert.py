@@ -19,12 +19,22 @@ if MONAI_AVAILABLE:
     import monai
     from monai.data import Dataset, load_decathlon_datalist
     from monai.transforms import Compose, EnsureChannelFirstd, LoadImaged
+else:
+    # Type stubs for when MONAI is not available
+    monai = None  # type: ignore[assignment]
+    Dataset = None  # type: ignore[misc,assignment]
+    load_decathlon_datalist = None  # type: ignore[misc,assignment]
+    Compose = None  # type: ignore[misc,assignment]
+    LoadImaged = None  # type: ignore[misc,assignment]
+    EnsureChannelFirstd = None  # type: ignore[misc,assignment]
 
 # Check if TorchIO is available for end-to-end compatibility tests
 TORCHIO_AVAILABLE = importlib.util.find_spec("torchio") is not None
 
 if TORCHIO_AVAILABLE:
     import torchio as tio
+else:
+    tio = None  # type: ignore[assignment]
 
 # Constants
 SPACING_TOLERANCE = 0.001  # Tolerance for spacing comparison in tests
@@ -514,7 +524,7 @@ class TestMonaiEndToEndCompatibility:
             assert os.path.exists(json_path)
 
             # 3. Load dataset.json using MONAI utilities
-            training_data = load_decathlon_datalist(
+            training_data = load_decathlon_datalist(  # type: ignore[misc]
                 json_path,
                 data_list_key="training",
                 base_dir=dest_dir
@@ -525,11 +535,11 @@ class TestMonaiEndToEndCompatibility:
             assert "label" in training_data[0]
 
             # 4. Build MONAI pipeline to verify readability
-            check_ds = Dataset(
+            check_ds = Dataset(  # type: ignore[misc]
                 data=training_data,
-                transform=Compose([
-                    LoadImaged(keys=["image", "label"]),
-                    EnsureChannelFirstd(keys=["image", "label"])
+                transform=Compose([  # type: ignore[misc]
+                    LoadImaged(keys=["image", "label"]),  # type: ignore[misc]
+                    EnsureChannelFirstd(keys=["image", "label"])  # type: ignore[misc]
                 ])
             )
 
@@ -537,7 +547,7 @@ class TestMonaiEndToEndCompatibility:
             sample = check_ds[0]
 
             # Verify tensor dimensions and types
-            assert isinstance(sample["image"], monai.data.MetaTensor)
+            assert isinstance(sample["image"], monai.data.MetaTensor)  # type: ignore[union-attr]
             assert sample["image"].shape[1:] == (64, 64, 64)
             assert sample["label"].shape[1:] == (64, 64, 64)
 
@@ -830,9 +840,9 @@ class TestTorchIOEndToEndCompatibility:
             with open(csv_path) as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    subject = tio.Subject(
-                        image=tio.ScalarImage(os.path.join(dest_dir, row["image"])),
-                        label=tio.LabelMap(os.path.join(dest_dir, row["label"])),
+                    subject = tio.Subject(  # type: ignore[union-attr]
+                        image=tio.ScalarImage(os.path.join(dest_dir, row["image"])),  # type: ignore[union-attr]
+                        label=tio.LabelMap(os.path.join(dest_dir, row["label"])),  # type: ignore[union-attr]
                         subject_id=row["subject"],
                     )
                     subjects.append(subject)
@@ -840,7 +850,7 @@ class TestTorchIOEndToEndCompatibility:
             assert len(subjects) == num_samples
 
             # 4. Build TorchIO dataset
-            dataset = tio.SubjectsDataset(subjects)
+            dataset = tio.SubjectsDataset(subjects)  # type: ignore[union-attr]
             assert len(dataset) == num_samples
 
             # 5. Try to load the first sample
@@ -880,19 +890,19 @@ class TestTorchIOEndToEndCompatibility:
             with open(csv_path) as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    subject = tio.Subject(
-                        image=tio.ScalarImage(os.path.join(dest_dir, row["image"])),
-                        label=tio.LabelMap(os.path.join(dest_dir, row["label"])),
+                    subject = tio.Subject(  # type: ignore[union-attr]
+                        image=tio.ScalarImage(os.path.join(dest_dir, row["image"])),  # type: ignore[union-attr]
+                        label=tio.LabelMap(os.path.join(dest_dir, row["label"])),  # type: ignore[union-attr]
                     )
                     subjects.append(subject)
 
             # Create dataset with transforms
-            transform = tio.Compose([
-                tio.RandomFlip(axes=(0,)),
-                tio.RandomAffine(),
+            transform = tio.Compose([  # type: ignore[union-attr]
+                tio.RandomFlip(axes=(0,)),  # type: ignore[union-attr]
+                tio.RandomAffine(),  # type: ignore[union-attr]
             ])
 
-            dataset = tio.SubjectsDataset(subjects, transform=transform)
+            dataset = tio.SubjectsDataset(subjects, transform=transform)  # type: ignore[union-attr]
 
             # Try to get a transformed sample
             sample = dataset[0]

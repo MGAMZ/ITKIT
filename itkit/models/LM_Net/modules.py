@@ -1,3 +1,4 @@
+import math
 from collections import OrderedDict
 
 import torch
@@ -12,11 +13,19 @@ from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 # from .nonlocal_block import NONLocalBlock2D
 #from carafe import CARAFEPack
 from torch.nn.modules.utils import _pair
-from torchvision.ops.deform_conv import *
-from torchvision.ops.ps_roi_pool import *
+from torchvision.ops.deform_conv import DeformConv2d  # type: ignore
 
-# from .nattencuda import NEWNeighborhoodAttention
-# from .nattencuda import NeighborhoodAttention
+# Try to import optional dependencies
+try:
+    from .nattencuda import NeighborhoodAttention, NEWNeighborhoodAttention  # type: ignore
+except ImportError:
+    NEWNeighborhoodAttention = None  # type: ignore
+    NeighborhoodAttention = None  # type: ignore
+
+try:
+    from carafe import CARAFEPack  # type: ignore
+except ImportError:
+    CARAFEPack = None  # type: ignore
 
 
 
@@ -93,6 +102,8 @@ class NoskipViTEncoder(nn.Module):
         self.patchembedding_s = OverlapPatchEmbed(patchsize, img_size, in_channels,in_channels,stride)
         self.norm_l1=nn.LayerNorm(in_channels)
         self.norm_s1 = nn.LayerNorm(in_channels)
+        if NEWNeighborhoodAttention is None:
+            raise ImportError("NEWNeighborhoodAttention is not available. Please install the required package.")
         self.cross=NEWNeighborhoodAttention(in_channels,kernel_size,head,attn_drop=0.1,proj_drop=0.1)
         self.norm = nn.LayerNorm(in_channels)
         self.mlp = Mlp(in_channels, 2*in_channels,in_channels)
@@ -384,6 +395,8 @@ class PoolingAttention(nn.Module):
         q = self.q(x).reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
         pools = []
         x_ = x.permute(0, 2, 1).reshape(B, C, H, W)
+        if d_convs is None:
+            d_convs = [lambda x: 0 for _ in self.pool_ratios]
         for (pool_ratio, l) in zip(self.pool_ratios, d_convs):
             pool = F.adaptive_avg_pool2d(x_, (round(H / pool_ratio), round(W / pool_ratio)))
             pool = pool + l(pool)  # fix backward bug in higher torch versions when training
@@ -465,6 +478,8 @@ class NAT_Global_Transformer(nn.Module):
         self.patchembedding3 = OverlapPatchEmbed(3, img_size, in_channels, out_channel, 1)
         self.patchembedding2 = OverlapPatchEmbed(patchsize, img_size, in_channels, out_channel,stride)
         self.norm1=nn.LayerNorm(out_channel)
+        if NeighborhoodAttention is None or NEWNeighborhoodAttention is None:
+            raise ImportError("NeighborhoodAttention or NEWNeighborhoodAttention is not available. Please install the required package.")
         self.att0=NeighborhoodAttention(out_channel,kernel_size[0],num_heads)
         self.att1 = NeighborhoodAttention(out_channel, kernel_size[1], num_heads)
         self.hatt1 = NEWNeighborhoodAttention(out_channel, kernel_size[0], num_heads)
@@ -1332,6 +1347,8 @@ class Up(nn.Module):
 class Carafe_Up(nn.Module):
     def __init__(self, input_decoder, output_dim,compressed_channels=64,scale_factor=2):
         super().__init__()
+        if CARAFEPack is None:
+            raise ImportError("CARAFEPack is not available. Please install the required package.")
         self.carafe_up = nn.Sequential(nn.BatchNorm2d(input_decoder),
                                        nn.ReLU(inplace=True),
 

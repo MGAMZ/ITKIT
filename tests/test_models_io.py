@@ -342,7 +342,7 @@ def test_smp_segformer_io():
     model = SMP_Segformer(
         encoder_name="mit_b0",
         in_channels=in_channels,
-        classes=num_classes,
+        num_classes=num_classes,
     )
     model.eval()
 

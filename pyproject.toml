@@ -109,7 +109,7 @@ include = ["itkit*"]
 
 [tool.pyright]
 pythonVersion = "3.14"
-include = ["itkit"]
+analyzeUnannotatedFunctions = true
 exclude = [
   "**/__pycache__/**",
   "**/.venv/**",
@@ -117,7 +117,13 @@ exclude = [
   "build/**",
   "dist/**",
   "**/*.egg-info/**",
-  "itkit/lightning"
+  "itkit/lightning",
+  "itkit/models/LM_Net",
+  "tests",
+  "examples",
+  "notebooks",
+  "docker",
+  "CI-CD"
 ]
 reportAttributeAccessIssue = false
 reportMissingImports = false

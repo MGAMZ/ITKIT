@@ -123,6 +123,8 @@ class _NonLocalBlockND(nn.Module):
         # theta=>(b, c, t, h, w)[->(b, 0.5c, t, h, w)]->(b, thw, 0.5c)
         # phi  =>(b, c, t, h, w)[->(b, 0.5c, t, h, w)]->(b, 0.5c, thw)
         # f=>(b, thw, 0.5c)dot(b, 0.5c, twh) = (b, thw, thw)
+        assert self.theta is not None
+        assert self.phi is not None
         theta_x = self.theta(x).view(batch_size, self.inter_channels, -1)
         theta_x = theta_x.permute(0, 2, 1)
         phi_x = self.phi(x).view(batch_size, self.inter_channels, -1)
@@ -146,7 +148,8 @@ class _NonLocalBlockND(nn.Module):
         theta_x = x.view(batch_size, self.in_channels, -1)
         theta_x = theta_x.permute(0, 2, 1)
 
-        if self.sub_sample_factor > 1:
+        if any(ss > 1 for ss in self.sub_sample_factor):
+            assert self.phi is not None
             phi_x = self.phi(x).view(batch_size, self.in_channels, -1)
         else:
             phi_x = x.view(batch_size, self.in_channels, -1)
@@ -168,6 +171,8 @@ class _NonLocalBlockND(nn.Module):
         g_x = self.g(x).view(batch_size, self.inter_channels, -1)
         g_x = g_x.permute(0, 2, 1)
 
+        assert self.theta is not None
+        assert self.phi is not None
         theta_x = self.theta(x).view(batch_size, self.inter_channels, -1)
         theta_x = theta_x.permute(0, 2, 1)
         phi_x = self.phi(x).view(batch_size, self.inter_channels, -1)
@@ -189,6 +194,8 @@ class _NonLocalBlockND(nn.Module):
         # g=>(b, c, t, h, w)->(b, 0.5c, thw/s**2)
         g_x = self.g(x).view(batch_size, self.inter_channels, -1)
 
+        assert self.theta is not None
+        assert self.phi is not None
         # theta=>(b, c, t, h, w)[->(b, 0.5c, t, h, w)]->(b, thw, 0.5c)
         # phi  =>(b, c, t, h, w)[->(b, 0.5c, t, h, w)]->(b, thw/s**2, 0.5c)
         theta_x = self.theta(x).view(batch_size, self.inter_channels, -1).permute(0, 2, 1)
@@ -220,6 +227,8 @@ class _NonLocalBlockND(nn.Module):
         # g=>(b, c, t, h, w)->(b, 0.5c, thw/s**2)
         g_x = self.g(x).view(batch_size, self.inter_channels, -1)
 
+        assert self.theta is not None
+        assert self.phi is not None
         # theta=>(b, c, t, h, w)[->(b, 0.5c, t, h, w)]->(b, 0.5c, thw)
         # phi  =>(b, c, t, h, w)[->(b, 0.5c, t, h, w)]->(b, 0.5c, thw/s**2)
         theta_x = self.theta(x).view(batch_size, self.inter_channels, -1)
@@ -253,6 +262,8 @@ class _NonLocalBlockND(nn.Module):
         # g=>(b, c, t, h, w)->(b, 0.5c, thw/s**2)
         g_x = self.g(x).view(batch_size, self.inter_channels, -1)
 
+        assert self.theta is not None
+        assert self.phi is not None
         # theta=>(b, c, t, h, w)[->(b, 0.5c, t, h, w)]->(b, 0.5c, thw)
         # phi  =>(b, c, t, h, w)[->(b, 0.5c, t, h, w)]->(b, 0.5c, thw/s**2)
         theta_x = self.theta(x)
