@@ -1,5 +1,4 @@
 *.pyc
-*.txt
 *.log
 *.cfg
 *.pth
