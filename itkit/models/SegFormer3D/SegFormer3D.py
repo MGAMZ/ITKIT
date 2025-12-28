@@ -315,7 +315,7 @@ class SegFormerDecoderHead(nn.Module):
         self,
         input_feature_dims: list, # Embed dims from encoder stages [C1, C2, C3, C4]
         decoder_head_embedding_dim: int,
-        final_upsampler_scale_factor: int|tuple[int],
+        final_upsampler_scale_factor: int|tuple[int, int, int],
         num_classes: int,
         dropout: float = 0.0,
     ):

@@ -37,7 +37,7 @@ class MambaAggregator1D(nn.Module, mamba_init):
         out_dim: int | None = None,
         use_conv: bool = True,
         pool: str = "mean",  # 'mean' | 'last'
-        act_layer: nn.Module = nn.SiLU,
+        act_layer: type[nn.Module] = nn.SiLU,
         dt_min: float = 1e-3,
         dt_max: float = 0.1,
         dt_init: str = "random",

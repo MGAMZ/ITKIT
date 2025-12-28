@@ -1,5 +1,4 @@
 *.pyc
-*.txt
 *.log
 *.cfg
 *.pth
@@ -136,3 +135,4 @@ dist/
 tmp/
 temp/
 examples/workdir
+site/

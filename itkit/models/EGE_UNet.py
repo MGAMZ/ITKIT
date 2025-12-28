@@ -252,6 +252,8 @@ class EGEUNet(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x):
+        # Initialize gt_pre variables for type checker
+        gt_pre1 = gt_pre2 = gt_pre3 = gt_pre4 = gt_pre5 = None
 
         out = F.gelu(F.max_pool2d(self.ebn1(self.encoder1(x)),2,2))
         t1 = out # b, c0, H/2, W/2
@@ -314,6 +316,8 @@ class EGEUNet(nn.Module):
         out0 = F.interpolate(self.final(out1),scale_factor=(2,2),mode ='bilinear',align_corners=True) # b, num_class, H, W
 
         if self.gt_ds:
+            if gt_pre5 is None or gt_pre4 is None or gt_pre3 is None or gt_pre2 is None or gt_pre1 is None:
+                raise ValueError("gt_ds is enabled, but one of the gt_pre outputs is None.")
             return (torch.sigmoid(gt_pre5), torch.sigmoid(gt_pre4), torch.sigmoid(gt_pre3), torch.sigmoid(gt_pre2), torch.sigmoid(gt_pre1)), torch.sigmoid(out0)
         else:
             return torch.sigmoid(out0)

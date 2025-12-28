@@ -1,3 +1,5 @@
+# pyright: reportCallIssue=false
+
 import torch.nn as nn
 
 #from .nonlocal_block import NONLocalBlock2D

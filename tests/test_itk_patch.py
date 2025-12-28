@@ -261,7 +261,7 @@ class TestPatchProcessor:
     def test_to_triplet_invalid_input(self, sample_image, sample_label):
         processor = PatchProcessor('/tmp/src', '/tmp/dst', [4, 4, 4], [2, 2, 2], 0.0, 1.0, False)
         with pytest.raises(ValueError):
-            processor.extract_patches(sample_image, sample_label, 'invalid', [2, 2, 2], 0.0, False)
+            processor.extract_patches(sample_image, sample_label, 'invalid', [2, 2, 2], 0.0, False)  # type: ignore[arg-type]
         with pytest.raises(ValueError):
             processor.extract_patches(sample_image, sample_label, [4, 4], [2, 2, 2], 0.0, False)
 

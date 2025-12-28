@@ -7,6 +7,8 @@ from torch import Tensor
 
 
 class MomentumAvgModel(torch.nn.Module):
+    module: torch.nn.Module
+
     def __init__(self,
                  model: torch.nn.Module,
                  momentum: float = 0.0002,

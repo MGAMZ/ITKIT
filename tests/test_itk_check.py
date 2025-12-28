@@ -307,7 +307,7 @@ class TestCheckProcessor:
             assert lbl_meta.spacing == (2.5, 2.0, 1.5)
             assert lbl_meta.size == (10, 20, 30)
             assert lbl_meta.origin == (0.3, 0.2, 0.1)
-            assert set(lbl_meta.include_classes) == {0, 1, 2}
+            assert lbl_meta.include_classes is not None and set(lbl_meta.include_classes) == {0, 1, 2}
 
             # Test validation
             assert img_meta.validate_itk_image(img)

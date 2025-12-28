@@ -6,23 +6,19 @@ import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
 
 
-# 根据维度选择相应的组件
 def get_components(dim):
-    """根据维度返回相应的卷积、批归一化和池化层"""
     if dim == 2:
         return nn.Conv2d, nn.BatchNorm2d, nn.MaxPool2d
     elif dim == 3:
         return nn.Conv3d, nn.BatchNorm3d, nn.MaxPool3d
     else:
-        raise ValueError(f"维度必须是2或3，当前值: {dim}")
+        raise ValueError(f"Dim must be 2 or 3, current value: {dim}")
 
 
 def ConvBlock(in_channels, out_channels, kernel_size=3, stride=1, padding='same',
                is_bn=True, is_relu=True, n=2, dim=2):
-    """ 支持2D/3D的卷积块 """
     Conv, BatchNorm, _ = get_components(dim)
 
-    # 根据维度调整kernel_size和stride为元组形式
     if isinstance(kernel_size, int):
         kernel_size = tuple([kernel_size] * dim)
     if isinstance(stride, int):
@@ -32,8 +28,8 @@ def ConvBlock(in_channels, out_channels, kernel_size=3, stride=1, padding='same'
     for i in range(1, n + 1):
         conv = Conv(in_channels=in_channels if i == 1 else out_channels,
                     out_channels=out_channels,
-                    kernel_size=kernel_size,
-                    stride=stride,
+                    kernel_size=kernel_size,  # pyright: ignore[reportArgumentType]
+                    stride=stride,  # pyright: ignore[reportArgumentType]
                     padding=padding if padding != 'same' else 'same',
                     bias=not is_bn)
         layers.append(conv)
@@ -48,22 +44,11 @@ def ConvBlock(in_channels, out_channels, kernel_size=3, stride=1, padding='same'
 
 
 def dot_product(seg, cls):
-    if seg.dim() == 4:  # 2D case
-        b, n, h, w = seg.shape
-        seg = seg.view(b, n, -1)
-    else:  # 3D case
-        b, n, h, w, d = seg.shape
-        seg = seg.view(b, n, -1)
-
-    cls = cls.unsqueeze(-1)  # Add an extra dimension for broadcasting
-    final = torch.einsum("bik,bi->bik", seg, cls)
-
-    if seg.dim() == 4:  # 2D case
-        final = final.view(b, n, h, w)
-    else:  # 3D case
-        final = final.view(b, n, h, w, d)
-
-    return final
+    """
+    使用分类结果作为掩码过滤分割图。支持任意维度。
+    """
+    # 将 cls (B,) 广播到 seg (B, C, H, W, ...)
+    return seg * cls.view(cls.shape[0], *([1] * (seg.dim() - 1)))
 
 
 class UNet3Plus(nn.Module):
@@ -184,12 +169,11 @@ class UNet3Plus(nn.Module):
     def _maybe_checkpoint(self, func, *args) -> torch.Tensor:
         """使用torch的checkpoint机制来节省内存"""
         if self.use_torch_checkpoint:
-            return checkpoint(func, *args)
+            return checkpoint(func, *args)  # pyright: ignore[reportReturnType]
         else:
             return func(*args)
 
-    def forward(self, x) -> torch.Tensor:
-        # Encoder
+    def forward(self, x) -> torch.Tensor | list[torch.Tensor]:
         e1 = self.e1(x)
         e2 = self._maybe_checkpoint(self.e2, e1)
         e3 = self._maybe_checkpoint(self.e3, e2)
@@ -197,6 +181,7 @@ class UNet3Plus(nn.Module):
         e5 = self._maybe_checkpoint(self.e5, e4)
 
         # Classification Guided Module
+        cls = None  # Initialize for type checker
         if self.CGM:
             assert self.cgm is not None, "Classification Guided Module is enabled but CGM layer is not defined."
             cls = self.cgm(e5)
@@ -273,9 +258,9 @@ class UNet3Plus(nn.Module):
             outputs = [dot_product(out, cls) for out in outputs]
 
         if self.deep_supervision:
-            return F.sigmoid(outputs)
+            return [torch.sigmoid(out) for out in outputs]
         else:
-            return F.sigmoid(outputs[0])
+            return torch.sigmoid(outputs[0])
 
 
 

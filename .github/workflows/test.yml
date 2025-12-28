@@ -14,7 +14,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ${{ github.event_name == 'push' && fromJson('["3.13"]') || fromJson('["3.10", "3.13", "3.14"]') }}
+        python-version: ${{ github.event_name == 'push' && fromJson('["3.14"]') || fromJson('["3.10", "3.14"]') }}
 
     steps:
     - name: Checkout repository

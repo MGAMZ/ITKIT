@@ -7,7 +7,7 @@ name = "itkit"
 version = "4.0.0rc1"
 requires-python = ">= 3.10"
 description = "ITKIT: Feasible Medical Image Operation based on SimpleITK API"
-readme = "readme.md"
+readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
   "numpy; python_version < '3.14'",
@@ -67,6 +67,7 @@ dev = [
   "mypy",
   "pyupgrade",
   "pre-commit",
+  "pymarkdownlnt",
 ]
 advanced = [
   "torchio",
@@ -109,7 +110,7 @@ include = ["itkit*"]
 
 [tool.pyright]
 pythonVersion = "3.14"
-include = ["itkit"]
+analyzeUnannotatedFunctions = true
 exclude = [
   "**/__pycache__/**",
   "**/.venv/**",
@@ -117,9 +118,13 @@ exclude = [
   "build/**",
   "dist/**",
   "**/*.egg-info/**",
-  "itkit/dataset/SA_Med2D",
-  "itkit/models",
-  "itkit/lightning"
+  "itkit/lightning",
+  "itkit/models/LM_Net",
+  "tests",
+  "examples",
+  "notebooks",
+  "docker",
+  "CI-CD"
 ]
 reportAttributeAccessIssue = false
 reportMissingImports = false
@@ -143,3 +148,9 @@ markers = [
     "mm: marks tests that touch MMEngine runner entry",
     "torch: marks tests that require PyTorch",
 ]
+
+[tool.pymarkdown]
+plugins.md013.enabled = false
+plugins.md024.enabled = false
+plugins.md036.enabled = false
+plugins.md041.enabled = false
