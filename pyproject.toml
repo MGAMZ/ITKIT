@@ -118,6 +118,7 @@ exclude = [
   "dist/**",
   "**/*.egg-info/**",
   "itkit/lightning",
+  "itkit/models/LM_Net",
   "tests",
   "examples",
   "notebooks",

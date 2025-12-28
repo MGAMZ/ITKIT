@@ -234,6 +234,8 @@ class SegMamba(nn.Module):
                                 drop_path_rate=drop_path_rate,
                                 layer_scale_init_value=layer_scale_init_value,
                               )
+        self.proj_view_shape = [48, 48, 48, 768]
+        self.proj_axes = (0, 4, 1, 2, 3)
         self.encoder1 = UnetrBasicBlock(
             spatial_dims=spatial_dims,
             in_channels=self.in_chans,

@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import cast
 
 import numpy as np
 import torch
@@ -628,7 +629,7 @@ class MedNeXt(nn.Module):
 
         self.block_counts = block_counts
 
-    def iterative_checkpoint(self, sequential_block, x):
+    def iterative_checkpoint(self, sequential_block: nn.Sequential, x: Tensor) -> Tensor:
         """
         This simply forwards x through each block of the sequential_block while
         using gradient_checkpointing. This implementation is designed to bypass
@@ -636,7 +637,7 @@ class MedNeXt(nn.Module):
         https://discuss.pytorch.org/t/checkpoint-with-no-grad-requiring-inputs-problem/19117/9
         """
         for l in sequential_block:
-            x = checkpoint(l, x, self.dummy_tensor)
+            x = cast(Tensor, checkpoint(l, x, self.dummy_tensor))
         return x
 
     def forward(self, x):
@@ -645,45 +646,45 @@ class MedNeXt(nn.Module):
         x_ds_1 = x_ds_2 = x_ds_3 = x_ds_4 = None
         if self.outside_block_checkpointing:
             x_res_0 = self.iterative_checkpoint(self.enc_block_0, x)
-            x = checkpoint(self.down_0, x_res_0, self.dummy_tensor)
+            x = cast(Tensor, checkpoint(self.down_0, x_res_0, self.dummy_tensor))
             x_res_1 = self.iterative_checkpoint(self.enc_block_1, x)
-            x = checkpoint(self.down_1, x_res_1, self.dummy_tensor)
+            x = cast(Tensor, checkpoint(self.down_1, x_res_1, self.dummy_tensor))
             x_res_2 = self.iterative_checkpoint(self.enc_block_2, x)
-            x = checkpoint(self.down_2, x_res_2, self.dummy_tensor)
+            x = cast(Tensor, checkpoint(self.down_2, x_res_2, self.dummy_tensor))
             x_res_3 = self.iterative_checkpoint(self.enc_block_3, x)
-            x = checkpoint(self.down_3, x_res_3, self.dummy_tensor)
+            x = cast(Tensor, checkpoint(self.down_3, x_res_3, self.dummy_tensor))
 
             x = self.iterative_checkpoint(self.bottleneck, x)
             if self.do_ds:
-                x_ds_4 = checkpoint(self.out_4, x, self.dummy_tensor)
+                x_ds_4 = cast(Tensor, checkpoint(self.out_4, x, self.dummy_tensor))
 
-            x_up_3 = checkpoint(self.up_3, x, self.dummy_tensor)
+            x_up_3 = cast(Tensor, checkpoint(self.up_3, x, self.dummy_tensor))
             dec_x = x_res_3 + x_up_3
             x = self.iterative_checkpoint(self.dec_block_3, dec_x)
             if self.do_ds:
-                x_ds_3 = checkpoint(self.out_3, x, self.dummy_tensor)
+                x_ds_3 = cast(Tensor, checkpoint(self.out_3, x, self.dummy_tensor))
             del x_res_3, x_up_3
 
-            x_up_2 = checkpoint(self.up_2, x, self.dummy_tensor)
+            x_up_2 = cast(Tensor, checkpoint(self.up_2, x, self.dummy_tensor))
             dec_x = x_res_2 + x_up_2
             x = self.iterative_checkpoint(self.dec_block_2, dec_x)
             if self.do_ds:
-                x_ds_2 = checkpoint(self.out_2, x, self.dummy_tensor)
+                x_ds_2 = cast(Tensor, checkpoint(self.out_2, x, self.dummy_tensor))
             del x_res_2, x_up_2
 
-            x_up_1 = checkpoint(self.up_1, x, self.dummy_tensor)
+            x_up_1 = cast(Tensor, checkpoint(self.up_1, x, self.dummy_tensor))
             dec_x = x_res_1 + x_up_1
             x = self.iterative_checkpoint(self.dec_block_1, dec_x)
             if self.do_ds:
-                x_ds_1 = checkpoint(self.out_1, x, self.dummy_tensor)
+                x_ds_1 = cast(Tensor, checkpoint(self.out_1, x, self.dummy_tensor))
             del x_res_1, x_up_1
 
-            x_up_0 = checkpoint(self.up_0, x, self.dummy_tensor)
+            x_up_0 = cast(Tensor, checkpoint(self.up_0, x, self.dummy_tensor))
             dec_x = x_res_0 + x_up_0
             x = self.iterative_checkpoint(self.dec_block_0, dec_x)
             del x_res_0, x_up_0, dec_x
 
-            x = checkpoint(self.out_0, x, self.dummy_tensor)
+            x = cast(Tensor, checkpoint(self.out_0, x, self.dummy_tensor))
 
         else:
             x_res_0 = self.enc_block_0(x)
@@ -935,15 +936,15 @@ class MM_MedNext_Encoder(BaseModule):
             x = self.pixel_unshuffle(x)
 
         if self.use_checkpoint:
-            x_res_0 = checkpoint(self.enc_block_0, x, use_reentrant=False)
-            x = checkpoint(self.down_0, x_res_0, use_reentrant=False)
-            x_res_1 = checkpoint(self.enc_block_1, x, use_reentrant=False)
-            x = checkpoint(self.down_1, x_res_1, use_reentrant=False)
-            x_res_2 = checkpoint(self.enc_block_2, x, use_reentrant=False)
-            x = checkpoint(self.down_2, x_res_2, use_reentrant=False)
-            x_res_3 = checkpoint(self.enc_block_3, x, use_reentrant=False)
-            x = checkpoint(self.down_3, x_res_3, use_reentrant=False)
-            x = checkpoint(self.bottleneck, x, use_reentrant=False)
+            x_res_0 = cast(Tensor, checkpoint(self.enc_block_0, x, use_reentrant=False))
+            x = cast(Tensor, checkpoint(self.down_0, x_res_0, use_reentrant=False))
+            x_res_1 = cast(Tensor, checkpoint(self.enc_block_1, x, use_reentrant=False))
+            x = cast(Tensor, checkpoint(self.down_1, x_res_1, use_reentrant=False))
+            x_res_2 = cast(Tensor, checkpoint(self.enc_block_2, x, use_reentrant=False))
+            x = cast(Tensor, checkpoint(self.down_2, x_res_2, use_reentrant=False))
+            x_res_3 = cast(Tensor, checkpoint(self.enc_block_3, x, use_reentrant=False))
+            x = cast(Tensor, checkpoint(self.down_3, x_res_3, use_reentrant=False))
+            x = cast(Tensor, checkpoint(self.bottleneck, x, use_reentrant=False))
 
         else:
             x_res_0 = self.enc_block_0(x)
@@ -1213,7 +1214,7 @@ class MM_MedNext_Decoder_2D(BaseDecodeHead):
             channels=embed_dims,
             num_classes=num_classes,
             input_transform="multiple_select",
-            in_index=[0, 1, 2, 3, 4],
+            in_index=[0, 1, 2, 3, 4], # type: ignore
             *args,
             **kwargs)
 
@@ -1268,7 +1269,7 @@ class MM_MedNext_Decoder_3D(BaseDecodeHead_3D):
             channels=embed_dims,
             num_classes=num_classes,
             input_transform="multiple_select",
-            in_index=[0, 1, 2, 3, 4],
+            in_index=[0, 1, 2, 3, 4], # type: ignore
             *args,
             **kwargs)
 
@@ -1325,7 +1326,7 @@ class MM_MedNext_Decoder_Vallina(BaseDecodeHead):
                          num_classes=num_classes,
                          out_channels=out_channels,
                          input_transform='multiple_select',
-                         in_index=[0,1,2,3,4],
+                         in_index=[0,1,2,3,4], # type: ignore
                          **kwargs)
 
         if type(exp_r) == int:

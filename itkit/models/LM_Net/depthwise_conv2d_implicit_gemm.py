@@ -57,7 +57,9 @@ class DepthWiseConv2dImplicitGEMM(nn.Conv2d):
         else:
             raise TypeError(f"Only support fp32 and fp16, get {x.dtype}")
         if self.bias is not None:
-            x = x + self.bias.to(x).view(1, -1, 1, 1)
+            if x is None:
+                raise RuntimeError("bias is not None, but output is None")
+            x = x + self.bias.to(x).view(1, -1, 1, 1)  # pyright: ignore[reportOperatorIssue]
         return x
 
 
@@ -68,10 +70,10 @@ if __name__ == "__main__":
         m1 = DepthWiseConv2dImplicitGEMM(384, 31, groups=384, bias=False).cuda()
         m2 = nn.Conv2d(384, 384, 31, padding=31 // 2, bias=False, groups=384).cuda()
         m2.load_state_dict(m1.state_dict())
-        with torch.cuda.amp.autocast(True):
+        with torch.amp.autocast('cuda'):
             y1 = m1(x)
             y2 = m2(x)
         (y1.mean() * 1024).backward()
         (y2.mean() * 1024).backward()
         print("output difference:", ((y1 - y2) ** 2).mean())
-        print("gradient difference:", ((m1.weight.grad - m2.weight.grad) ** 2).mean())
+        print("gradient difference:", ((m1.weight.grad - m2.weight.grad) ** 2).mean())  # pyright: ignore[reportOperatorIssue]

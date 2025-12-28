@@ -1,4 +1,4 @@
-import pdb
+# pyright: reportCallIssue=false
 from collections.abc import Callable
 
 import timm
@@ -107,5 +107,3 @@ if __name__ == '__main__':
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"\n总参数量: {total_params:,}")
     print(f"可训练参数量: {trainable_params:,}")
-
-    pdb.set_trace()
