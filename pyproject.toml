@@ -67,6 +67,7 @@ dev = [
   "mypy",
   "pyupgrade",
   "pre-commit",
+  "pymarkdownlnt",
 ]
 advanced = [
   "torchio",
@@ -147,3 +148,9 @@ markers = [
     "mm: marks tests that touch MMEngine runner entry",
     "torch: marks tests that require PyTorch",
 ]
+
+[tool.pymarkdown]
+plugins.md013.enabled = false
+plugins.md024.enabled = false
+plugins.md036.enabled = false
+plugins.md041.enabled = false

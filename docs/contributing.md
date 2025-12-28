@@ -8,32 +8,32 @@ Thank you for your interest in contributing to ITKIT! This guide will help you g
 
 1. **Fork and clone the repository:**
 
-```bash
-git clone https://github.com/MGAMZ/ITKIT.git
-cd ITKIT
-```
+   ```bash
+   git clone https://github.com/MGAMZ/ITKIT.git
+   cd ITKIT
+   ```
 
 2. **Install development dependencies:**
 
-```bash
-pip install -e ".[dev]"
-```
+   ```bash
+   pip install -e ".[dev]"
+   ```
 
-This installs ITKIT in editable mode with all development tools including:
+   This installs ITKIT in editable mode with all development tools including:
 
-- pytest (testing)
-- black, isort, autopep8 (code formatting)
-- mypy, pyright (type checking)
-- pylint (linting)
-- pre-commit (git hooks)
+   - pytest (testing)
+   - black, isort, autopep8 (code formatting)
+   - mypy, pyright (type checking)
+   - pylint (linting)
+   - pre-commit (git hooks)
 
 3. **Set up pre-commit hooks:**
 
-```bash
-pre-commit install
-```
+   ```bash
+   pre-commit install
+   ```
 
-This ensures code is automatically formatted and checked before commits.
+   This ensures code is automatically formatted and checked before commits.
 
 ## Development Workflow
 

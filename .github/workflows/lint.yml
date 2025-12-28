@@ -26,7 +26,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: DavidAnson/markdownlint-cli2-action@v22
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          globs: '**/*.md'
-          config: .markdownlint.json
+          python-version: '3.14'
+      - name: Install pymarkdownlnt
+        run: pip install pymarkdownlnt
+      - name: Run pymarkdown
+        run: pymarkdown scan docs/ README.md
