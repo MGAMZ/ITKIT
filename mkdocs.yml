@@ -23,8 +23,6 @@ nav:
       - Framework Integration: framework_integration.md
       - Neural Network Models: models.md
       - Supported Datasets: datasets.md
-  - Reference:
-      - API Reference: api_reference.md
   - Community:
       - Contributing: contributing.md
       - FAQ & Troubleshooting: faq.md

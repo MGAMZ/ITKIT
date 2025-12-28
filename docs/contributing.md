@@ -20,6 +20,7 @@ pip install -e ".[dev]"
 ```
 
 This installs ITKIT in editable mode with all development tools including:
+
 - pytest (testing)
 - black, isort, autopep8 (code formatting)
 - mypy, pyright (type checking)
@@ -66,6 +67,7 @@ pytest --cov=itkit
 ```
 
 Available test markers:
+
 - `gui`: GUI tests (requires Qt)
 - `itk_process`: ITK preprocessing script tests
 - `mm`: MMEngine runner tests
@@ -207,14 +209,14 @@ import torch.nn as nn
 class MyNewModel(nn.Module):
     """
     Brief description of the model.
-    
+
     Reference: Author et al., "Paper Title", Conference/Journal Year.
     """
-    
+
     def __init__(self, in_channels, num_classes, **kwargs):
         super().__init__()
         # Model architecture
-        
+
     def forward(self, x):
         # Forward pass
         return output
@@ -231,6 +233,7 @@ To add a new dataset conversion script:
 5. Add example usage
 
 Script should:
+
 - Convert to ITKIT format (image/ and label/ folders)
 - Preserve metadata
 - Handle edge cases
@@ -293,6 +296,7 @@ By contributing to ITKIT, you agree that your contributions will be licensed und
 ## Recognition
 
 Contributors are recognized in:
+
 - GitHub contributors list
 - Release notes
 - CITATION file (for significant contributions)
@@ -300,14 +304,9 @@ Contributors are recognized in:
 ## Questions?
 
 If you have any questions about contributing, feel free to:
+
 - Open an issue with the "question" label
 - Contact the maintainer via email
 - Start a discussion on GitHub
 
 Thank you for making ITKIT better!
-
-## Next Steps
-
-- [Installation Guide](installation.md) - Set up development environment
-- [API Reference](api_reference.md) - Understand the codebase
-- [FAQ](faq.md) - Common questions and troubleshooting

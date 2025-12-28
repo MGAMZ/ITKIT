@@ -7,11 +7,13 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
 ## 📖 Table of Contents
 
 ### Getting Started
+
 - **[Installation Guide](installation.md)** - Install ITKIT and its dependencies
 - **[Quick Start](quickstart.md)** - Get started with basic usage and examples
 - **[Dataset Structure](dataset_structure.md)** - Understand the required dataset format
 
 ### Core Features
+
 - **[Preprocessing Tools](preprocessing.md)** - Comprehensive guide to ITK preprocessing commands
   - Image checking and validation
   - Resampling and orientation
@@ -21,12 +23,13 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
   - Format conversion
 
 ### Advanced Topics
+
 - **[Framework Integration](framework_integration.md)** - Integration with deep learning frameworks
   - OpenMMLab extensions
   - MONAI integration
   - TorchIO integration
   - PyTorch Lightning support
-  
+
 - **[Neural Network Models](models.md)** - State-of-the-art segmentation models
   - Transformer-based models (SegFormer, UNETR, DA-TransUNet)
   - State space models (VMamba, SwinUMamba, SegMamba)
@@ -38,15 +41,8 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
   - LiTS, LUNA16, CTSpine1K
   - And more...
 
-### Reference
-- **[API Reference](api_reference.md)** - Detailed API documentation
-  - IO toolkit (SimpleITK, DICOM, NIfTI)
-  - Dataset classes
-  - PyTorch Lightning extensions
-  - MMEngine extensions
-  - Loss functions and utilities
-
 ### Community
+
 - **[Contributing Guide](contributing.md)** - How to contribute to ITKIT
   - Development setup
   - Code style guidelines
@@ -72,20 +68,23 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
 ## 🎯 Quick Navigation
 
 **New to ITKIT?**
+
 1. Start with [Installation Guide](installation.md)
 2. Follow the [Quick Start](quickstart.md) tutorial
 3. Learn about [Dataset Structure](dataset_structure.md)
 
 **Ready to preprocess data?**
+
 - See [Preprocessing Tools](preprocessing.md) for command documentation
 - Use the GUI: `pip install "itkit[gui]"` then `itkit-app`
 
 **Building models?**
+
 - Explore [Framework Integration](framework_integration.md)
 - Check available [Models](models.md)
-- Review [API Reference](api_reference.md)
 
 **Need help?**
+
 - Check [FAQ & Troubleshooting](faq.md)
 - See [Contributing Guide](contributing.md) to report issues
 

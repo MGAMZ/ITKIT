@@ -399,8 +399,3 @@ itk_convert torchio /data/itkit_dataset /data/torchio_dataset --mp
 4. **Pipeline operations**: Chain commands to create preprocessing pipelines
 5. **Validate outputs**: Check a few samples manually after each processing step
 6. **Use consistent spacing**: Resample all data to the same spacing for training
-
-## Next Steps
-
-- [Dataset Structure](dataset_structure.md) - Understand dataset requirements
-- [Framework Integration](framework_integration.md) - Learn about deep learning integration

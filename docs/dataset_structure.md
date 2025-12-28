@@ -201,8 +201,3 @@ itk_check check /path/to/dataset \
 4. **Document metadata**: Include a meta.json file with dataset information
 5. **Validate before processing**: Run `itk_check` before starting preprocessing workflows
 6. **Keep originals**: Always work on copies, never modify your original data
-
-## Next Steps
-
-- [Preprocessing Guide](preprocessing.md) - Learn about preprocessing tools
-- [Quick Start](quickstart.md) - See examples of working with datasets

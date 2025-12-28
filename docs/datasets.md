@@ -123,6 +123,7 @@ For each supported dataset, you can find conversion scripts at: `itkit/dataset/<
 **Modality:** CT (corticomedullary phase)
 
 **References:**
+
 1. Nicholas Heller, Fabian Isensee, Dasha Trofimova, et al. The KiTS21 Challenge: Automatic segmentation of kidneys, renal tumors, and renal cysts in corticomedullary-phase CT. arXiv:2307.01984 [cs.CV], 2023.
 2. Nicholas Heller, Fabian Isensee, Klaus H. Maier-Hein, et al. The state of the art in kidney and kidney tumor segmentation in contrast-enhanced CT imaging: Results of the KiTS19 challenge. Medical Image Analysis, Vol. 67, Article 101821, 2021.
 
@@ -197,6 +198,7 @@ For each supported dataset, you can find conversion scripts at: `itkit/dataset/<
 ### By Modality
 
 **CT Datasets:**
+
 - AbdomenCT-1K
 - CT-ORG
 - CTSpine1K
@@ -208,37 +210,46 @@ For each supported dataset, you can find conversion scripts at: `itkit/dataset/<
 - LiTS
 
 **MRI Datasets:**
+
 - BraTS 2024
 
 **Multi-Modal:**
+
 - TCGA
 
 ### By Anatomical Region
 
 **Abdomen:**
+
 - AbdomenCT-1K
 - FLARE 2022/2023
 - LiTS
 
 **Brain:**
+
 - BraTS 2024
 - CT-ORG (brain)
 
 **Thorax:**
+
 - LUNA16
 - CT-ORG (lungs)
 
 **Kidney:**
+
 - KiTS23
 - CT-ORG (kidneys)
 
 **Cardiovascular:**
+
 - ImageTBAD
 
 **Spine:**
+
 - CTSpine1K
 
 **Whole Body:**
+
 - TotalSegmentator
 
 ## Using Conversion Scripts
@@ -282,9 +293,3 @@ If you've created a conversion script for a new dataset, please consider contrib
 3. Submit a pull request
 
 See [Contributing Guide](contributing.md) for details.
-
-## Next Steps
-
-- [Dataset Structure](dataset_structure.md) - Understand ITKIT dataset format
-- [Preprocessing](preprocessing.md) - Learn preprocessing tools
-- [Models](models.md) - Explore available models for training

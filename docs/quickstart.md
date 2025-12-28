@@ -72,6 +72,7 @@ QT_SCALE_FACTOR=2 itkit-app
 ![ITKIT GUI](itkit-gui.png)
 
 The GUI provides an intuitive interface for:
+
 - Checking dataset integrity
 - Resampling images
 - Orienting images
@@ -133,22 +134,26 @@ image, label = dataset[0]
 ### Workflow 1: Preparing Data for Training
 
 1. **Check dataset integrity:**
+
    ```bash
    itk_check check /data/raw_dataset --min-size 32 32 32
    ```
 
 2. **Resample to uniform spacing:**
+
    ```bash
    itk_resample dataset /data/raw_dataset /data/resampled \
        --spacing 1.0 1.0 1.0 --mp
    ```
 
 3. **Orient to standard direction:**
+
    ```bash
    itk_orient /data/resampled /data/oriented LPI --mp
    ```
 
 4. **Extract patches for training:**
+
    ```bash
    itk_patch /data/oriented /data/patches \
        --patch-size 96 96 96 \
@@ -160,6 +165,7 @@ image, label = dataset[0]
 ### Workflow 2: Converting Dataset Format
 
 1. **Convert to MONAI format:**
+
    ```bash
    itk_convert monai /data/itkit_dataset /data/monai_dataset \
        --name MyDataset \
@@ -169,6 +175,7 @@ image, label = dataset[0]
    ```
 
 2. **Convert file format:**
+
    ```bash
    itk_convert format nii.gz /data/mha_dataset /data/nifti_dataset \
        --mp --workers 8
@@ -194,9 +201,3 @@ Most ITKIT commands support multiprocessing with the `--mp` flag for faster proc
 ```bash
 itk_resample dataset /src /dst --spacing 1.0 1.0 1.0 --mp --workers 8
 ```
-
-## Next Steps
-
-- [Dataset Structure](dataset_structure.md) - Understand the required dataset format
-- [Preprocessing Guide](preprocessing.md) - Explore all preprocessing commands in detail
-- [Framework Integration](framework_integration.md) - Learn about deep learning framework integration

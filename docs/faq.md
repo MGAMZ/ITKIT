@@ -75,6 +75,7 @@ itk_check check /data --min-spacing 0.9 0.9 0.9 --max-spacing 1.1 1.1 1.1
 ### Q: itk_resample produces incorrect output
 
 **A:** Check:
+
 1. **Coordinate order:** ITKIT uses Z, Y, X order
 2. **Field type:** Use `dataset` for both images and labels, or specify `image`/`label` appropriately
 3. **Spacing values:** Ensure they're in millimeters
@@ -108,6 +109,7 @@ itk_patch /src /dst \
 ### Q: Multiprocessing (--mp) doesn't speed things up
 
 **A:** Multiprocessing overhead can exceed benefits for small datasets. Use it only when:
+
 - Dataset has many samples (>50)
 - Individual files are large
 - I/O is not the bottleneck
@@ -161,6 +163,7 @@ itk_check symlink /original/mixed --output /dataset/organized
 ### Q: Image and label have different sizes
 
 **A:** This indicates preprocessing issues. Ensure:
+
 1. Labels were created from the same source images
 2. Both underwent the same preprocessing
 3. Both have matching metadata
@@ -174,6 +177,7 @@ itk_resample dataset /src /dst --spacing 1.0 1.0 1.0
 ### Q: Conversion to MONAI/TorchIO format fails
 
 **A:** Verify:
+
 1. Input follows ITKIT format (image/ and label/ folders)
 2. File names match between image/ and label/
 3. You have write permissions in output directory
@@ -246,6 +250,7 @@ pip install --no-deps monai
 **A:** Try these optimizations:
 
 1. **Use multiprocessing:**
+
    ```bash
    itk_resample dataset /src /dst --spacing 1.0 1.0 1.0 --mp --workers 8
    ```
@@ -266,6 +271,7 @@ pip install --no-deps monai
 **A:** Solutions:
 
 1. **Extract patches instead of loading full volumes:**
+
    ```bash
    itk_patch /data /patches --patch-size 96 96 96
    ```
@@ -299,6 +305,7 @@ model.enable_gradient_checkpointing()
 ### Q: Validation metrics are NaN or inf
 
 **A:** Check:
+
 1. **Label values:** Should be integers 0, 1, 2, ... (not one-hot)
 2. **Normalization:** Images should be normalized appropriately
 3. **Loss function:** Ensure it matches your task
@@ -309,11 +316,13 @@ model.enable_gradient_checkpointing()
 **A:** This indicates class imbalance. Solutions:
 
 1. **Use weighted loss:**
+
    ```python
    loss = FocalLoss(alpha=0.25, gamma=2.0)
    ```
 
 2. **Filter patches during extraction:**
+
    ```bash
    itk_patch /data /patches \
        --minimum-foreground-ratio 0.1 \
@@ -365,7 +374,6 @@ If your issue isn't covered here:
    - [Installation Guide](installation.md)
    - [Quick Start](quickstart.md)
    - [Preprocessing Guide](preprocessing.md)
-   - [API Reference](api_reference.md)
 
 2. **Search existing issues:**
    - [GitHub Issues](https://github.com/MGAMZ/ITKIT/issues)
@@ -378,9 +386,3 @@ If your issue isn't covered here:
 4. **Report bugs:**
    - Follow the [Contributing Guide](contributing.md)
    - Provide system information (OS, Python version, ITKIT version)
-
-## Next Steps
-
-- [Quick Start Guide](quickstart.md) - Learn basic usage
-- [Preprocessing Guide](preprocessing.md) - Detailed command documentation
-- [Contributing Guide](contributing.md) - Report issues or contribute fixes

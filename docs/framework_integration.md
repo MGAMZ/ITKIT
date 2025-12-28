@@ -50,6 +50,7 @@ mm_configdir/
 ```
 
 **Version Prefix Rules:**
+
 - Every element before the final dot must be numeric
 - The suffix after the final dot should not start with a number
 
@@ -72,7 +73,7 @@ Use `mmrun --help` to see all available options.
 
 #### Configuration Format
 
-Configuration files follow the OpenMIM specification. Pure-python style config is recommended. See the [official documentation](https://mmengine.readthedocs.io/zh-cn/latest/advanced_tutorials/config.html#python-beta) for details.
+Configuration files follow the OpenMIM specification. Pure-python style config is recommended. See the [official documentation](https://onedl-mmengine.readthedocs.io/en/latest/advanced_tutorials/config.html#a-pure-python-style-configuration-file-beta) for details.
 
 ### Segmentation Framework
 
@@ -81,6 +82,7 @@ ITKIT provides remastered segmentation implementations based on `mmengine` BaseM
 See `itkit/mm/task_models.py` for implementation details.
 
 Available task models:
+
 - `SemanticSegment`: Base semantic segmentation model
 - `SemSeg2D`: 2D semantic segmentation
 - `SemSeg3D`: 3D semantic segmentation
@@ -354,21 +356,11 @@ nii_toolkit.write_nifti(image, "path/to/output.nii.gz")
 
 ## Best Practices
 
-1. **Choose the right framework**: 
+1. **Choose the right framework**:
    - OpenMMLab for established workflows (legacy support)
    - MONAI for comprehensive medical imaging features
    - TorchIO for data augmentation and preprocessing
-   - PyTorch Lightning for modern, flexible training
-
+   - PyTorch Lightning for modern, flexible training (Alpha, may removed in future)
 2. **Use ITKIT preprocessing first**: Preprocess data with ITKIT commands before framework-specific operations
-
 3. **Convert datasets appropriately**: Use `itk_convert` to prepare datasets for your chosen framework
-
 4. **Leverage ITKIT datasets**: Use ITKIT's dataset classes for seamless integration
-
-5. **Mix and match**: ITKIT tools can be used alongside any framework
-
-## Next Steps
-
-- [Models](models.md) - Explore available neural network implementations
-- [API Reference](api_reference.md) - Detailed API documentation

@@ -20,7 +20,7 @@ The simplest way to install ITKIT is via pip:
 pip install itkit
 ```
 
-### From GitHub Repository
+### From Source
 
 First, clone the repository:
 
@@ -151,9 +151,3 @@ QT_SCALE_FACTOR=2 itkit-app
 ### PyTorch Compatibility
 
 For GPU support with PyTorch-based features, install PyTorch separately following the [official PyTorch installation guide](https://pytorch.org/get-started/locally/).
-
-## Next Steps
-
-- [Quick Start Guide](quickstart.md) - Get started with basic usage
-- [Dataset Structure](dataset_structure.md) - Learn about the required dataset format
-- [Preprocessing Guide](preprocessing.md) - Explore preprocessing tools

@@ -21,6 +21,8 @@ ITKIT is a comprehensive toolkit for medical image preprocessing and analysis, p
 
 ```bash
 pip install itkit
+# Optional: Install GUI support
+pip install "itkit[gui]"
 ```
 
 ### Basic Usage
@@ -33,19 +35,7 @@ itk_check check /path/to/dataset --min-spacing 0.5 0.5 0.5
 itk_resample dataset /path/to/source /path/to/output --spacing 1.0 1.0 1.0 --mp
 
 # Launch GUI application
-pip install "itkit[gui]"
 itkit-app
-```
-
-### Python API
-
-```python
-from itkit.io import sitk_toolkit
-
-# Read and process medical images
-image = sitk_toolkit.read_image("path/to/image.mha")
-spacing = sitk_toolkit.get_spacing(image)
-resampled = sitk_toolkit.resample_image(image, new_spacing=(1.0, 1.0, 1.0))
 ```
 
 ## 📚 Documentation
@@ -61,7 +51,6 @@ resampled = sitk_toolkit.resample_image(image, new_spacing=(1.0, 1.0, 1.0))
 - **[Framework Integration](docs/framework_integration.md)** - OpenMMLab, MONAI, TorchIO
 - **[Neural Network Models](docs/models.md)** - Available segmentation models
 - **[Supported Datasets](docs/datasets.md)** - Dataset conversion scripts
-- **[API Reference](docs/api_reference.md)** - Python API documentation
 - **[FAQ & Troubleshooting](docs/faq.md)** - Common issues and solutions
 - **[Contributing Guide](docs/contributing.md)** - How to contribute
 
@@ -85,7 +74,7 @@ Use `--help` with any command for detailed usage information.
 
 ## 🖼️ GUI Application
 
-![ITKIT GUI](itkit-gui.png)
+![ITKIT GUI](./docs/itkit-gui.png)
 
 Install GUI support and launch:
 
@@ -125,6 +114,7 @@ If you use ITKIT in your research, please cite:
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](docs/contributing.md) for:
+
 - Development setup
 - Code style guidelines
 - Testing requirements
@@ -141,6 +131,7 @@ For questions or suggestions, reach out at: [312065559@qq.com](mailto:312065559@
 ## 🌟 Acknowledgments
 
 ITKIT builds upon:
+
 - [SimpleITK](https://github.com/SimpleITK/SimpleITK) - Medical image processing
 - [OpenMMLab](https://github.com/open-mmlab) - Deep learning framework
 - [MONAI](https://monai.io/) - Medical imaging AI

@@ -172,37 +172,11 @@ ITKIT includes implementations of state-of-the-art neural networks for medical i
 
 ---
 
-## Model Categories
-
-### Transformer-Based Models
-- DA-TransUNet
-- SegFormer
-- SegFormer3D
-- EfficientFormer
-- UNETR
-
-### State Space Models (Mamba)
-- SwinUMamba
-- VMamba
-- SegMamba
-
-### CNN-Based Models
-- DconnNet
-- LM_Net
-- MedNeXt
-- DSNet
-- EfficientNet
-- EGE-UNet
-- UNet3+
-
-### Self-Supervised Learning
-- MoCo
-
 ## Usage
 
 All models are located in the `itkit/models` directory and can be imported and used with ITKIT's training frameworks.
 
-### Example with OpenMMLab
+### Example with OneDL-MMEngine
 
 ```python
 from itkit.models import DA_TransUNet
@@ -230,20 +204,3 @@ model = SegFormer3D(
 # Use in training
 output = model(input_tensor)
 ```
-
-## Model Selection Guide
-
-- **For 3D medical images**: MedNeXt, SegFormer3D, UNETR, VMamba, SegMamba
-- **For lightweight deployment**: LM_Net, EfficientNet, EfficientFormer
-- **For high accuracy**: SwinUMamba, DA-TransUNet, MedNeXt
-- **For specific tasks**:
-  - CT segmentation: Most models work well
-  - MRI segmentation: Transformer-based models recommended
-  - Multi-organ: UNet3+, SegFormer3D
-  - Small lesions: DconnNet, DSNet
-
-## Next Steps
-
-- [Datasets](datasets.md) - Learn about supported datasets
-- [Framework Integration](framework_integration.md) - Integrate models with training frameworks
-- [API Reference](api_reference.md) - Detailed API documentation
