@@ -5,14 +5,27 @@ theme:
     - navigation.tabs
     - navigation.sections
     - navigation.top
+    - navigation.expand
     - search.suggest
     - search.highlight
     - content.code.copy
+    - content.code.annotate
 
 nav:
   - Home: index.md
-  - Guide: readme.md
+  - Getting Started:
+      - Installation: installation.md
+      - Quick Start: quickstart.md
+      - Dataset Structure: dataset_structure.md
+  - Core Features:
+      - Preprocessing Tools: preprocessing.md
+  - Advanced Topics:
+      - Framework Integration: framework_integration.md
+      - Neural Network Models: models.md
+      - Supported Datasets: datasets.md
+  - Community:
+      - Contributing: contributing.md
+      - FAQ & Troubleshooting: faq.md
 
 plugins:
   - search
-  - include_markdown
