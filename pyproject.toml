@@ -7,7 +7,7 @@ name = "itkit"
 version = "4.0.0rc1"
 requires-python = ">= 3.10"
 description = "ITKIT: Feasible Medical Image Operation based on SimpleITK API"
-readme = "readme.md"
+readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
   "numpy; python_version < '3.14'",

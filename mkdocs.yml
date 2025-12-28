@@ -11,6 +11,8 @@ theme:
 
 nav:
   - Home: index.md
+  - Guide: readme.md
 
 plugins:
   - search
+  - include_markdown
