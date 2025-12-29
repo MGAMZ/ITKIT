@@ -453,6 +453,61 @@ def test_efficientformerv2_io():
 
 
 @pytest.mark.torch
+def test_datransunet_io():
+    """Test DA-TransUNet IO (2D model)."""
+    from itkit.models.DA_TransUnet.DATransUNet import DA_Transformer
+    from itkit.models.DA_TransUnet.configs import get_r50_b16_config
+
+    # Create model
+    config = get_r50_b16_config()
+    config.n_classes = 3
+    img_size = 256
+    model = DA_Transformer(config, img_size=img_size, num_classes=3)
+    model.eval()
+
+    # Test input (2D)
+    batch_size = 1
+    in_channels = 1  # DA_Transformer repeats 1 to 3 internally
+    x = torch.randn(batch_size, in_channels, img_size, img_size)
+
+    # Forward pass
+    with torch.no_grad():
+        output = model(x)
+
+    # Check output shape
+    expected_shape = (batch_size, 3, img_size, img_size)
+    assert output.shape == expected_shape, \
+        f"DA-TransUNet output shape {output.shape} != expected {expected_shape}"
+
+
+@pytest.mark.torch
+def test_lmnet_io():
+    """Test LM-Net IO (2D model)."""
+    pytest.importorskip("natten", reason="LM-Net not installed")
+    from itkit.models.LM_Net.LM_Net import MyUnet
+
+    # Create model
+    in_channels = 3
+    num_classes = 2
+    model = MyUnet(channel=in_channels, n_classes=num_classes, filters=[8, 16, 32, 64, 128])
+    model.eval()
+
+    # Test input (2D)
+    batch_size = 1
+    height, width = 224, 224
+    x = torch.randn(batch_size, in_channels, height, width)
+
+    # Forward pass
+    with torch.no_grad():
+        output = model(x)
+
+    # Check output shape
+    expected_shape = (batch_size, num_classes, height, width)
+    assert output.shape == expected_shape, \
+        f"LM-Net output shape {output.shape} != expected {expected_shape}"
+
+
+@pytest.mark.torch
 def test_swinumamba_io():
     """Test SwinUMamba IO."""
     pytest.importorskip("mamba_ssm", reason="mamba_ssm not installed")
@@ -507,10 +562,36 @@ def test_swinumamba_io():
 def test_volumevssm_io():
     """Test VolumeVSSM IO."""
     pytest.importorskip("mamba_ssm", reason="mamba_ssm not installed")
+    from itkit.models.VMamba.volume_mamba import VolumeVSSM, MambaAggregator1D
 
-    # For VolumeVSSM, we need a slice extractor backbone and aggregator
-    # This is a more complex model, so we'll skip detailed testing if dependencies are complex
-    pytest.skip("VolumeVSSM requires complex initialization with Backbone_VSSM")
+    # Mock backbone
+    class MockBackbone(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.dims = [48, 96, 192, 384]
+        def forward(self, x):
+            # x is [B*Z, C, H, W]
+            # return [B*Z, 384, H//16, W//16]
+            return torch.randn(x.shape[0], 384, x.shape[2]//16, x.shape[3]//16)
+
+    backbone = MockBackbone()
+    aggregator = MambaAggregator1D(d_model=384, out_dim=128)
+    model = VolumeVSSM(slice_extractor_backbone=backbone, aggregator=aggregator)
+    model.eval()
+
+    # Test input
+    batch_size = 1
+    in_chans = 3
+    depth, height, width = 16, 224, 224
+    x = torch.randn(batch_size, in_chans, depth, height, width)
+
+    # Forward pass
+    with torch.no_grad():
+        output = model(x)
+
+    # VolumeVSSM returns (vol_emb, )
+    assert isinstance(output, tuple)
+    assert output[0].shape == (batch_size, 128)
 
 
 if __name__ == "__main__":

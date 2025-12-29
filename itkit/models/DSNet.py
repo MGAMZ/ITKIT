@@ -1,10 +1,3 @@
-"""
-2024.11.02
-Implemented by Yiqin Zhang.
-Used for Rose Thyroid Cell Count project.
-"""
-
-
 import torch
 from mmengine.model import BaseModule
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead, accuracy
