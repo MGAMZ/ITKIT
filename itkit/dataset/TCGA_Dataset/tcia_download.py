@@ -1,38 +1,16 @@
+"""
+We recommend following official guidelines and tools from TCIA for downloading data.
+https://wiki.cancerimagingarchive.net/display/NBIA/Downloading+TCIA+Images#DownloadingTCIAImages-DownloadingtheNBIADataRetriever
+"""
+
 import argparse
 import os
 
 import pandas as pd
 from tcia_utils import nbia
-from tqdm import tqdm
 
 
-def download_meta(manifest_path:str, output_dir:str, retry:int):
-    if os.path.exists(os.path.join(output_dir, "metadata.csv")):
-        metas = pd.read_csv(os.path.join(output_dir, "metadata.csv"))
-    else:
-        metas = pd.DataFrame()
-
-    series_uids = nbia.manifestToList(manifest_path)
-    for series_uid in tqdm(series_uids, leave=False, dynamic_ncols=True):
-        if series_uid in metas["Series UID"].values:
-            continue
-
-        retry_now = retry
-        while retry_now:
-            meta:list|None = nbia.getSeriesMetadata(series_uid)
-            if meta is not None:
-                break
-            retry_now -= 1
-
-        metas.append(pd.DataFrame(meta[0]))  # type: ignore
-
-    output_path = os.path.join(output_dir, "metadata.csv")
-    metas.to_csv(output_path, index=False)
-    print(f"Downloaded metadata for {len(metas)} series, writting to {output_path}")
-
-    return metas
-
-def update_meta_filepath(data_root:str, meta_path:str):
+def update_meta_filepath(data_root: str, meta_path: str):
     df = pd.read_csv(meta_path)
 
     for i in range(len(df)):
@@ -47,12 +25,13 @@ def update_meta_filepath(data_root:str, meta_path:str):
     df.to_csv(meta_path, index=False)
     return df
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest_path", type=str)
-    parser.add_argument("--output_dir", type=str, default=None)
+    parser.add_argument("meta_file_path", type=str)
+    parser.add_argument("-o", "--output_dir", type=str, default=None)
     parser.add_argument("--retry", type=int, default=50)
-    parser.add_argument("--only-meta", action="store_true", default=False)
     args = parser.parse_args()
     if args.output_dir is None:
         args.output_dir = os.path.join(os.path.dirname(args.manifest_path), "data")
@@ -64,22 +43,19 @@ if __name__ == "__main__":
     os.makedirs(args.output_dir, exist_ok=True)
     retry = args.retry
 
-    download_meta(args.manifest_path, args.output_dir, retry)
+    while retry:
+        download_result = nbia.downloadSeries(
+            series_data=args.manifest_path,
+            path=args.output_dir,
+            input_type="manifest",
+            csv_filename=args.meta_file_path,
+            format="csv",
+            as_zip=False,
+        )
 
-    if not args.only_meta:
-        while retry:
-            download_result = nbia.downloadSeries(
-                series_data=args.manifest_path,
-                path=args.output_dir,
-                input_type="manifest",
-                csv_filename="metadata.csv",
-                format="csv",
-                as_zip=False,
-            )
+        if download_result is not None:
+            break
 
-            if download_result is not None:
-                break
+        retry -= 1
 
-            retry -= 1
-
-    update_meta_filepath(args.output_dir, os.path.join(args.output_dir, "metadata.csv"))
+    update_meta_filepath(args.output_dir, args.meta_file_path)
