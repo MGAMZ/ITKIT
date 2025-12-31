@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 from .meta import (
     CLASS_INDEX_MAP,
+    CLASS_INDEX_MAP_MRI,
     generate_reduced_class_map_and_label_map,
     generate_subset_class_map_and_label_map,
 )
@@ -87,4 +88,14 @@ class Tsd_Mha(Tsd_base, SeriesVolumeDataset):
     ...
 
 class Tsd_Patch(Tsd_base, PatchedDataset):
+    ...
+
+
+class TsdMRI_base(SeriesVolumeDataset):
+    METAINFO = dict(classes=list(CLASS_INDEX_MAP_MRI.keys()))
+
+class TsdMRI_Mha(TsdMRI_base, SeriesVolumeDataset):
+    ...
+
+class TsdMRI_Patch(TsdMRI_base, PatchedDataset):
     ...
