@@ -4,6 +4,8 @@
 
 [![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![SimpleITK >= 2.5.0](https://img.shields.io/badge/SimpleITK-%3E%3D2.5-yellow)](https://github.com/SimpleITK/SimpleITK) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) ![CI Status](https://github.com/MGAMZ/ITKIT/actions/workflows/test.yml/badge.svg)
 
+[📘Documentation](https://itkit.readthedocs.io/) | [💾PyPI](https://pypi.org/project/itkit/)
+
 ITKIT is a comprehensive toolkit for medical image preprocessing and analysis, providing command-line tools, a GUI application, and deep learning framework integrations for CT and MRI image processing.
 
 ## ✨ Core Features
@@ -25,6 +27,9 @@ pip install itkit
 pip install "itkit[gui]"
 ```
 
+> [!NOTE]
+> ITKIT experiences BC in v4. The previous version is `v3.6.0rc0`.
+
 ### Basic Usage
 
 ```bash
@@ -40,7 +45,9 @@ itkit-app
 
 ## 📚 Documentation
 
-**Full documentation is available at [docs/](docs/index.md)**
+**Full documentation is available at [docs](docs/index.md)**
+
+You can also find the docs on [readthedocs](https://itkit.readthedocs.io/).
 
 ### Quick Links
 

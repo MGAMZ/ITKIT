@@ -14,7 +14,7 @@ from mmengine.config import DictAction
 
 from itkit.mm import MM_CONFIG_ROOT, MM_TEST_DIR_ROOT, MM_WORK_DIR_ROOT
 
-SUPPORTED_MODELS = os.environ.get("supported_models", "").split(",")
+SUPPORTED_MODELS = [m for m in os.environ.get("supported_models", "").split(",") if m]
 
 
 def is_in_torch_distributed_mode():
@@ -109,7 +109,7 @@ class auto_runner:
 
         def search_available_model_configs(exp_cfg_folder:Path):
             available_model_cfgs = [
-                py_file
+                py_file.stem
                 for py_file in exp_cfg_folder.glob("*.py")
                 if py_file.name != "mgam.py"  # TODO reasonlessly exclude mgam.py is confusing
             ]

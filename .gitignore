@@ -125,6 +125,9 @@ venv.bak/
 *.log.json
 docs/modelzoo_statistics.md
 work_dirs/
+test_dirs/
+examples/workdir
+examples/testdir
 
 # Pytorch
 *.pth
@@ -134,5 +137,4 @@ work_dirs/
 dist/
 tmp/
 temp/
-examples/workdir
 site/
