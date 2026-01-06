@@ -12,6 +12,8 @@ from mmengine.registry import DATASETS
 from mmseg.datasets.basesegdataset import BaseSegDataset
 from tqdm import tqdm
 
+from itkit.process.itk_check import CheckProcessor
+
 
 class ITKITBaseSegDataset(BaseSegDataset):
     SPLIT_RATIO = [0.8, 0.05, 0.15]
@@ -121,6 +123,8 @@ class SeriesVolumeDataset(ITKITBaseSegDataset):
             if file.endswith(".mha")
         ]
         all_series = sorted(all_series, key=lambda x: abs(int(re.search(r"\d+", x).group())))
+        all_series = self._filter_by_meta(all_series)
+
         train_end = int(len(all_series) * self.SPLIT_RATIO[0])
         val_end = train_end + int(len(all_series) * self.SPLIT_RATIO[1]) + 1
         print_log(f"Length {len(all_series)} Train End at {train_end}, Val End at {val_end}", MMLogger.get_current_instance(), logging.DEBUG)
@@ -142,10 +146,22 @@ class SeriesVolumeDataset(ITKITBaseSegDataset):
         meta_path = os.path.join(self.data_root_mha, "meta.json")
 
         if not os.path.isfile(meta_path):
-            print_log(f'meta.json 未找到: {meta_path}. 将跳过 size/spacing 过滤。', MMLogger.get_current_instance(), logging.WARNING)
-            self._series_meta_cache = {}
-            return self._series_meta_cache
-
+            print_log(f'meta.json 未找到: {meta_path}. 尝试自动生成...', MMLogger.get_current_instance(), logging.WARNING)
+            empty_cfg = {
+                "min_size": None,
+                "max_size": None,
+                "min_spacing": None,
+                "max_spacing": None,
+                "same_spacing": None,
+                "same_size": None,
+            }
+            processor = CheckProcessor(
+                source_folder=self.data_root_mha,
+                cfg=empty_cfg,
+                mode="check",
+                mp=True
+            )
+            processor.process("Indexing Dataset")
         try:
             with open(meta_path) as f:
                 self._series_meta_cache = json.load(f)
