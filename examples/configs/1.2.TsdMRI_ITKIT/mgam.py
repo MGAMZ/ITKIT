@@ -113,7 +113,7 @@ train_dataloader = dict(
                  data_root_mha=data_root,
                  pipeline=train_pipeline,
                  split='train',
-                 debug=debug),
+                 debug=debug,),
         ]
     )
 )

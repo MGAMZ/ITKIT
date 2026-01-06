@@ -112,7 +112,8 @@ train_dataloader = dict(
                  split='train',
                  debug=debug,
                  patch_size=size,
-                 samples_per_volume=100),
+                 samples_per_volume=100,
+                 min_size=size,),
         ]
     )
 )
