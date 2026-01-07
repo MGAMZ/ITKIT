@@ -24,7 +24,8 @@ from itkit.process.GeneralPreProcess import WindowSet, TypeConvert
 from itkit.process.LoadBiomedicalData import LoadImageFromMHA, LoadMaskFromMHA
 from itkit.mm.mmseg_Dev3D import PackSeg3DInputs, Seg3DDataPreProcessor
 from itkit.mm.mmseg_PlugIn import IoUMetric_PerClass
-from itkit.dataset import ITKITConcatDataset, TorchIO_PatchedDataset
+from itkit.dataset import ITKITConcatDataset
+from itkit.dataset.torchio import TorchIO_PatchedDataset
 from itkit.dataset.Totalsegmentator.mm_dataset import TsdMRI_Mha
 from itkit.mm.visualization import SegViser, BaseVisHook, LocalVisBackend
 
@@ -181,7 +182,8 @@ train_cfg = dict(
     type=IterBasedTrainLoop,
     max_iters=iters,
     val_interval=val_interval,
-    dynamic_intervals=dynamic_intervals
+    dynamic_intervals=dynamic_intervals,
+    fast_forward_on_resume=True,
 )
 val_cfg  = dict(type=ValLoop, fp16=True)
 test_cfg = dict(type=TestLoop)
