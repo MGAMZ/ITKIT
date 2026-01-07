@@ -232,6 +232,12 @@ class SingleFolderProcessor(BaseITKProcessor):
         return Path(self.source_folder) / "meta.json"
 
     def process(self, desc: str | None = None):
+        # Load existing destination metadata to preserve metadata for skipped files
+        if self.dest_folder is not None:
+            dest_meta_path = Path(self.dest_folder) / "meta.json"
+            if dest_meta_path.exists():
+                self.meta_manager.load_and_merge(dest_meta_path, allow_and_overwrite_existed=False)
+        
         super().process(desc)
         if self.dest_folder is not None:
             os.makedirs(self.dest_folder, exist_ok=True)
@@ -365,6 +371,12 @@ class DatasetProcessor(BaseITKProcessor):
         return Path(self.source_folder) / "meta.json"
 
     def process(self, desc: str | None = None):
+        # Load existing destination metadata to preserve metadata for skipped files
+        if self.dest_folder is not None:
+            dest_meta_path = Path(self.dest_folder) / "meta.json"
+            if dest_meta_path.exists():
+                self.meta_manager.load_and_merge(dest_meta_path, allow_and_overwrite_existed=False)
+        
         super().process(desc)
         if self.dest_folder is not None:
             self.save_meta(Path(self.dest_folder) / "meta.json")
