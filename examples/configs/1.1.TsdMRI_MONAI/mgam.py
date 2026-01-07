@@ -24,7 +24,8 @@ from itkit.process.GeneralPreProcess import WindowSet, TypeConvert
 from itkit.process.LoadBiomedicalData import LoadImageFromMHA, LoadMaskFromMHA
 from itkit.mm.mmseg_Dev3D import PackSeg3DInputs, Seg3DDataPreProcessor
 from itkit.mm.mmseg_PlugIn import IoUMetric_PerClass
-from itkit.dataset import ITKITConcatDataset, MONAI_PatchedDataset
+from itkit.dataset import ITKITConcatDataset
+from itkit.dataset.monai import MONAI_PatchedDataset
 from itkit.dataset.Totalsegmentator.mm_dataset import TsdMRI_Mha
 from itkit.mm.visualization import SegViser, BaseVisHook, LocalVisBackend
 
