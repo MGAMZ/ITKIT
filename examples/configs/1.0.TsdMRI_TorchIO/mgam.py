@@ -181,7 +181,8 @@ train_cfg = dict(
     type=IterBasedTrainLoop,
     max_iters=iters,
     val_interval=val_interval,
-    dynamic_intervals=dynamic_intervals
+    dynamic_intervals=dynamic_intervals,
+    fast_forward_on_resume=True,
 )
 val_cfg  = dict(type=ValLoop, fp16=True)
 test_cfg = dict(type=TestLoop)
