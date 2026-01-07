@@ -275,44 +275,16 @@ class FormatConverter(BaseITKProcessor):
 
     def _generate_metadata_for_existing_files(self):
         """Generate metadata for files that already exist in destination folder."""
-        # Check image and label folders
+        # Check image and label folders using the helper method from base class
         for subfolder in ['image', 'label']:
             dest_subfolder = os.path.join(self.dest_folder, subfolder)
-            if not os.path.exists(dest_subfolder):
-                continue
-            
-            # Find all existing files
-            existing_files = []
-            for f in os.listdir(dest_subfolder):
-                if f.endswith(self.SUPPORTED_EXTENSIONS):
-                    existing_files.append(os.path.join(dest_subfolder, f))
-            
-            # Get source files for comparison
             source_subfolder = os.path.join(self.source_folder, subfolder)
-            if not os.path.exists(source_subfolder):
-                continue
             
-            source_files_set = set()
-            for f in os.listdir(source_subfolder):
-                if f.endswith(self.SUPPORTED_EXTENSIONS):
-                    source_files_set.add(self._normalize_filename(f))
-            
-            # Generate metadata for files that exist and would be skipped
-            for dest_file in existing_files:
-                dest_basename = os.path.basename(dest_file)
-                dest_normalized = self._normalize_filename(dest_basename)
-                
-                # If this file would be skipped (exists and source has it)
-                if dest_normalized in source_files_set:
-                    # Check if metadata already exists
-                    if dest_basename not in self.meta_manager.meta:
-                        # Generate metadata from the existing file
-                        try:
-                            img = sitk.ReadImage(dest_file)
-                            meta = SeriesMetadata.from_sitk_image(img, dest_basename)
-                            self.meta_manager.update(meta, allow_and_overwrite_existed=False)
-                        except Exception as e:
-                            print(f"Warning: Could not generate metadata for {dest_file}: {e}")
+            if os.path.exists(dest_subfolder) and os.path.exists(source_subfolder):
+                self._generate_metadata_for_folder(
+                    dest_folder=dest_subfolder,
+                    source_folder=source_subfolder
+                )
 
 
 def convert_format(
