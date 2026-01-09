@@ -41,8 +41,8 @@ class ITKITBaseSegDataset(BaseSegDataset):
         """确保background为RGB全零"""
         new_palette = super()._update_palette()
 
-        if len(self.METAINFO) > 1:
-            return [[0, 0, 0]] + new_palette[1:]
+        if new_palette and len(new_palette) > 0:
+            return [[0, 0, 0]] + list(new_palette[1:])
         else:
             return new_palette
 

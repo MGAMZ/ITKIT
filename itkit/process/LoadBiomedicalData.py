@@ -40,8 +40,8 @@ class LoadImgFromOpenCV(BaseLoadBiomedicalData):
         img_path = results["img_path"]
         img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
         results["img"] = img
-        results["img_shape"] = img.shape[-2:]
-        results["ori_shape"] = img.shape[-2:]
+        results["img_shape"] = img.shape[:2]
+        results["ori_shape"] = img.shape[:2]
         return results
 
 
