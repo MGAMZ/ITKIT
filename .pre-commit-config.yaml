@@ -50,12 +50,4 @@ repos:
     hooks:
     - id: pyright
       args: ["--threads", "24"]
-      # additional_dependencies: [
-      #   colorama,
-      #   tqdm,
-      #   numpy,
-      #   deprecated,
-      #   psutil,
-      #   tabulate,
-      # ]
       pass_filenames: false

@@ -17,15 +17,21 @@ nav:
       - Installation: installation.md
       - Quick Start: quickstart.md
       - Dataset Structure: dataset_structure.md
-  - Core Features:
-      - Preprocessing Tools: preprocessing.md
+  - Processing Tools:
+      - Overview: preprocessing.md
+      - itk_check: itk_check.md
+      - itk_resample: itk_resample.md
+      - itk_orient: itk_orient.md
+      - itk_patch: itk_patch.md
+      - itk_aug: itk_aug.md
+      - itk_extract: itk_extract.md
+      - itk_convert: itk_convert.md
   - Advanced Topics:
       - Framework Integration: framework_integration.md
       - Neural Network Models: models.md
       - Supported Datasets: datasets.md
   - Community:
       - Contributing: contributing.md
-      - FAQ & Troubleshooting: faq.md
 
 plugins:
   - search
