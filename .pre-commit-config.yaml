@@ -41,13 +41,13 @@ repos:
       - id: isort
         files: ^itkit/
   - repo: https://github.com/jackdewinter/pymarkdown
-    rev: main
+    rev: v0.9.33
     hooks:
       - id: pymarkdown
         args: [scan]
         files: ^(docs/|README\.md)
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.407
+    rev: v1.1.408
     hooks:
     - id: pyright
       args: ["--threads", "24"]
