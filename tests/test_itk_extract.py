@@ -364,3 +364,45 @@ class TestMainIntegration:
         with patch.object(sys, 'argv', test_args):
             # This should complete successfully despite any config save issues
             main()
+
+    def test_metadata_preservation_on_skip(self, temp_dir):
+        """Test that metadata is preserved when files are skipped in ExtractProcessor."""
+        source_folder = os.path.join(temp_dir, "source")
+        dest_folder = os.path.join(temp_dir, "dest")
+        os.makedirs(source_folder)
+
+        # Create source files with labels to extract
+        label_mapping = {1: 0, 2: 1, 3: 2}
+        for i in range(3):
+            image = create_sample_image([0, 1, 2, 3], shape=(10, 10, 10))
+            sitk.WriteImage(image, os.path.join(source_folder, f"test{i}.mha"))
+
+        # First pass: Process all files
+        processor1 = ExtractProcessor(source_folder, dest_folder, label_mapping)
+        processor1.process()
+
+        # Check metadata from first pass
+        from itkit.process.metadata_models import MetadataManager
+        first_meta_path = os.path.join(dest_folder, 'meta.json')
+        assert os.path.exists(first_meta_path), "meta.json should be created after first pass"
+
+        first_manager = MetadataManager(meta_file_path=first_meta_path)
+        first_metadata_count = len(first_manager.meta)
+        first_files = set(first_manager.meta.keys())
+
+        # Second pass: Process again (all files should be skipped)
+        processor2 = ExtractProcessor(source_folder, dest_folder, label_mapping)
+        processor2.process()
+
+        # Check that metadata is preserved after second pass
+        second_manager = MetadataManager(meta_file_path=first_meta_path)
+        second_metadata_count = len(second_manager.meta)
+        second_files = set(second_manager.meta.keys())
+
+        # Verify metadata count is the same
+        assert second_metadata_count == first_metadata_count, \
+            f"Metadata count should be preserved: first={first_metadata_count}, second={second_metadata_count}"
+
+        # Verify all files from first pass are still in metadata
+        assert first_files == second_files, \
+            f"Files in metadata should be the same: missing={first_files - second_files}, extra={second_files - first_files}"

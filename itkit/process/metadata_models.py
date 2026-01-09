@@ -116,6 +116,25 @@ class MetadataManager:
         else:
             pass
 
+    def load_and_merge(self, meta_file_path: str | Path, allow_and_overwrite_existed: bool = False):
+        """Load metadata from a file and merge it with existing metadata.
+
+        Args:
+            meta_file_path: Path to the metadata file to load
+            allow_and_overwrite_existed: If True, overwrite existing metadata with loaded data.
+                                         If False (default), keep existing metadata when conflicts occur.
+        """
+        if not Path(meta_file_path).exists():
+            return
+
+        try:
+            data = json.loads(Path(meta_file_path).read_text())
+            for name, meta_dict in data.items():
+                meta = SeriesMetadata.model_validate({"name": name, **meta_dict})
+                self.update(meta, allow_and_overwrite_existed=allow_and_overwrite_existed)
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"Warning: Could not load metadata from {meta_file_path}: {e}")
+
     def save(self, path: str|Path):
         data = {
             name: meta.model_dump(mode="json", exclude={'name'})

@@ -54,6 +54,7 @@ from multiprocessing import Pool, cpu_count
 from pathlib import Path
 from typing import Any
 
+import SimpleITK as sitk
 from tqdm import tqdm
 
 from .metadata_models import MetadataManager, SeriesMetadata
@@ -175,6 +176,67 @@ class BaseITKProcessor:
             Return `None` if no metadata should be recorded for this item.
         """
 
+    def generate_metadata_for_existing_files(self):
+        """
+        Generate metadata for files that already exist in the destination folder.
+
+        This method should be called before processing to ensure that metadata
+        is generated for files that will be skipped during processing.
+
+        Subclasses should override this if they skip existing files.
+        """
+        pass
+
+    def _generate_metadata_for_folder(self, dest_folder: str, source_folder: str | None,
+                                       source_files_set: set[str] | None = None) -> None:
+        """
+        Helper method to generate metadata for existing files in a folder.
+
+        This method encapsulates the common logic for regenerating metadata from
+        existing files that will be skipped during processing.
+
+        Args:
+            dest_folder: Destination folder containing existing files
+            source_folder: Source folder to compare against (optional if source_files_set provided)
+            source_files_set: Pre-computed set of normalized source file names (optional)
+        """
+        if not os.path.exists(dest_folder):
+            return
+
+        # Find all existing files in destination
+        existing_files = []
+        for f in os.listdir(dest_folder):
+            if f.endswith(self.SUPPORTED_EXTENSIONS):
+                existing_files.append(os.path.join(dest_folder, f))
+
+        # Build source files set if not provided
+        if source_files_set is None:
+            if source_folder is None:
+                raise ValueError("Either source_folder or source_files_set must be provided.")
+            if not os.path.exists(source_folder):
+                return
+            source_files_set = set()
+            for f in os.listdir(source_folder):
+                if f.endswith(self.SUPPORTED_EXTENSIONS):
+                    source_files_set.add(self._normalize_filename(f))
+
+        # Generate metadata for files that exist and would be skipped
+        for dest_file in existing_files:
+            dest_basename = os.path.basename(dest_file)
+            dest_normalized = self._normalize_filename(dest_basename)
+
+            # If this file would be skipped (exists and source has it)
+            if dest_normalized in source_files_set:
+                # Check if metadata already exists
+                if dest_basename not in self.meta_manager.meta:
+                    # Generate metadata from the existing file
+                    try:
+                        img = sitk.ReadImage(dest_file)
+                        meta = SeriesMetadata.from_sitk_image(img, dest_basename)
+                        self.meta_manager.update(meta, allow_and_overwrite_existed=False)
+                    except Exception as e:
+                        print(f"Warning: Could not generate metadata for {dest_file}: {e}")
+
     def _normalize_filename(self, filepath: str) -> str:
         base = os.path.splitext(filepath)[0]
         # Handle double extensions like .nii.gz
@@ -231,7 +293,27 @@ class SingleFolderProcessor(BaseITKProcessor):
     def source_meta_path(self) -> Path | None:
         return Path(self.source_folder) / "meta.json"
 
+    def generate_metadata_for_existing_files(self):
+        """Generate metadata for files that already exist in destination folder."""
+        if self.dest_folder is None or not os.path.exists(self.dest_folder):
+            return
+
+        # Use the helper method from base class
+        self._generate_metadata_for_folder(
+            dest_folder=self.dest_folder,
+            source_folder=self.source_folder
+        )
+
     def process(self, desc: str | None = None):
+        # Load existing destination metadata to preserve metadata for skipped files
+        if self.dest_folder is not None:
+            dest_meta_path = Path(self.dest_folder) / "meta.json"
+            if dest_meta_path.exists():
+                self.meta_manager.load_and_merge(dest_meta_path, allow_and_overwrite_existed=False)
+
+        # Generate metadata for files that already exist and will be skipped
+        self.generate_metadata_for_existing_files()
+
         super().process(desc)
         if self.dest_folder is not None:
             os.makedirs(self.dest_folder, exist_ok=True)
@@ -364,7 +446,32 @@ class DatasetProcessor(BaseITKProcessor):
     def source_meta_path(self) -> Path:
         return Path(self.source_folder) / "meta.json"
 
+    def generate_metadata_for_existing_files(self):
+        """Generate metadata for files that already exist in destination folder."""
+        if self.dest_folder is None:
+            return
+
+        # Check image and label folders using the helper method
+        for subfolder in ['image', 'label']:
+            dest_subfolder = os.path.join(self.dest_folder, subfolder)
+            source_subfolder = os.path.join(self.source_folder, subfolder)
+
+            if os.path.exists(dest_subfolder) and os.path.exists(source_subfolder):
+                self._generate_metadata_for_folder(
+                    dest_folder=dest_subfolder,
+                    source_folder=source_subfolder
+                )
+
     def process(self, desc: str | None = None):
+        # Load existing destination metadata to preserve metadata for skipped files
+        if self.dest_folder is not None:
+            dest_meta_path = Path(self.dest_folder) / "meta.json"
+            if dest_meta_path.exists():
+                self.meta_manager.load_and_merge(dest_meta_path, allow_and_overwrite_existed=False)
+
+        # Generate metadata for files that already exist and will be skipped
+        self.generate_metadata_for_existing_files()
+
         super().process(desc)
         if self.dest_folder is not None:
             self.save_meta(Path(self.dest_folder) / "meta.json")

@@ -18,6 +18,7 @@ The converter ensures:
 """
 
 import os
+from pathlib import Path
 from typing import Any
 
 import SimpleITK as sitk
@@ -237,6 +238,14 @@ class FormatConverter(BaseITKProcessor):
         os.makedirs(os.path.join(self.dest_folder, "image"), exist_ok=True)
         os.makedirs(os.path.join(self.dest_folder, "label"), exist_ok=True)
 
+        # Load existing destination metadata to preserve metadata for skipped files
+        dest_meta_path = Path(self.dest_folder) / "meta.json"
+        if dest_meta_path.exists():
+            self.meta_manager.load_and_merge(dest_meta_path, allow_and_overwrite_existed=False)
+
+        # Generate metadata for files that already exist and will be skipped
+        self._generate_metadata_for_existing_files()
+
         desc = desc or f"{self.task_description} to {self.target_format}"
 
         # Process items
@@ -263,6 +272,19 @@ class FormatConverter(BaseITKProcessor):
         self.save_meta(os.path.join(self.dest_folder, "meta.json"))
         self.save_meta(os.path.join(self.dest_folder, "image", "meta.json"))
         self.save_meta(os.path.join(self.dest_folder, "label", "meta.json"))
+
+    def _generate_metadata_for_existing_files(self):
+        """Generate metadata for files that already exist in destination folder."""
+        # Check image and label folders using the helper method from base class
+        for subfolder in ['image', 'label']:
+            dest_subfolder = os.path.join(self.dest_folder, subfolder)
+            source_subfolder = os.path.join(self.source_folder, subfolder)
+
+            if os.path.exists(dest_subfolder) and os.path.exists(source_subfolder):
+                self._generate_metadata_for_folder(
+                    dest_folder=dest_subfolder,
+                    source_folder=source_subfolder
+                )
 
 
 def convert_format(
