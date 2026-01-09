@@ -245,7 +245,7 @@ To add a new preprocessing command:
 
 1. Create script in `itkit/process/`
 2. Add entry point in `pyproject.toml`
-3. Document in `docs/preprocessing.md`
+3. Create documentation in `docs/itk_*.md` and update `mkdocs.yml`
 4. Add tests in `tests/`
 5. Support common flags (`--mp`, `--help`)
 

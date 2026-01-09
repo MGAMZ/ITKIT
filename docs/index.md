@@ -12,15 +12,16 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
 - **[Quick Start](quickstart.md)** - Get started with basic usage and examples
 - **[Dataset Structure](dataset_structure.md)** - Understand the required dataset format
 
-### Core Features
+### Processing Tools
 
-- **[Preprocessing Tools](preprocessing.md)** - Comprehensive guide to ITK preprocessing commands
-  - Image checking and validation
-  - Resampling and orientation
-  - Patch extraction
-  - Data augmentation
-  - Label extraction
-  - Format conversion
+- **[Overview](preprocessing.md)** - General notes and best practices
+- **[itk_check](itk_check.md)** - Image checking and validation
+- **[itk_resample](itk_resample.md)** - Resampling to target spacing/size
+- **[itk_orient](itk_orient.md)** - Image re-orientation
+- **[itk_patch](itk_patch.md)** - Patch extraction
+- **[itk_aug](itk_aug.md)** - Data augmentation
+- **[itk_extract](itk_extract.md)** - Label extraction
+- **[itk_convert](itk_convert.md)** - Format conversion
 
 ### Advanced Topics
 
@@ -75,7 +76,7 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
 
 **Ready to preprocess data?**
 
-- See [Preprocessing Tools](preprocessing.md) for command documentation
+- See [Processing Tools](preprocessing.md) for command documentation and overview.
 - Use the GUI: `pip install "itkit[gui]"` then `itkit-app`
 
 **Building models?**
