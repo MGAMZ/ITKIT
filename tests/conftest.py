@@ -1,11 +1,56 @@
 import os
 import random
+import json
 
 import numpy as np
 import pytest
 import SimpleITK as sitk
 
 os.environ.setdefault('MULTIPROCESSING_START_METHOD', 'spawn')
+
+
+@pytest.fixture(scope="session")
+def itkit_dummy_dataset(tmp_path_factory):
+    """创建符合 ITKIT 标准结构的模拟数据集，包含 meta.json"""
+    temp_dir = tmp_path_factory.mktemp("itkit_dataset")
+    image_dir = os.path.join(temp_dir, "image")
+    label_dir = os.path.join(temp_dir, "label")
+    os.makedirs(image_dir)
+    os.makedirs(label_dir)
+
+    meta_content = {}
+
+    for i in range(20):  # 创建 20 个样本以便测试 split [0.8, 0.05, 0.15]
+        series_uid = f"SERIES_{i:03d}"
+        size = (100, 128, 128)
+        spacing = (1.0, 0.8, 0.8)
+
+        # 生成图像
+        img_arr = np.zeros(size, dtype=np.int16)
+        img = sitk.GetImageFromArray(img_arr)
+        img.SetSpacing(spacing)
+        img.SetOrigin((0.0, 0.0, 0.0))
+
+        # 生成标签
+        lbl_arr = np.zeros(size, dtype=np.uint8)
+        lbl = sitk.GetImageFromArray(lbl_arr)
+        lbl.SetSpacing(spacing)
+
+        # 保存
+        sample_name = f"{series_uid}.mha"
+        sitk.WriteImage(img, os.path.join(image_dir, sample_name), True)
+        sitk.WriteImage(lbl, os.path.join(label_dir, sample_name), True)
+
+        # 写入元数据
+        meta_content[sample_name] = {
+            "size": list(size),
+            "spacing": list(spacing)
+        }
+
+    with open(os.path.join(temp_dir, "meta.json"), "w") as f:
+        json.dump(meta_content, f)
+
+    return temp_dir
 
 
 @pytest.fixture(scope="session")
