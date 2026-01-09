@@ -118,7 +118,7 @@ class MetadataManager:
 
     def load_and_merge(self, meta_file_path: str | Path, allow_and_overwrite_existed: bool = False):
         """Load metadata from a file and merge it with existing metadata.
-        
+
         Args:
             meta_file_path: Path to the metadata file to load
             allow_and_overwrite_existed: If True, overwrite existing metadata with loaded data.
@@ -126,7 +126,7 @@ class MetadataManager:
         """
         if not Path(meta_file_path).exists():
             return
-        
+
         try:
             data = json.loads(Path(meta_file_path).read_text())
             for name, meta_dict in data.items():

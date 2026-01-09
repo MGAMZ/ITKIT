@@ -204,7 +204,7 @@ class TorchIOConverter(BaseITKProcessor):
         dest_meta_path = Path(self.dest_folder) / "meta.json"
         if dest_meta_path.exists():
             self.meta_manager.load_and_merge(dest_meta_path, allow_and_overwrite_existed=False)
-        
+
         # Generate metadata for files that already exist and will be skipped
         self._generate_metadata_for_existing_files()
 
@@ -237,7 +237,7 @@ class TorchIOConverter(BaseITKProcessor):
         """Generate metadata for files that already exist in destination folder."""
         if not os.path.exists(self.dest_folder):
             return
-        
+
         # Build source file set from image and label folders
         source_files_set = set()
         for subfolder in ['image', 'label']:
@@ -246,7 +246,7 @@ class TorchIOConverter(BaseITKProcessor):
                 for f in os.listdir(source_subfolder):
                     if f.endswith(self.SUPPORTED_EXTENSIONS):
                         source_files_set.add(self._normalize_filename(f))
-        
+
         # Use the helper method from base class with pre-computed source files set
         self._generate_metadata_for_folder(
             dest_folder=self.dest_folder,

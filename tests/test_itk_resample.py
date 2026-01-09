@@ -203,15 +203,15 @@ class TestSingleResampleProcessor:
 
     def test_metadata_preservation_on_skip(self, shared_temp_data, tmp_path):
         """Test that metadata is preserved when files are skipped due to already existing.
-        
+
         This tests the fix for the issue where skipped files disappear from meta.json.
         """
         dest_folder = tmp_path / "dst"
         dest_folder.mkdir()
-        
+
         # Randomly generate target spacing
         target_spacing = [np.random.uniform(0.5, 3.0) for _ in range(3)]
-        
+
         # First pass: Process all files
         processor1 = itk_resample.SingleResampleProcessor(
             source_folder=str(shared_temp_data / "image"),
@@ -221,17 +221,17 @@ class TestSingleResampleProcessor:
             field="image"
         )
         processor1.process()
-        
+
         # Save metadata from first pass
         first_meta_path = dest_folder / "meta.json"
         processor1.save_meta(first_meta_path)
         first_manager = MetadataManager(meta_file_path=first_meta_path)
         first_metadata_count = len(first_manager.meta)
-        
+
         # Get list of files processed in first pass
         first_pass_files = set(first_manager.meta.keys())
         assert first_metadata_count > 0, "First pass should process some files"
-        
+
         # Second pass: Process again (all files should be skipped)
         processor2 = itk_resample.SingleResampleProcessor(
             source_folder=str(shared_temp_data / "image"),
@@ -241,21 +241,21 @@ class TestSingleResampleProcessor:
             field="image"
         )
         processor2.process()
-        
+
         # Check that metadata is preserved after second pass
         second_meta_path = dest_folder / "meta.json"
         second_manager = MetadataManager(meta_file_path=second_meta_path)
         second_metadata_count = len(second_manager.meta)
-        
+
         # Verify metadata count is the same
         assert second_metadata_count == first_metadata_count, \
             f"Metadata count should be preserved: first={first_metadata_count}, second={second_metadata_count}"
-        
+
         # Verify all files from first pass are still in metadata
         second_pass_files = set(second_manager.meta.keys())
         assert first_pass_files == second_pass_files, \
             f"Files in metadata should be the same: missing={first_pass_files - second_pass_files}, extra={second_pass_files - first_pass_files}"
-        
+
         # Verify metadata values are the same
         for name in first_pass_files:
             assert first_manager.meta[name] == second_manager.meta[name], \
@@ -263,19 +263,19 @@ class TestSingleResampleProcessor:
 
     def test_partial_processing_metadata_preservation(self, shared_temp_data, tmp_path):
         """Test metadata preservation when only some files are processed.
-        
+
         Simulates the scenario where some files already exist and are skipped.
         """
         dest_folder = tmp_path / "dst"
         dest_folder.mkdir()
-        
+
         # Get source files
         source_files = list((shared_temp_data / "image").glob("*.mha"))
         assert len(source_files) >= 3, "Need at least 3 source files for this test"
-        
+
         # Randomly generate target spacing
         target_spacing = [np.random.uniform(0.5, 3.0) for _ in range(3)]
-        
+
         # First pass: Process only the first 2 files manually
         first_batch_files = source_files[:2]
         for src_file in first_batch_files:
@@ -283,7 +283,7 @@ class TestSingleResampleProcessor:
             # Simple processing without actual resampling for speed
             dest_file = dest_folder / src_file.name
             sitk.WriteImage(img, str(dest_file), useCompression=True)
-        
+
         # Create metadata for first batch
         first_manager = MetadataManager()
         for src_file in first_batch_files:
@@ -292,9 +292,9 @@ class TestSingleResampleProcessor:
             meta = itk_resample.SeriesMetadata.from_sitk_image(img, dest_file.name)
             first_manager.update(meta)
         first_manager.save(dest_folder / "meta.json")
-        
+
         first_file_names = {f.name for f in first_batch_files}
-        
+
         # Second pass: Process all files (first 2 should be skipped)
         processor = itk_resample.SingleResampleProcessor(
             source_folder=str(shared_temp_data / "image"),
@@ -304,15 +304,15 @@ class TestSingleResampleProcessor:
             field="image"
         )
         processor.process()
-        
+
         # Check final metadata
         final_manager = MetadataManager(meta_file_path=dest_folder / "meta.json")
         final_file_names = set(final_manager.meta.keys())
-        
+
         # Verify first batch files are still in metadata
         assert first_file_names.issubset(final_file_names), \
             f"First batch files should be preserved in metadata: missing={first_file_names - final_file_names}"
-        
+
         # Verify all source files are in final metadata
         source_file_names = {f.name for f in source_files}
         assert source_file_names == final_file_names, \

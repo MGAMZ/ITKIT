@@ -242,7 +242,7 @@ class FormatConverter(BaseITKProcessor):
         dest_meta_path = Path(self.dest_folder) / "meta.json"
         if dest_meta_path.exists():
             self.meta_manager.load_and_merge(dest_meta_path, allow_and_overwrite_existed=False)
-        
+
         # Generate metadata for files that already exist and will be skipped
         self._generate_metadata_for_existing_files()
 
@@ -279,7 +279,7 @@ class FormatConverter(BaseITKProcessor):
         for subfolder in ['image', 'label']:
             dest_subfolder = os.path.join(self.dest_folder, subfolder)
             source_subfolder = os.path.join(self.source_folder, subfolder)
-            
+
             if os.path.exists(dest_subfolder) and os.path.exists(source_subfolder):
                 self._generate_metadata_for_folder(
                     dest_folder=dest_subfolder,

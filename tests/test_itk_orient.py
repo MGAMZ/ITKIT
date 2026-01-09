@@ -276,37 +276,37 @@ class TestDatasetOrientProcessor:
             src_dir = os.path.join(tmpdir, 'src')
             dst_dir = os.path.join(tmpdir, 'dst')
             os.makedirs(src_dir)
-            
+
             # Create source files
             for i in range(3):
                 create_test_image(os.path.join(src_dir, f'test{i}.mha'))
-            
+
             # First pass: Process all files
             processor1 = OrientProcessor(src_dir, dst_dir, 'LPI', field='image', mp=False)
             processor1.process()
-            
+
             # Save metadata from first pass
             first_meta_path = os.path.join(dst_dir, 'meta.json')
             assert os.path.exists(first_meta_path), "meta.json should be created after first pass"
-            
+
             from itkit.process.metadata_models import MetadataManager
             first_manager = MetadataManager(meta_file_path=first_meta_path)
             first_metadata_count = len(first_manager.meta)
             first_files = set(first_manager.meta.keys())
-            
+
             # Second pass: Process again (all files should be skipped)
             processor2 = OrientProcessor(src_dir, dst_dir, 'LPI', field='image', mp=False)
             processor2.process()
-            
+
             # Check that metadata is preserved after second pass
             second_manager = MetadataManager(meta_file_path=first_meta_path)
             second_metadata_count = len(second_manager.meta)
             second_files = set(second_manager.meta.keys())
-            
+
             # Verify metadata count is the same
             assert second_metadata_count == first_metadata_count, \
                 f"Metadata count should be preserved: first={first_metadata_count}, second={second_metadata_count}"
-            
+
             # Verify all files from first pass are still in metadata
             assert first_files == second_files, \
                 f"Files in metadata should be the same: missing={first_files - second_files}, extra={second_files - first_files}"
@@ -318,15 +318,15 @@ class TestDatasetOrientProcessor:
             dst_dir = os.path.join(tmpdir, 'dst')
             os.makedirs(src_dir)
             os.makedirs(dst_dir)
-            
+
             # Create 5 source files
             for i in range(5):
                 create_test_image(os.path.join(src_dir, f'test{i}.mha'))
-            
+
             # Pre-create first 2 files in destination
             for i in range(2):
                 create_test_image(os.path.join(dst_dir, f'test{i}.mha'))
-            
+
             # Create initial metadata for first 2 files
             from itkit.process.metadata_models import MetadataManager, SeriesMetadata
             initial_manager = MetadataManager()
@@ -335,16 +335,16 @@ class TestDatasetOrientProcessor:
                 meta = SeriesMetadata.from_sitk_image(img, f'test{i}.mha')
                 initial_manager.update(meta)
             initial_manager.save(os.path.join(dst_dir, 'meta.json'))
-            
+
             # Process all files (first 2 should be skipped)
             processor = OrientProcessor(src_dir, dst_dir, 'LPI', field='image', mp=False)
             processor.process()
-            
+
             # Check final metadata
             final_manager = MetadataManager(meta_file_path=os.path.join(dst_dir, 'meta.json'))
             final_files = set(final_manager.meta.keys())
             expected_files = {f'test{i}.mha' for i in range(5)}
-            
+
             # Verify all files are in final metadata
             assert final_files == expected_files, \
                 f"All files should be in final metadata: missing={expected_files - final_files}, extra={final_files - expected_files}"
@@ -354,44 +354,44 @@ class TestDatasetOrientProcessor:
         with tempfile.TemporaryDirectory() as tmpdir:
             src_dir = os.path.join(tmpdir, 'src')
             dst_dir = os.path.join(tmpdir, 'dst')
-            
+
             # Create source structure
             img_dir = os.path.join(src_dir, 'image')
             lbl_dir = os.path.join(src_dir, 'label')
             os.makedirs(img_dir)
             os.makedirs(lbl_dir)
-            
+
             # Create matching image and label files
             for i in range(3):
                 create_test_image(os.path.join(img_dir, f'case{i:02d}.mha'))
                 create_test_image(os.path.join(lbl_dir, f'case{i:02d}.mha'))
-            
+
             # First pass: Process all files
             processor1 = DatasetOrientProcessor(src_dir, dst_dir, 'LPI', mp=False)
             processor1.process()
-            
+
             # Check metadata from first pass
             first_meta_path = os.path.join(dst_dir, 'meta.json')
             assert os.path.exists(first_meta_path), "meta.json should be created after first pass"
-            
+
             from itkit.process.metadata_models import MetadataManager
             first_manager = MetadataManager(meta_file_path=first_meta_path)
             first_metadata_count = len(first_manager.meta)
             first_files = set(first_manager.meta.keys())
-            
+
             # Second pass: Process again (all files should be skipped)
             processor2 = DatasetOrientProcessor(src_dir, dst_dir, 'LPI', mp=False)
             processor2.process()
-            
+
             # Check that metadata is preserved after second pass
             second_manager = MetadataManager(meta_file_path=first_meta_path)
             second_metadata_count = len(second_manager.meta)
             second_files = set(second_manager.meta.keys())
-            
+
             # Verify metadata count is the same
             assert second_metadata_count == first_metadata_count, \
                 f"Metadata count should be preserved: first={first_metadata_count}, second={second_metadata_count}"
-            
+
             # Verify all files from first pass are still in metadata
             assert first_files == second_files, \
                 f"Files in metadata should be the same: missing={first_files - second_files}, extra={second_files - first_files}"
