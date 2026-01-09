@@ -53,6 +53,7 @@ dev = [
   "HolisticTraceAnalysis",
   "nvidia-ml-py",
   "pytest",
+  "pytest-cov",
   "psutil",
   "memory-profiler",
   "types-colorama",
