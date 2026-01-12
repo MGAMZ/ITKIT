@@ -138,7 +138,7 @@ def slide_inference_3d(
         pad = (pad_x // 2, pad_x - pad_x // 2,
                pad_y // 2, pad_y - pad_y // 2,
                pad_z // 2, pad_z - pad_z // 2)
-        padded_inputs = F.pad(inputs, pad, mode='replicate', value=0)
+        padded_inputs = F.pad(inputs, pad, mode='replicate')
         z_padded, y_padded, x_padded = padded_inputs.shape[2], padded_inputs.shape[3], padded_inputs.shape[4]
     else:
         padded_inputs = inputs
