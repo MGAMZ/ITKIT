@@ -253,7 +253,9 @@ class Inferencer(ABC):
 class Inferencer_Seg3D(Inferencer):
     """3D segmentation inferencer using backend modules."""
 
-    assert torch.cuda.is_available(), "CUDA is required for 3D segmentation inference."
+    def __init__(self, backend: InferenceBackend, fp16: bool = False, allow_tqdm: bool = True):
+        assert torch.cuda.is_available(), "CUDA is required for 3D segmentation inference."
+        super().__init__(backend=backend, fp16=fp16, allow_tqdm=allow_tqdm)
 
     @torch.inference_mode()
     def Inference_FromNDArray(self, inputs: np.ndarray) -> tuple[Tensor, Tensor]:
