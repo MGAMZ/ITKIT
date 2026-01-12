@@ -163,7 +163,6 @@ class ONNXInferBackend(InferenceBackend):
         self.num_classes = output_shape[1]
 
         # Parse ZYX as patch_size from input_shape if not provided
-        input_shape = input_info.shape
         if self.inference_config.patch_size is None:
             spatial_shape = input_shape[2:]
             if len(spatial_shape) != 3:
