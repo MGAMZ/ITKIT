@@ -65,15 +65,14 @@ class DepthWiseConv2dImplicitGEMM(nn.Conv2d):
 
 if __name__ == "__main__":
     torch.random.manual_seed(0)
-    if torch.cuda.is_available():
-        x = torch.randn(64, 384, 32, 32).cuda()
-        m1 = DepthWiseConv2dImplicitGEMM(384, 31, groups=384, bias=False).cuda()
-        m2 = nn.Conv2d(384, 384, 31, padding=31 // 2, bias=False, groups=384).cuda()
-        m2.load_state_dict(m1.state_dict())
-        with torch.amp.autocast('cuda'):
-            y1 = m1(x)
-            y2 = m2(x)
-        (y1.mean() * 1024).backward()
-        (y2.mean() * 1024).backward()
-        print("output difference:", ((y1 - y2) ** 2).mean())
-        print("gradient difference:", ((m1.weight.grad - m2.weight.grad) ** 2).mean())  # pyright: ignore[reportOperatorIssue]
+    x = torch.randn(64, 384, 32, 32).cuda()
+    m1 = DepthWiseConv2dImplicitGEMM(384, 31, groups=384, bias=False).cuda()
+    m2 = nn.Conv2d(384, 384, 31, padding=31 // 2, bias=False, groups=384).cuda()
+    m2.load_state_dict(m1.state_dict())
+    with torch.amp.autocast('cuda'):
+        y1 = m1(x)
+        y2 = m2(x)
+    (y1.mean() * 1024).backward()
+    (y2.mean() * 1024).backward()
+    print("output difference:", ((y1 - y2) ** 2).mean())
+    print("gradient difference:", ((m1.weight.grad - m2.weight.grad) ** 2).mean())  # pyright: ignore[reportOperatorIssue]
