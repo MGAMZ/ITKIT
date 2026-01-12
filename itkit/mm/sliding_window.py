@@ -217,7 +217,7 @@ def slide_inference_3d(
         batch_patches = torch.cat(batch_patches, dim=0).to(inference_config.forward_device)
 
         # CUDA synchronization to prevent race condition
-        if torch.cuda.is_available() and torch.device(inference_config.forward_device).type == "cuda":
+        if torch.device(inference_config.forward_device).type == "cuda":
             torch.cuda.synchronize()
 
         # Forward pass
