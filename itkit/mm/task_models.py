@@ -1,7 +1,6 @@
 import logging
 from abc import abstractmethod
 from collections.abc import Sequence
-from dataclasses import dataclass
 
 import torch
 from mmengine.config import ConfigDict
@@ -11,87 +10,9 @@ from mmengine.model import BaseModel
 from mmengine.registry import MODELS
 from mmengine.structures import BaseDataElement, PixelData
 from torch import Tensor
-from tqdm import tqdm
 
 from .mmseg_Dev3D import VolumeData
-
-
-@dataclass
-class InferenceConfig:
-    """Configuration for sliding-window and device settings during inference.
-
-    Attributes:
-        patch_size (tuple | None): Sliding window size. None disables sliding window.
-        patch_stride (tuple | None): Sliding window stride. None disables sliding window.
-        accumulate_device (str): Device for accumulating window results, e.g., 'cpu' or 'cuda'.
-        forward_device (str): Device to run the forward pass for each window.
-    """
-    patch_size: tuple | None = None
-    patch_stride: tuple | None = None
-    accumulate_device: str = 'cuda'
-    forward_device: str = 'cuda'
-    forward_batch_windows: int = 1
-    # When accumulate and forward devices differ, a chunk size along the last
-    # dimension must be provided to avoid OOM during argmax transfer.
-    argmax_batchsize: int | None = None
-
-
-class ArgmaxProcessor:
-    """Device-aware argmax with optional chunking along the last dimension.
-
-    Advantages:
-    - Avoids OOM on device when handling large tensors.
-    - ArgMax can utilize GPU acceleration instead of fully relying on CPU.
-
-    Behavior:
-    - Always compute argmax on forward_device.
-    - If accumulate_device and forward_device are the same, perform argmax on
-      the full tensor directly.
-    - If they differ, require `argmax_batchsize` to chunk along the last
-      dimension to avoid OOM; per-chunk results are transferred back and
-      concatenated on accumulate_device.
-    """
-
-    def __init__(self, config: InferenceConfig) -> None:
-        self.config = config
-
-    def argmax(self, logits: Tensor, dim: int = 1, keepdim: bool = True) -> Tensor:
-        acc_dev = torch.device(self.config.accumulate_device)
-        fwd_dev = torch.device(self.config.forward_device)
-
-        # Fast path: same device
-        if acc_dev.type == fwd_dev.type:
-            # Ensure tensor on forward/accum device (same type)
-            t = logits.to(fwd_dev)
-            preds = torch.argmax(t, dim=dim, keepdim=keepdim).to(torch.uint8)
-            # Return on accumulate device (identical type)
-            return preds.to(acc_dev)
-
-        # Different devices: require chunk size
-        chunk_size = self.config.argmax_batchsize
-        if chunk_size is None or not isinstance(chunk_size, int) or chunk_size <= 0:
-            raise ValueError(
-                "When accumulate_device and forward_device differ, 'argmax_batchsize' "
-                f"must be a positive int in InferenceConfig to enable chunked argmax. Got {chunk_size}"
-            )
-
-        # Chunk along the last dimension
-        # Temp batch is transferred to forward device for argmax,
-        # then results are transferred back to accumulate device.
-        last_dim = logits.dim() - 1
-        L = logits.shape[-1]
-        chunks: list[Tensor] = []
-        for start in range(0, L, chunk_size):
-            end = min(start + chunk_size, L)
-            slc = [slice(None)] * logits.dim()
-            slc[last_dim] = slice(start, end)
-            t_chunk = logits[tuple(slc)].to(fwd_dev)
-            preds_chunk = torch.argmax(t_chunk, dim=dim, keepdim=keepdim).to(torch.uint8)
-            chunks.append(preds_chunk.to(acc_dev))
-
-        # Concatenate back along the last dimension on accumulate device
-        pred = torch.cat(chunks, dim=last_dim if keepdim is False else last_dim)
-        return pred
+from .sliding_window import ArgmaxProcessor, InferenceConfig, slide_inference_3d
 
 
 class SemanticSegment(BaseModel):
@@ -522,136 +443,30 @@ class SemSeg3D(SemanticSegment):
         Returns:
             Tensor: Segmentation logits.
         """
-        # Retrieve sliding-window parameters
-        assert self.inference_config.patch_size is not None and self.inference_config.patch_stride is not None, \
-            f"When using sliding window, patch_size({self.inference_config.patch_size}) and patch_stride({self.inference_config.patch_stride}) must be set, " \
-            f"elsewise, please set both to `None` to disable sliding window."
-        z_stride, y_stride, x_stride = self.inference_config.patch_stride
-        z_crop, y_crop, x_crop = self.inference_config.patch_size
-        batch_windows = forward_batch_windows or self.inference_config.forward_batch_windows
-        batch_size, _, z_img, y_img, x_img = inputs.size()
-        assert batch_size == 1, "Currently only batch_size=1 is supported for 3D sliding-window inference"
+        # Update config with runtime parameters if needed
+        # Note: InferenceConfig is a dataclass, so we shouldn't modify it in place in a way that affects other calls
+        # providing forward_func which closures over self._forward is the cleanest way.
 
-        # Convert sizes to Python ints to avoid tensor-to-bool issues
-        z_img = int(z_img)
-        y_img = int(y_img)
-        x_img = int(x_img)
+        # Override batch windows if provided
+        config = self.inference_config
+        if forward_batch_windows is not None:
+            # Create a shallow copy or a new config with updated batch size
+            # Since InferenceConfig is mutable, we must be careful.
+            # However, slide_inference_3d doesn't modify config, it just reads.
+            # But here we want to override one value.
+            # Let's create a temporary config object
+            from dataclasses import replace
+            config = replace(self.inference_config, forward_batch_windows=forward_batch_windows)
 
-        # Check if padding is needed for small volumes
-        need_padding = z_img < z_crop or y_img < y_crop or x_img < x_crop
-        if need_padding:
-            # Compute padding sizes
-            pad_z = max(z_crop - z_img, 0)
-            pad_y = max(y_crop - y_img, 0)
-            pad_x = max(x_crop - x_img, 0)
-            # Apply symmetric padding: (left, right, top, bottom, front, back)
-            pad = (pad_x // 2, pad_x - pad_x // 2,
-                   pad_y // 2, pad_y - pad_y // 2,
-                   pad_z // 2, pad_z - pad_z // 2)
-            padded_inputs = torch.nn.functional.pad(inputs, pad, mode='replicate', value=0)
-            z_padded, y_padded, x_padded = padded_inputs.shape[2], padded_inputs.shape[3], padded_inputs.shape[4]
-        else:
-            padded_inputs = inputs
-            z_padded, y_padded, x_padded = z_img, y_img, x_img
-            pad = None
-
-        # Prepare accumulation and count tensors on target device
-        accumulate_device = torch.device('cpu') if force_cpu else torch.device(self.inference_config.accumulate_device)
-        if accumulate_device.type == 'cuda':
-            # Clear CUDA cache if using GPU accumulation
-            torch.cuda.empty_cache()
-
-        # Create accumulation and count matrices on specified device
-        preds = torch.zeros(
-            size = (batch_size, self.num_classes, z_padded, y_padded, x_padded),
-            dtype = torch.float16,
-            device = accumulate_device,
-            pin_memory = False
+        return slide_inference_3d(
+            inputs=inputs,
+            num_classes=self.num_classes,
+            inference_config=config,
+            forward_func=self._forward,
+            allow_tqdm=self.allow_pbar and is_main_process(),
+            force_cpu=force_cpu,
+            progress_desc="Slide Win. Infer."
         )
-        count_mat = torch.zeros(
-            size = (batch_size, 1, z_padded, y_padded, x_padded),
-            dtype = torch.uint8,
-            device = accumulate_device,
-            pin_memory = False
-        )
-        patch_cache = torch.empty(
-            size = (batch_windows, self.num_classes, z_crop, y_crop, x_crop),
-            dtype = torch.float16,
-            device = accumulate_device,
-            pin_memory = True if accumulate_device.type == 'cpu' else False
-        )
-
-        # calculate window slices
-        window_slices = []
-        z_grids = max(z_padded - z_crop + z_stride - 1, 0) // z_stride + 1
-        y_grids = max(y_padded - y_crop + y_stride - 1, 0) // y_stride + 1
-        x_grids = max(x_padded - x_crop + x_stride - 1, 0) // x_stride + 1
-        for z_idx in range(z_grids):
-            for y_idx in range(y_grids):
-                for x_idx in range(x_grids):
-                    z1 = z_idx * z_stride
-                    y1 = y_idx * y_stride
-                    x1 = x_idx * x_stride
-                    z2 = min(z1 + z_crop, z_padded)
-                    y2 = min(y1 + y_crop, y_padded)
-                    x2 = min(x1 + x_crop, x_padded)
-                    z1 = max(z2 - z_crop, 0)
-                    y1 = max(y2 - y_crop, 0)
-                    x1 = max(x2 - x_crop, 0)
-                    window_slices.append((slice(z1, z2), slice(y1, y2), slice(x1, x2)))
-
-        def _device_to_host_pinned_tensor(device_tensor: Tensor, non_blocking: bool = False) -> Tensor:
-            """Inplace ops on pinned tensor for efficient transfer."""
-            nonlocal patch_cache, preds
-            device_tensor = device_tensor.to(preds.dtype) # NOTE Inconsistent dtype can SEVERLY impact tranfer speed.
-            if device_tensor.shape == patch_cache.shape:
-                # If the shape matches, copy directly to patch_cache
-                patch_cache.copy_(device_tensor, non_blocking)
-            else:
-                # Otherwise, resize patch_cache to match the device tensor shape
-                patch_cache.resize_(device_tensor.shape)
-                patch_cache.copy_(device_tensor, non_blocking)
-            return patch_cache
-
-        # sliding window forward
-        for i in tqdm(range(0, len(window_slices), batch_windows),
-                      desc="Slide Win. Infer.",
-                      disable=not (is_main_process() and self.allow_pbar),
-                      dynamic_ncols=True,
-                      leave=False):
-            batch_slices = window_slices[i:i+batch_windows]
-
-            # prepare inference batch
-            batch_patches = []
-            for (z_slice, y_slice, x_slice) in batch_slices:
-                batch_patches.append(padded_inputs[:, :, z_slice, y_slice, x_slice])
-            batch_patches = torch.cat(batch_patches, dim=0).to(self.inference_config.forward_device)  # [B, C, z_crop, y_crop, x_crop]
-
-            # prevent crop_logits of previous patch inference from being overlapped by next patch copy
-            # HACK NOT SURE IF THIS STILL HAPPEN, This is only observed when using `.copy(non_blocking=True)`.
-            if torch.cuda.is_available() and torch.device(self.inference_config.forward_device).type == "cuda":
-                torch.cuda.synchronize()
-            patch_logits_on_device = self._forward(batch_patches)
-            patch_cache = _device_to_host_pinned_tensor(patch_logits_on_device)
-
-            # accumulate results
-            for j, (z_slice, y_slice, x_slice) in enumerate(batch_slices):
-                preds[:, :, z_slice, y_slice, x_slice] += patch_cache[j:j+1]
-                count_mat[:, :, z_slice, y_slice, x_slice] += 1
-
-        min_count = torch.min(count_mat)
-        assert min_count.item() > 0, "There are areas not covered by sliding windows"
-        seg_logits = (preds / count_mat).to(dtype=torch.float16)
-
-        if need_padding:
-            assert pad is not None, "Missing padding info, cannot crop back to original size"
-            pad_x_left, pad_x_right, pad_y_top, pad_y_bottom, pad_z_front, pad_z_back = pad
-            seg_logits = seg_logits[:, :,
-                                   pad_z_front:z_padded-pad_z_back,
-                                   pad_y_top:y_padded-pad_y_bottom,
-                                   pad_x_left:x_padded-pad_x_right]
-
-        return seg_logits
 
     def _forward(self, inputs: Tensor, data_samples:Sequence[BaseDataElement]|None=None) -> Tensor:
         """Network forward process.
