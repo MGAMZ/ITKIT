@@ -39,7 +39,7 @@ class InferenceConfig(BaseModel):
             return v
         if isinstance(v, list):
             return tuple(int(x) for x in v)
-        return v
+        raise ValueError(f"Invalid type for 'patch_size'/'patch_stride': expected tuple, list, or None, got {type(v)}.")
 
 
 class ArgmaxProcessor:
