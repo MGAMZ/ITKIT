@@ -1,9 +1,8 @@
-import torch
-import onnx
 import json
 import pytest
 
 try:
+    import torch
     import onnx
     import onnxruntime
     HAS_ORT = True
