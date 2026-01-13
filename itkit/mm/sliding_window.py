@@ -1,15 +1,14 @@
 from collections.abc import Callable
-from dataclasses import dataclass
 
 import torch
 import torch.nn.functional as F
 from mmengine.dist import is_main_process
+from pydantic import BaseModel, ConfigDict, field_validator
 from torch import Tensor
 from tqdm import tqdm
 
 
-@dataclass
-class InferenceConfig:
+class InferenceConfig(BaseModel):
     """Configuration for sliding-window and device settings during inference.
 
     Attributes:
@@ -20,14 +19,27 @@ class InferenceConfig:
         forward_batch_windows (int): Number of sub-volumes to process in a batch.
         argmax_batchsize (int | None): Chunk size for argmax when devices differ.
     """
-    patch_size: tuple | None = None
-    patch_stride: tuple | None = None
+    patch_size: tuple[int, ...] | None = None
+    patch_stride: tuple[int, ...] | None = None
     accumulate_device: str = 'cuda'
     forward_device: str = 'cuda'
     forward_batch_windows: int = 1
     # When accumulate and forward devices differ, a chunk size along the last
     # dimension must be provided to avoid OOM during argmax transfer.
     argmax_batchsize: int | None = None
+
+    model_config = ConfigDict(extra='ignore')
+
+    @field_validator('patch_size', 'patch_stride', mode='before')
+    @classmethod
+    def _coerce_tuple(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, tuple):
+            return v
+        if isinstance(v, list):
+            return tuple(int(x) for x in v)
+        raise ValueError(f"Invalid type for 'patch_size'/'patch_stride': expected tuple, list, or None, got {type(v)}.")
 
 
 class ArgmaxProcessor:

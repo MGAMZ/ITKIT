@@ -99,7 +99,7 @@ class MMEngineInferBackend(InferenceBackend):
         Returns:
             Output logits tensor.
         """
-        return self.model.backbone(inputs)  # type: ignore
+        return self.model.backbone(inputs)
 
     @torch.inference_mode()
     def slide_inference(self, inputs: Tensor, force_cpu: bool = False) -> Tensor:
@@ -143,13 +143,23 @@ class ONNXInferBackend(InferenceBackend):
             allow_tqdm: Whether to show progress bars.
             providers: ONNX Runtime execution providers (e.g., ['CUDAExecutionProvider', 'CPUExecutionProvider']).
         """
-        import onnxruntime as ort
-        super().__init__(inference_config, allow_tqdm)
-
+        import onnxruntime as ort  # pyright: ignore[reportMissingImports]
         if providers is None:
             providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
 
         self.session = ort.InferenceSession(onnx_path, providers=providers)
+
+        # Prefer model-embedded inference_config when not explicitly provided.
+        if inference_config is None:
+            meta = self.session.get_modelmeta().custom_metadata_map or {}
+            raw_infer_cfg = meta.get('inference_config')
+            if raw_infer_cfg:
+                try:
+                    inference_config = InferenceConfig.model_validate_json(raw_infer_cfg)
+                except Exception:
+                    pass
+
+        super().__init__(inference_config, allow_tqdm)
 
         # Get input/output names
         input_info = self.session.get_inputs()[0]

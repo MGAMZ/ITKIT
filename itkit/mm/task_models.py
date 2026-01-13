@@ -451,12 +451,7 @@ class SemSeg3D(SemanticSegment):
         config = self.inference_config
         if forward_batch_windows is not None:
             # Create a shallow copy or a new config with updated batch size
-            # Since InferenceConfig is mutable, we must be careful.
-            # However, slide_inference_3d doesn't modify config, it just reads.
-            # But here we want to override one value.
-            # Let's create a temporary config object
-            from dataclasses import replace
-            config = replace(self.inference_config, forward_batch_windows=forward_batch_windows)
+            config = self.inference_config.model_copy(update={'forward_batch_windows': forward_batch_windows})
 
         return slide_inference_3d(
             inputs=inputs,
