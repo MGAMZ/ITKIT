@@ -1,0 +1,187 @@
+{
+    "Task01_BrainTumour": {
+        "name": "BRATS",
+        "description": "Gliomas segmentation tumour and oedema in on brain images",
+        "reference": "https://www.med.upenn.edu/sbia/brats2017.html",
+        "licence": "CC-BY-SA 4.0",
+        "release": "2.0 04/05/2018",
+        "tensorImageSize": "4D",
+        "modality": {
+            "0": "FLAIR",
+            "1": "T1w",
+            "2": "t1gd",
+            "3": "T2w"
+        },
+        "labels": {
+            "0": "background",
+            "1": "edema",
+            "2": "non-enhancing tumor",
+            "3": "enhancing tumour"
+        },
+        "numTraining": 484,
+        "numTest": 266
+    },
+    "Task02_Heart": {
+        "name": "LeftAtrium",
+        "description": "Left atrium segmentation",
+        "tensorImageSize": "3D",
+        "reference": "King’s College London",
+        "licence": "CC-BY-SA 4.0",
+        "relase": "1.0 04/05/2018",
+        "modality": {
+            "0": "MRI"
+        },
+        "labels": {
+            "0": "background",
+            "1": "left atrium"
+        },
+        "numTraining": 20,
+        "numTest": 10
+    },
+    "Task03_Liver": {
+        "name": "Liver",
+        "description": "Liver, and cancer segmentation",
+        "reference": "xxxx",
+        "licence": "CC-BY-SA 4.0",
+        "release": "1.0 04/05/2018",
+        "tensorImageSize": "3D",
+        "modality": {
+            "0": "CT"
+        },
+        "labels": {
+            "0": "background",
+            "1": "liver",
+            "2": "cancer"
+        },
+        "numTraining": 131,
+        "numTest": 70
+    },
+    "Task04_Hippocampus": {
+        "name": "Hippocampus",
+        "description": "Left and right hippocampus segmentation",
+        "reference": " Vanderbilt University Medical Center",
+        "licence": "CC-BY-SA 4.0",
+        "relase": "1.0 04/05/2018",
+        "tensorImageSize": "3D",
+        "modality": {
+            "0": "MRI"
+        },
+        "labels": {
+            "0": "background",
+            "1": "Anterior",
+            "2": "Posterior"
+        },
+        "numTraining": 260,
+        "numTest": 130
+    },
+    "Task05_Prostate": {
+        "name": "PROSTATE",
+        "description": "Prostate transitional zone and peripheral zone segmentation",
+        "reference": "Radboud University, Nijmegen Medical Centre",
+        "licence": "CC-BY-SA 4.0",
+        "relase": "1.0 04/05/2018",
+        "tensorImageSize": "4D",
+        "quantitative": [
+            0,
+            1
+        ],
+        "modality": {
+            "0": "T2",
+            "1": "ADC"
+        },
+        "labels": {
+            "0": "background",
+            "1": "PZ",
+            "2": "TZ"
+        },
+        "numTraining": 32,
+        "numTest": 16
+    },
+    "Task06_Lung": {
+        "name": "Lung",
+        "description": "Lung and cancer segmentation",
+        "reference": "The Cancer Imaging Archive",
+        "licence": "CC-BY-SA 4.0",
+        "relase": "1.0 04/05/2018",
+        "tensorImageSize": "3D",
+        "modality": {
+            "0": "CT"
+        },
+        "labels": {
+            "0": "background",
+            "1": "cancer"
+        },
+        "numTraining": 63,
+        "numTest": 32
+    },
+    "Task07_Pancreas": {
+        "name": "Pancreas",
+        "description": "Pancreas and cancer segmentation",
+        "reference": "Memorial Sloan Kettering Cancer Center ",
+        "licence": "CC-BY-SA 4.0",
+        "relase": "1.0 04/05/2018",
+        "tensorImageSize": "3D",
+        "modality": {
+            "0": "CT"
+        },
+        "labels": {
+            "0": "background",
+            "1": "pancreas",
+            "2": "cancer"
+        },
+        "numTraining": 281,
+        "numTest": 139
+    },
+    "Task08_HepaticVessel": {
+        "name": "HepaticVessel",
+        "description": "Hepatic Vessels and Tumour Segmentation",
+        "reference": "Memorial Sloan Kettering Cancer Center",
+        "licence": "CC-BY-SA 4.0",
+        "release": "1.1 14/08/2018",
+        "tensorImageSize": "3D",
+        "modality": {
+            "0": "CT"
+        },
+        "labels": {
+            "0": "background",
+            "1": "Vessel",
+            "2": "Tumour"
+        },
+        "numTraining": 303,
+        "numTest": 140
+    },
+    "Task09_Spleen": {
+        "name": "Spleen",
+        "description": "Spleen Segmentation",
+        "reference": "Memorial Sloan Kettering Cancer Center",
+        "licence": "CC-BY-SA 4.0",
+        "release": "1.0 06/08/2018",
+        "tensorImageSize": "3D",
+        "modality": {
+            "0": "CT"
+        },
+        "labels": {
+            "0": "background",
+            "1": "spleen"
+        },
+        "numTraining": 41,
+        "numTest": 20
+    },
+    "Task10_Colon": {
+        "name": "Colon",
+        "description": "Colon Cancer segmentation",
+        "reference": " Memorial Sloan Kettering Cancer Center",
+        "licence": "CC-BY-SA 4.0",
+        "release": "1.0 06/08/2018",
+        "tensorImageSize": "3D",
+        "modality": {
+            "0": "CT"
+        },
+        "labels": {
+            "0": "background",
+            "1": "colon cancer primaries"
+        },
+        "numTraining": 126,
+        "numTest": 64
+    }
+}
