@@ -193,6 +193,22 @@ For each supported dataset, you can find conversion scripts at: `itkit/dataset/<
 
 ---
 
+### 13. MSD
+
+**Description:** Medical Segmentation Decathlon
+
+**Organs:** Various (10 tasks)
+
+**Modality:** Various (CT, MRI)
+
+**Reference:** Antonelli, M., Reinke, A., Bakas, S. et al. The Medical Segmentation Decathlon. Nat Commun 13, 4128 (2022).
+
+**DOI:** [10.1038/s41467-022-30695-9](https://doi.org/10.1038/s41467-022-30695-9)
+
+**Link:** [Nature Communications](https://www.nature.com/articles/s41467-022-30695-9)
+
+---
+
 ## Dataset Categories
 
 ### By Modality
