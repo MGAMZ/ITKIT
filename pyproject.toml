@@ -103,6 +103,7 @@ itk_aug = "itkit.process.itk_aug:main"
 itk_extract = "itkit.process.itk_extract:main"
 itk_convert = "itkit.process.itk_convert:main"
 itk_evaluate = "itkit.process.itk_evaluate:main"
+itk_combine = "itkit.process.itk_combine:main"
 itkit-app = "itkit.gui.app:main"
 
 [tool.setuptools.packages.find]
