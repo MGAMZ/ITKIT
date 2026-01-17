@@ -161,7 +161,7 @@ def parse_args():
         help="Mapping rule in form `<source>:<src_labels>-><target>`, e.g., `A:1,2->3` (repeatable)",
     )
     parser.add_argument(
-        "-o", "dest_folder",
+        "-o", "--dest-folder",
         type=Path,
         help="Destination folder for combined labels",
     )
