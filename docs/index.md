@@ -21,6 +21,7 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
 - **[itk_patch](itk_patch.md)** - Patch extraction
 - **[itk_aug](itk_aug.md)** - Data augmentation
 - **[itk_extract](itk_extract.md)** - Label extraction
+- **[itk_combine](itk_combine.md)** - Label merging and intersection
 - **[itk_convert](itk_convert.md)** - Format conversion
 
 ### Advanced Topics
