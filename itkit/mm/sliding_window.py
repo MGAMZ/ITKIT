@@ -19,6 +19,8 @@ class InferenceConfig(BaseModel):
         forward_batch_windows (int): Number of sub-volumes to process in a batch.
         argmax_batchsize (int | None): Chunk size for argmax when devices differ.
     """
+    model_config = ConfigDict(extra='ignore')
+
     patch_size: tuple[int, ...] | None = None
     patch_stride: tuple[int, ...] | None = None
     accumulate_device: str = 'cuda'
@@ -28,7 +30,25 @@ class InferenceConfig(BaseModel):
     # dimension must be provided to avoid OOM during argmax transfer.
     argmax_batchsize: int | None = None
 
-    model_config = ConfigDict(extra='ignore')
+    def merge(self, override: InferenceConfig | dict | None) -> InferenceConfig:
+        """Merge with override taking precedence on non-None fields.
+
+        Args:
+            override: Override config (e.g., from user input). Only non-None fields apply.
+
+        Returns:
+            InferenceConfig: Merged configuration.
+        """
+        if override is None:
+            return self
+        if isinstance(override, InferenceConfig):
+            override_cfg = override
+        elif isinstance(override, dict):
+            override_cfg = InferenceConfig(**override)
+        else:
+            raise TypeError(f"override must be InferenceConfig, dict or None, but got {type(override)}")
+
+        return self.model_copy(update=override_cfg.model_dump(exclude_none=True))
 
     @field_validator('patch_size', 'patch_stride', mode='before')
     @classmethod
