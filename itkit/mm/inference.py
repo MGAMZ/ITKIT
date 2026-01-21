@@ -80,10 +80,18 @@ class MMEngineInferBackend(InferenceBackend):
         from mmengine.runner import load_checkpoint
 
         self.cfg = Config.fromfile(cfg_path)
-        if inference_config is None:
-            inference_config = getattr(self.cfg.model, 'inference_config', None)
+        base_infer_cfg = getattr(self.cfg.model, 'inference_config', None)
+        if base_infer_cfg is None:
+            base_cfg = InferenceConfig()
+        elif isinstance(base_infer_cfg, InferenceConfig):
+            base_cfg = base_infer_cfg
+        elif isinstance(base_infer_cfg, dict):
+            base_cfg = InferenceConfig(**base_infer_cfg)
+        else:
+            raise TypeError(f"inference_config must be InferenceConfig, dict or None, but got {type(base_infer_cfg)}")
 
-        super().__init__(inference_config, allow_tqdm)
+        merged_infer_cfg = base_cfg.merge(inference_config)
+        super().__init__(merged_infer_cfg, allow_tqdm)
         self.model = MODELS.build(self.cfg.model)
         load_checkpoint(self.model, ckpt_path, map_location='cpu')
         self.model.eval()
@@ -149,17 +157,23 @@ class ONNXInferBackend(InferenceBackend):
 
         self.session = ort.InferenceSession(onnx_path, providers=providers)
 
-        # Prefer model-embedded inference_config when not explicitly provided.
-        if inference_config is None:
-            meta = self.session.get_modelmeta().custom_metadata_map or {}
-            raw_infer_cfg = meta.get('inference_config')
-            if raw_infer_cfg:
-                try:
-                    inference_config = InferenceConfig.model_validate_json(raw_infer_cfg)
-                except Exception:
-                    pass
+        # Prefer model-embedded inference_config as base, then apply overrides.
+        base_infer_cfg = None
+        meta = self.session.get_modelmeta().custom_metadata_map or {}
+        raw_infer_cfg = meta.get('inference_config')
+        if raw_infer_cfg:
+            try:
+                base_infer_cfg = InferenceConfig.model_validate_json(raw_infer_cfg)
+            except Exception:
+                pass
 
-        super().__init__(inference_config, allow_tqdm)
+        if base_infer_cfg is None:
+            base_cfg = InferenceConfig()
+        else:
+            base_cfg = base_infer_cfg
+
+        merged_infer_cfg = base_cfg.merge(inference_config)
+        super().__init__(merged_infer_cfg, allow_tqdm)
 
         # Get input/output names
         input_info = self.session.get_inputs()[0]
@@ -172,15 +186,14 @@ class ONNXInferBackend(InferenceBackend):
         output_shape = output_info.shape
         self.num_classes = output_shape[1]
 
-        # Parse ZYX as patch_size from input_shape if not provided
-        if self.inference_config.patch_size is None:
-            spatial_shape = input_shape[2:]
-            if len(spatial_shape) != 3:
-                raise ValueError(f"Input shape must be 5D (N,C,Z,Y,X) for 3D segmentation, got {input_shape}.")
-            self.inference_config.patch_size = tuple(spatial_shape)
+        # Parse ZYX as patch_size from input_shape (always use model input shape, ignore user config)
+        spatial_shape = input_shape[2:]
+        if len(spatial_shape) != 3:
+            raise ValueError(f"Input shape must be 5D (N,C,Z,Y,X) for 3D segmentation, got {input_shape}.")
+        self.inference_config.patch_size = tuple(spatial_shape)
 
-        # Default stride to half of patch_size if not set
-        if self.inference_config.patch_size is not None and self.inference_config.patch_stride is None:
+        # Allow user to configure patch_stride, otherwise default to half of patch_size
+        if self.inference_config.patch_stride is None:
             self.inference_config.patch_stride = tuple(s//2 for s in self.inference_config.patch_size)
 
         # Ensure batch size matches if fixed in model
