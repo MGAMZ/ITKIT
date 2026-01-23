@@ -242,6 +242,15 @@ class MixVisionTransformer(nn.Module):
         use_SDPA: bool = True,
     ):
         super().__init__()
+        stage_count = len(depths)
+        assert stage_count > 0, "depths must contain at least one stage"
+        assert len(embed_dims) == stage_count, "embed_dims length must match depths"
+        assert len(num_heads) == stage_count, "num_heads length must match depths"
+        assert len(mlp_ratios) == stage_count, "mlp_ratios length must match depths"
+        assert len(sr_ratios) == stage_count, "sr_ratios length must match depths"
+        assert len(patch_kernel_size) == stage_count, "patch_kernel_size length must match depths"
+        assert len(patch_stride) == stage_count, "patch_stride length must match depths"
+        assert len(patch_padding) == stage_count, "patch_padding length must match depths"
         self.depths = depths
         self.embed_dims = embed_dims
 
@@ -320,6 +329,7 @@ class SegFormerDecoderHead(nn.Module):
         dropout: float = 0.0,
     ):
         super().__init__()
+        self.expected_num_features = len(input_feature_dims)
 
         class DecoderMapping(nn.Module):
             """Conv Embedding for Decoder"""
@@ -367,6 +377,7 @@ class SegFormerDecoderHead(nn.Module):
 
     def forward(self, encoder_features):
         # encoder_features is a list [c1, c2, c3, c4] from MixVisionTransformer
+        assert len(encoder_features) == self.expected_num_features, f"Expected {self.expected_num_features} feature stages, got {len(encoder_features)}"
         B = encoder_features[0].shape[0]
         target_size = encoder_features[0].shape[2:] # Spatial size of the first stage
 
@@ -418,6 +429,15 @@ class SegFormer3D(nn.Module):
         use_SDPA: bool = True,
     ):
         super().__init__()
+        stage_count = len(depths)
+        assert stage_count > 0, "depths must contain at least one stage"
+        assert len(embed_dims) == stage_count, "embed_dims length must match depths"
+        assert len(num_heads) == stage_count, "num_heads length must match depths"
+        assert len(mlp_ratios) == stage_count, "mlp_ratios length must match depths"
+        assert len(sr_ratios) == stage_count, "sr_ratios length must match depths"
+        assert len(patch_kernel_size) == stage_count, "patch_kernel_size length must match depths"
+        assert len(patch_stride) == stage_count, "patch_stride length must match depths"
+        assert len(patch_padding) == stage_count, "patch_padding length must match depths"
 
         self.encoder = MixVisionTransformer(
             in_channels=in_channels,
@@ -446,6 +466,9 @@ class SegFormer3D(nn.Module):
 
 
     def forward(self, x):
+        input_spatial_size = x.shape[2:]
         encoder_features = self.encoder(x) # [N, C, Z, Y, X]
         segmentation_output = self.decoder(encoder_features)
+        if segmentation_output.shape[2:] != input_spatial_size:
+            raise ValueError(f"Output spatial size {segmentation_output.shape[2:]} does not match input {input_spatial_size}")
         return segmentation_output # [N, C, Z, Y, X]
