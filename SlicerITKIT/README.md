@@ -1,171 +1,184 @@
-# ITKIT 3D Slicer Extension
+# ITKIT 3D Slicer Plugin
 
-This extension provides integration between 3D Slicer and ITKIT for deep learning-based medical image segmentation using a **client-server architecture**.
+Deep learning medical image segmentation plugin for 3D Slicer using a **client-server architecture**.
 
-## Architecture Overview
+## Architecture
 
 ```
-┌─────────────────┐         HTTP/REST API        ┌──────────────────┐
-│                 │ ◄──────────────────────────► │                  │
-│  3D Slicer      │                               │  ITKIT Server    │
-│  (Client Plugin)│   - Upload images             │  (Standalone)    │
-│                 │   - Download results          │                  │
-│  Lightweight    │   - Model management          │  Full ITKIT      │
-│  Dependencies   │                               │  Environment     │
-└─────────────────┘                               └──────────────────┘
-  • SimpleITK                                       • PyTorch
-  • requests                                        • ITKIT
-                                                    • MMEngine/ONNX
+┌─────────────────┐      HTTP REST API       ┌──────────────────┐
+│  3D Slicer      │  ◄─────────────────────► │  ITKIT Server    │
+│  (Client)       │                          │  (Standalone)    │
+│                 │  • Upload images         │                  │
+│  Dependencies:  │  • Download results      │  Dependencies:   │
+│  - SimpleITK    │  • Model management      │  - PyTorch       │
+│  - requests     │                          │  - ITKIT         │
+└─────────────────┘                          └──────────────────┘
 ```
 
-**Key Benefits:**
-- ✅ **No dependency conflicts**: Slicer doesn't need PyTorch or ITKIT installed
-- ✅ **Clean separation**: Server runs in its own Python environment
-- ✅ **Flexible deployment**: Server can run locally, remotely, or in Docker
-- ✅ **Same workflow as MONAI Label**: Familiar architecture for users
+**Benefits:**
 
-## Quick Start
-
-### 1. Start the ITKIT Server
-
-```bash
-cd SlicerITKIT/server
-
-# Install server dependencies (one time)
-pip install -r requirements.txt
-pip install itkit[advanced]  # or itkit[onnx] for ONNX backend
-
-# Start server
-python itkit_server.py --host 0.0.0.0 --port 8000
-```
-
-Server will start at `http://localhost:8000`
-
-### 2. Install the Slicer Plugin
-
-1. Open 3D Slicer
-2. Go to Edit → Application Settings → Modules
-3. Add path to `SlicerITKIT/ITKITInference` directory
-4. Restart 3D Slicer
-
-### 3. Use the Plugin
-
-1. Open module: Modules → Segmentation → ITKIT Inference
-2. Enter server URL: `http://localhost:8000`
-3. Click "Connect to Server"
-4. Load a model on the server
-5. Run inference on your volumes
+- No dependency conflicts (Slicer doesn't need PyTorch)
+- Server runs in separate Python environment
+- Flexible deployment (local/remote/cloud/Docker)
+- Similar to MONAI Label architecture
 
 ## Installation
 
-### Server Installation
-
-The server requires ITKIT and its dependencies:
+### 1. Server Installation
 
 ```bash
 cd SlicerITKIT/server
 
-# Option 1: Use virtual environment (recommended)
+# Create virtual environment (recommended)
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Install ITKIT with desired backend
-pip install itkit[advanced]  # For MMEngine (PyTorch)
-pip install itkit[onnx]      # For ONNX
-pip install itkit[advanced,onnx]  # For both
+# Install ITKIT
+pip install itkit[advanced,onnx]  # Both
 ```
 
-### Client (Slicer Plugin) Installation
+### 2. Slicer Plugin Installation
 
-The plugin only requires basic dependencies that are usually available in Slicer:
+**Requirements:**
 
-**Required:**
-- SimpleITK (usually pre-installed in Slicer)
-- requests (install if needed: `pip install requests` in Slicer's Python console)
+- 3D Slicer 5.0+
+- SimpleITK (pre-installed in Slicer)
+- requests library
 
-**Installation Steps:**
-1. Clone or download this repository
-2. Open 3D Slicer
-3. Go to Edit → Application Settings → Modules
-4. Click "Add" in "Additional module paths"
-5. Navigate to and select: `SlicerITKIT/ITKITInference`
-6. Click "OK" and restart Slicer
+**Install requests if needed:**
 
-The module will appear under: Modules → Segmentation → ITKIT Inference
+```python
+# In Slicer Python console (View → Python Interactor):
+import pip
+pip.main(['install', 'requests'])
+```
 
-## Usage
+**Add module to Slicer:**
 
-### Starting the Server
+1. Edit → Application Settings → Modules
+2. Click "Add" in "Additional module paths"
+3. Select: `ITKIT/SlicerITKIT/ITKITInference`
+4. Click OK and restart Slicer
+
+Module will appear: Modules → Segmentation → ITKIT
+
+## Quick Start
+
+### 1. Start Server
 
 ```bash
-# Basic (localhost only)
-python itkit_server.py
+# Basic (localhost)
+python SlicerITKIT/server/itkit_server.py
 
 # Allow external connections
-python itkit_server.py --host 0.0.0.0 --port 8000
+python SlicerITKIT/server/itkit_server.py --host 0.0.0.0 --port 8000
 
-# Enable debug mode
-python itkit_server.py --debug
+# Enable debug logging
+python SlicerITKIT/server/itkit_server.py --debug
 ```
 
-### In 3D Slicer
+Server starts at `http://localhost:8000`
 
-#### 1. Connect to Server
+### 2. Connect from Slicer
 
-1. Open ITKIT Inference module
-2. Enter server URL (default: `http://localhost:8000`)
+1. Open ITKIT module
+2. Enter server URL: `http://localhost:8000`
 3. Click "Connect to Server"
-4. Status should show "Connected"
+4. Status shows "Connected" with server info
 
-#### 2. Load a Model
+### 3. Load Model
 
-1. Enter a model name (e.g., "abdomen_seg")
-2. Select backend type (MMEngine or ONNX)
-3. Browse and select:
-   - Config file (.py) - for MMEngine only
-   - Model file (.pth or .onnx)
-4. Optional: Configure inference parameters
-   - Patch size (e.g., `96,96,96`)
-   - Patch stride (e.g., `48,48,48`)
-   - FP16 precision
-5. Click "Load Model on Server"
-6. Wait for model to load (status will update)
+**For MMEngine (PyTorch):**
 
-#### 3. Run Inference
+1. Backend: MMEngine
+2. Config File: Select `.py` config
+3. Model File: Select `.pth` checkpoint
+4. Optional: Set FP16
 
-1. Load your medical image volume in Slicer
-2. Select the input volume
-3. Choose the loaded model
-4. Optional: Enable "Force CPU" if needed
+**For ONNX:**
+
+1. Backend: ONNX
+2. Model File: Select `.onnx` file
+
+Click "Load Model" (replaces any previously loaded model)
+
+### 4. Run Inference
+
+1. Input Volume: Select loaded volume
+2. Optional: Set Patch Size/Stride (e.g., `96,96,96` / `48,48,48`)
+3. Optional: Override Window Level/Width
+4. Optional: Force CPU
 5. Click "Run Inference"
-6. Results will appear as a segmentation node
 
-### Model Management
+Results appear as segmentation node.
 
-**Load Multiple Models:**
-- Load different models for different tasks
-- Switch between models for comparison
-- Models are listed in the "Loaded Models" section
+## API Reference
 
-**Unload Models:**
-- Select a model from the list
-- Click "Unload Model" to free GPU/CPU memory
+### Server Endpoints
 
-## Server API
+**GET /api/info**
 
-The server exposes a REST API for programmatic access. See [server/README.md](server/README.md) for full API documentation.
+- Returns server status and current model info
 
-**Main Endpoints:**
-- `GET /api/health` - Health check
-- `GET /api/info` - Server and models info
-- `POST /api/models` - Load a model
-- `POST /api/infer` - Run inference
-- `DELETE /api/models/<name>` - Unload a model
+**POST /api/model**
+
+- Load model (auto-unloads previous)
+- Body: `{backend_type, config_path?, model_path, inference_config}`
+
+**DELETE /api/model**
+
+- Unload current model
+
+**POST /api/infer**
+
+- Run inference
+- Form data: `image` (file), `force_cpu`, `window_level?`, `window_width?`
+- Returns: segmentation as NIfTI
+
+### Programmatic Usage
+
+```python
+import requests
+
+server = "http://localhost:8000"
+
+# Load model
+requests.post(f"{server}/api/model", json={
+    "backend_type": "onnx",
+    "model_path": "/path/to/model.onnx",
+    "inference_config": {"fp16": False}
+})
+
+# Run inference
+with open("image.nii.gz", "rb") as f:
+    response = requests.post(
+        f"{server}/api/infer",
+        files={"image": f},
+        data={"force_cpu": "false"}
+    )
+
+with open("segmentation.nii.gz", "wb") as f:
+    f.write(response.content)
+```
 
 ## Configuration
+
+### Inference Parameters
+
+**In Load Model:**
+
+- `fp16`: Use half precision (faster, less memory)
+
+**In Run Inference:**
+
+- `patch_size`: Sliding window size (e.g., `[96,96,96]`)
+- `patch_stride`: Overlap between windows (e.g., `[48,48,48]`)
+- `window_level`: HU window center for preprocessing
+- `window_width`: HU window width for preprocessing
+- `force_cpu`: Force CPU accumulation (for GPU OOM)
 
 ### Server Configuration
 
@@ -173,27 +186,12 @@ The server exposes a REST API for programmatic access. See [server/README.md](se
 python itkit_server.py --help
 
 Options:
-  --host HOST        Host address (default: 127.0.0.1)
-  --port PORT        Port number (default: 8000)
-  --debug            Enable debug mode
-  --model-dir DIR    Auto-load models from directory
+  --host HOST    Host address (default: 127.0.0.1)
+  --port PORT    Port number (default: 8000)
+  --debug        Enable DEBUG logging
 ```
 
-### Inference Configuration
-
-When loading a model, you can specify:
-
-```json
-{
-  "patch_size": [96, 96, 96],     // Sliding window size
-  "patch_stride": [48, 48, 48],   // Overlap between windows
-  "fp16": false,                   // Use half-precision
-  "accumulate_device": "cuda",     // Device for accumulation
-  "forward_device": "cuda"         // Device for inference
-}
-```
-
-## Deployment Options
+## Deployment
 
 ### Local Development
 
@@ -201,149 +199,220 @@ When loading a model, you can specify:
 python itkit_server.py
 ```
 
-### Docker (Recommended for Production)
+### Docker
 
 ```bash
 cd SlicerITKIT/server
-docker build -t itkit-server .
+docker build -t itkit-server -f ../../CI-CD/Dockerfile.itkit .
 docker run -p 8000:8000 --gpus all itkit-server
 ```
 
 ### Remote Server
 
-1. Start server on a machine with GPU
-2. Use `--host 0.0.0.0` to accept external connections
-3. In Slicer, enter the remote server URL (e.g., `http://192.168.1.100:8000`)
+```bash
+# On server with GPU
+python itkit_server.py --host 0.0.0.0 --port 8000
 
-### Cloud Deployment
+# In Slicer, connect to:
+# http://<server-ip>:8000
+```
 
-Deploy to cloud platforms (AWS, Azure, GCP) for scalable inference:
-- Use containerized deployment
-- Configure load balancing for multiple users
-- Set up authentication and SSL/TLS
+### Cloud (AWS/Azure/GCP)
+
+- Deploy containerized server
+- Configure load balancing
+- Add authentication/SSL
 
 ## Troubleshooting
 
-### Cannot Connect to Server
+### Connection Failed
 
-**Problem**: "Connection failed" in Slicer
+**Check server is running:**
 
-**Solutions:**
-1. Verify server is running: `curl http://localhost:8000/api/health`
-2. Check server URL is correct
-3. If using remote server, check firewall settings
-4. Ensure server is running with `--host 0.0.0.0` for external access
-
-### Server Won't Start
-
-**Problem**: Port already in use
-
-**Solution:**
 ```bash
-# Use a different port
-python itkit_server.py --port 8001
+curl http://localhost:8000/api/health
 ```
+
+**For remote server:**
+
+- Use `--host 0.0.0.0` when starting server
+- Check firewall allows port 8000
+- Verify URL includes `http://` prefix
 
 ### Model Loading Fails
 
-**Problem**: Error loading model on server
+**Check paths:**
 
-**Solutions:**
-1. Check file paths are correct and accessible to server
-2. Verify ITKIT is installed: `pip list | grep itkit`
-3. For MMEngine: ensure config file is valid Python
-4. Check server logs for detailed error messages
+- Paths must be accessible from server's filesystem
+- For Windows client → Linux server: use Linux paths
+- Verify files exist on server
+
+**Check dependencies:**
+
+```bash
+pip list | grep itkit
+pip list | grep torch
+pip list | grep onnxruntime
+```
 
 ### Inference Fails
 
-**Problem**: "CUDA out of memory" or inference error
+**CUDA out of memory:**
 
-**Solutions:**
-1. Reduce patch size in model configuration
-2. Enable "Force CPU" in Slicer
-3. Unload other models to free GPU memory
-4. Check input image format is supported (NIfTI recommended)
+- Reduce patch size (e.g., `96,96,96` → `64,64,64`)
+- Enable "Force CPU"
+- Unload model and reload with smaller config
 
-### Requests Library Not Found
+**Missing windowing parameters:**
 
-**Problem**: "requests library is not installed" in Slicer
+- Server extracts from model metadata if available
+- Manually override Window Level/Width in UI
+- Add to model config or ONNX metadata
 
-**Solution:**
+### requests Not Found in Slicer
+
 ```python
-# In Slicer's Python console:
+# In Slicer Python console:
 import pip
 pip.main(['install', 'requests'])
 # Restart Slicer
 ```
 
-## Comparison with Previous Version
+## Architecture Details
 
-| Feature | Old (Monolithic) | New (Client-Server) |
-|---------|------------------|---------------------|
-| Architecture | All-in-one | Client-Server |
-| Slicer Dependencies | PyTorch, ITKIT, MMEngine | SimpleITK, requests |
-| Installation | Complex | Simple |
-| Environment | Shared with Slicer | Separate |
-| Deployment | Local only | Local, remote, cloud |
-| Conflicts | Yes | No |
-| Similar to | - | MONAI Label |
+### Client-Server Separation
+
+**Why this architecture?**
+
+1. **Avoid dependency hell**: PyTorch + Qt + Slicer = conflicts
+2. **Flexible deployment**: Server on GPU machine, Slicer on workstation
+3. **Independent updates**: Update ITKIT without rebuilding Slicer
+4. **Standard pattern**: Same as MONAI Label, familiar to users
+
+### Implementation Details
+
+**Client (ITKITInference.py):**
+
+- Qt-based UI in Slicer
+- REST API calls via `requests`
+- Minimal dependencies (SimpleITK, requests)
+- Async inference to prevent UI freeze
+
+**Server (itkit_server.py):**
+
+- Flask REST API
+- Single-model design (load replaces previous)
+- Automatic LPI orientation alignment
+- Window level/width preprocessing
+- Temp file cleanup via `response.call_on_close()`
+
+**Key Design Decisions:**
+
+1. Single model: Simplified UX, matches typical workflow
+2. Server-side preprocessing: Consistent results, reduce client complexity
+3. Async client: Prevent 30% progress freeze
+4. Direct ITKIT integration: No custom wrappers, use existing inferencer
+
+### Data Flow
+
+```
+User loads volume in Slicer
+    ↓
+Volume saved to temp NIfTI
+    ↓
+POST /api/infer with file upload
+    ↓
+Server: Load image → LPI orientation → Windowing → Inference
+    ↓
+Server: Return segmentation as NIfTI
+    ↓
+Client: Load result → Convert to segmentation node
+    ↓
+Display in Slicer
+```
 
 ## Advanced Usage
 
-### Batch Processing
-
-Use the server API directly for batch processing:
+### Batch Processing Script
 
 ```python
 import requests
+import glob
 
-server_url = "http://localhost:8000"
+server = "http://localhost:8000"
 
 # Load model once
-requests.post(f"{server_url}/api/models", json={
-    "name": "batch_model",
-    "backend_type": "onnx",
-    "model_path": "/path/to/model.onnx"
+requests.post(f"{server}/api/model", json={
+    "backend_type": "mmengine",
+    "config_path": "/models/config.py",
+    "model_path": "/models/checkpoint.pth"
 })
 
-# Process multiple images
-for image_path in image_list:
-    with open(image_path, 'rb') as f:
+# Process all images
+for img_path in glob.glob("data/*.nii.gz"):
+    with open(img_path, "rb") as f:
         response = requests.post(
-            f"{server_url}/api/infer",
-            files={"image": f},
-            data={"model_name": "batch_model"}
+            f"{server}/api/infer",
+            files={"image": f}
         )
-    # Save result
-    with open(f"seg_{image_path}", 'wb') as f:
+
+    out_path = img_path.replace(".nii.gz", "_seg.nii.gz")
+    with open(out_path, "wb") as f:
         f.write(response.content)
+    print(f"Processed: {img_path}")
 ```
 
-### Custom Server
+### Custom Preprocessing
 
-Extend the server for custom workflows:
+Modify server to add custom preprocessing:
 
 ```python
-# Add custom endpoint
-@app.route('/api/custom', methods=['POST'])
-def custom_endpoint():
-    # Your custom logic
-    return jsonify({'status': 'success'})
+# In itkit_server.py, before inference:
+def custom_preprocess(image_array):
+    # Your preprocessing
+    return processed_array
+
+# Add to run_inference endpoint
+image_array = custom_preprocess(image_array)
+```
+
+### Model Metadata
+
+Add windowing to ONNX metadata:
+
+```python
+import onnx
+model = onnx.load("model.onnx")
+model.metadata_props.add(key="window_level", value="50")
+model.metadata_props.add(key="window_width", value="350")
+onnx.save(model, "model_with_metadata.onnx")
+```
+
+For MMEngine, add to config:
+
+```python
+# config.py
+wl = 50
+ww = 350
+# or
+model = dict(
+    wl=50,
+    ww=350
+)
 ```
 
 ## Support
 
-- **GitHub Issues**: https://github.com/MGAMZ/ITKIT/issues
-- **Documentation**: https://itkit.readthedocs.io/
-- **Email**: 312065559@qq.com
-- **Server API Docs**: See [server/README.md](server/README.md)
+- **Issues**: <https://github.com/MGAMZ/ITKIT/issues>
+- **Documentation**: <https://itkit.readthedocs.io/>
+- **Email**: <312065559@qq.com>
 
 ## License
 
-This extension is released under the MIT License, consistent with the ITKIT framework.
+MIT License (same as ITKIT)
 
 ## Acknowledgments
 
 - Architecture inspired by [MONAI Label](https://github.com/Project-MONAI/MONAILabel)
-- Built on top of [ITKIT](https://github.com/MGAMZ/ITKIT)
+- Built on [ITKIT](https://github.com/MGAMZ/ITKIT) framework
 - Uses [3D Slicer](https://www.slicer.org/) platform

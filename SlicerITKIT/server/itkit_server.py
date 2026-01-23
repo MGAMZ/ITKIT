@@ -15,7 +15,6 @@ API Endpoints:
 """
 
 import argparse
-import json
 import logging
 import os
 import tempfile
@@ -34,10 +33,9 @@ from itkit.mm.inference import (
     ONNXInferBackend,
 )
 
-# Configure logging
+# Configure logging (will be updated in main() based on --debug flag)
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -45,15 +43,21 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)  # Enable CORS for cross-origin requests
 
-# Global storage for loaded models
-loaded_models = {}
+# Global storage for the single loaded model
+current_model: Optional["ModelConfig"] = None
 
 
 class ModelConfig:
     """Configuration for a loaded model."""
-    
-    def __init__(self, name: str, backend_type: str, config_path: Optional[str], 
-                 model_path: str, inference_config: Optional[dict] = None):
+
+    def __init__(
+        self,
+        name: str,
+        backend_type: str,
+        config_path: Optional[str],
+        model_path: str,
+        inference_config: Optional[dict] = None,
+    ):
         self.name = name
         self.backend_type = backend_type  # 'mmengine' or 'onnx'
         self.config_path = config_path
@@ -61,292 +65,304 @@ class ModelConfig:
         self.inference_config = inference_config or {}
         self.backend = None
         self.inferencer = None
-    
+
     def load(self):
         """Load the model backend and inferencer."""
-        logger.info(f"Loading model: {self.name}")
-        
-        # Parse inference config
-        infer_cfg = InferenceConfig(**self.inference_config) if self.inference_config else InferenceConfig()
-        
-        # Initialize backend
-        if self.backend_type.lower() == 'mmengine':
+        logger.info("Loading model: %s", self.name)
+        infer_cfg = (
+            InferenceConfig(**self.inference_config)
+            if self.inference_config
+            else InferenceConfig()
+        )
+
+        if self.backend_type.lower() == "mmengine":
             if not self.config_path or not os.path.exists(self.config_path):
-                raise ValueError(f"Config file required for MMEngine backend: {self.config_path}")
-            
+                raise ValueError(f"Config file required: {self.config_path}")
             self.backend = MMEngineInferBackend(
                 cfg_path=self.config_path,
                 ckpt_path=self.model_path,
                 inference_config=infer_cfg,
-                allow_tqdm=False
+                allow_tqdm=False,
             )
-        elif self.backend_type.lower() == 'onnx':
+        elif self.backend_type.lower() == "onnx":
             self.backend = ONNXInferBackend(
-                onnx_path=self.model_path,
-                inference_config=infer_cfg,
-                allow_tqdm=False
+                onnx_path=self.model_path, inference_config=infer_cfg, allow_tqdm=False
             )
         else:
-            raise ValueError(f"Unknown backend type: {self.backend_type}")
-        
-        # Create inferencer
+            raise ValueError(f"Unknown backend: {self.backend_type}")
+
         self.inferencer = Inferencer_Seg3D(
             backend=self.backend,
-            fp16=self.inference_config.get('fp16', False),
-            allow_tqdm=False
+            fp16=self.inference_config.get("fp16", False),
+            allow_tqdm=False,
         )
-        
-        logger.info(f"Model loaded successfully: {self.name}")
-    
+        logger.info("Model loaded: %s", self.name)
+
     def infer(self, image_array: np.ndarray, force_cpu: bool = False) -> tuple:
-        """Run inference on image array.
-        
-        Args:
-            image_array: Input image as numpy array (Z, Y, X)
-            force_cpu: Force CPU accumulation
-            
-        Returns:
-            Tuple of (seg_logits, sem_seg_map) as numpy arrays
-        """
-        if self.inferencer is None:
-            raise RuntimeError(f"Model not loaded: {self.name}")
-        
-        # Update backend config if force_cpu is specified
+        """Run inference on image array."""
         if force_cpu:
-            self.backend.inference_config.accumulate_device = 'cpu'
-        
-        # Run inference
+            self.backend.inference_config.accumulate_device = "cpu"
         seg_logits, sem_seg_map = self.inferencer.Inference_FromNDArray(image_array)
-        
-        # Convert to numpy
-        seg_logits_np = seg_logits.cpu().numpy()
-        sem_seg_map_np = sem_seg_map.cpu().numpy()
-        
-        return seg_logits_np, sem_seg_map_np
-    
+        return seg_logits.cpu().numpy(), sem_seg_map.cpu().numpy()
+
     def to_dict(self):
         """Convert to dictionary for JSON serialization."""
         return {
-            'name': self.name,
-            'backend_type': self.backend_type,
-            'config_path': self.config_path,
-            'model_path': self.model_path,
-            'inference_config': self.inference_config,
-            'loaded': self.backend is not None
+            "name": self.name,
+            "backend_type": self.backend_type,
+            "config_path": self.config_path,
+            "model_path": self.model_path,
+            "inference_config": self.inference_config,
+            "loaded": self.backend is not None,
         }
 
 
-@app.route('/api/health', methods=['GET'])
+def _get_windowing_from_model(
+    model: ModelConfig,
+) -> tuple[Optional[float], Optional[float]]:
+    """Try to read window level/width from backend metadata or config."""
+    if model.backend_type.lower() == "mmengine":
+        cfg = getattr(model.backend, "cfg", None)
+        if cfg:
+            wl = cfg.get("wl") or cfg.get("window_level")
+            ww = cfg.get("ww") or cfg.get("window_width")
+            if wl is None or ww is None:
+                cfg_model = getattr(cfg, "model", None)
+                if cfg_model:
+                    wl = wl or cfg_model.get("wl") or cfg_model.get("window_level")
+                    ww = ww or cfg_model.get("ww") or cfg_model.get("window_width")
+            return wl, ww
+    elif model.backend_type.lower() == "onnx":
+        meta = model.backend.session.get_modelmeta().custom_metadata_map or {}
+        return meta.get("window_level"), meta.get("window_width")
+    return None, None
+
+
+def _apply_windowing(image_array: np.ndarray, wl: float, ww: float) -> np.ndarray:
+    """Apply windowing and normalize to [0,1]."""
+    left = wl - ww / 2.0
+    right = wl + ww / 2.0
+    image_array = np.clip(image_array.astype(np.float32), left, right)
+    image_array = (image_array - left) / ww
+    return image_array
+
+
+@app.route("/api/health", methods=["GET"])
 def health_check():
     """Health check endpoint."""
-    return jsonify({
-        'status': 'ok',
-        'cuda_available': torch.cuda.is_available(),
-        'cuda_device_count': torch.cuda.device_count() if torch.cuda.is_available() else 0
-    })
+    return jsonify(
+        {
+            "status": "ok",
+            "cuda_available": torch.cuda.is_available(),
+            "cuda_device_count": (
+                torch.cuda.device_count() if torch.cuda.is_available() else 0
+            ),
+        }
+    )
 
 
-@app.route('/api/info', methods=['GET'])
+@app.route("/api/info", methods=["GET"])
 def get_info():
-    """Get server information and loaded models."""
-    models_info = {name: model.to_dict() for name, model in loaded_models.items()}
-    
-    return jsonify({
-        'name': 'ITKIT Inference Server',
-        'version': '1.0.0',
-        'models': models_info,
-        'cuda_available': torch.cuda.is_available(),
-        'device_count': torch.cuda.device_count() if torch.cuda.is_available() else 0
-    })
+    """Get server information and loaded model."""
+    model_info = current_model.to_dict() if current_model else None
+
+    return jsonify(
+        {
+            "name": "ITKIT Inference Server",
+            "version": "1.0.0",
+            "model": model_info,
+            "cuda_available": torch.cuda.is_available(),
+            "device_count": (
+                torch.cuda.device_count() if torch.cuda.is_available() else 0
+            ),
+        }
+    )
 
 
-@app.route('/api/models', methods=['POST'])
+@app.route("/api/model", methods=["POST"])
 def load_model():
-    """Load a new model.
-    
+    """Load a new model (replaces any currently loaded model).
+
     Request body:
     {
-        "name": "my_model",
-        "backend_type": "mmengine" or "onnx",
-        "config_path": "/path/to/config.py" (optional for ONNX),
-        "model_path": "/path/to/checkpoint.pth" or "/path/to/model.onnx",
-        "inference_config": {
-            "patch_size": [96, 96, 96],
-            "patch_stride": [48, 48, 48],
-            "fp16": false
+        \"backend_type\": \"mmengine\" or \"onnx\",
+        \"config_path\": \"/path/to/config.py\" (required for MMEngine),
+        \"model_path\": \"/path/to/checkpoint.pth\" or \"/path/to/model.onnx\",
+        \"inference_config\": {
+            \"patch_size\": [96, 96, 96],
+            \"patch_stride\": [48, 48, 48],
+            \"fp16\": false
         }
     }
     """
-    try:
-        data = request.json
-        name = data.get('name')
-        backend_type = data.get('backend_type')
-        config_path = data.get('config_path')
-        model_path = data.get('model_path')
-        inference_config = data.get('inference_config', {})
-        
-        # Validate
-        if not name:
-            return jsonify({'error': 'Model name is required'}), 400
-        if not backend_type:
-            return jsonify({'error': 'Backend type is required'}), 400
-        if not model_path or not os.path.exists(model_path):
-            return jsonify({'error': f'Model file not found: {model_path}'}), 400
-        
-        # Create and load model
-        model = ModelConfig(name, backend_type, config_path, model_path, inference_config)
-        model.load()
-        
-        # Store
-        loaded_models[name] = model
-        
-        return jsonify({
-            'status': 'success',
-            'model': model.to_dict()
-        })
-    
-    except Exception as e:
-        logger.error(f"Error loading model: {e}")
-        return jsonify({'error': str(e)}), 500
+    global current_model
 
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 400
 
-@app.route('/api/models/<model_name>', methods=['DELETE'])
-def unload_model(model_name):
-    """Unload a model to free memory."""
-    if model_name in loaded_models:
-        del loaded_models[model_name]
+    data = request.get_json(silent=True) or {}
+    logger.debug("/api/model payload: %s", data)
+    backend_type = data.get("backend_type")
+    config_path = data.get("config_path")
+    model_path = data.get("model_path")
+    inference_config = data.get("inference_config", {})
+
+    if not backend_type:
+        return jsonify({"error": "Backend type is required"}), 400
+    if not model_path:
+        return jsonify({"error": "Model path is required"}), 400
+    if not os.path.exists(model_path):
+        return jsonify({"error": f"Model file not found: {model_path}"}), 400
+    if backend_type.lower() == "mmengine" and (
+        not config_path or not os.path.exists(config_path)
+    ):
+        return (
+            jsonify({"error": f"Config file required for MMEngine: {config_path}"}),
+            400,
+        )
+
+    if current_model:
+        logger.info("Unloading current model")
+        del current_model
         torch.cuda.empty_cache()
-        return jsonify({'status': 'success', 'message': f'Model {model_name} unloaded'})
-    else:
-        return jsonify({'error': f'Model not found: {model_name}'}), 404
+
+    name = Path(model_path).stem
+    model = ModelConfig(name, backend_type, config_path, model_path, inference_config)
+    model.load()
+    current_model = model
+
+    return jsonify({"status": "success", "model": model.to_dict()})
 
 
-@app.route('/api/infer', methods=['POST'])
+@app.route("/api/model", methods=["DELETE"])
+def unload_model():
+    """Unload the current model to free memory."""
+    global current_model
+
+    if not current_model:
+        return jsonify({"error": "No model loaded"}), 404
+
+    logger.info("Unloading model: %s", current_model.name)
+    del current_model
+    current_model = None
+    torch.cuda.empty_cache()
+    return jsonify({"status": "success"})
+
+
+@app.route("/api/infer", methods=["POST"])
 def run_inference():
     """Run inference on uploaded image.
-    
+
     Expects multipart form data with:
     - image: Image file (NIfTI format)
-    - model_name: Name of the model to use
     - force_cpu: (optional) Force CPU accumulation
+    - window_level: (optional) Override window level
+    - window_width: (optional) Override window width
     """
-    # Validate file size (limit to 2GB)
-    MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2GB
-    
-    try:
-        # Get parameters
-        if 'image' not in request.files:
-            return jsonify({'error': 'No image file uploaded'}), 400
-        
-        file = request.files['image']
-        
-        # Validate file size
-        file.seek(0, 2)  # Seek to end
-        file_size = file.tell()
-        file.seek(0)  # Reset to beginning
-        
-        if file_size > MAX_FILE_SIZE:
-            return jsonify({'error': f'File too large. Maximum size: {MAX_FILE_SIZE / (1024**3):.1f}GB'}), 400
-        
-        # Validate content type/extension
-        if not file.filename.endswith(('.nii', '.nii.gz', '.nrrd', '.mha')):
-            return jsonify({'error': 'Invalid file format. Supported: .nii, .nii.gz, .nrrd, .mha'}), 400
-        
-        model_name = request.form.get('model_name')
-        force_cpu = request.form.get('force_cpu', 'false').lower() == 'true'
-        
-        if not model_name:
-            return jsonify({'error': 'Model name is required'}), 400
-        
-        if model_name not in loaded_models:
-            return jsonify({'error': f'Model not loaded: {model_name}'}), 404
-        
-        # Save uploaded file
-        with tempfile.NamedTemporaryFile(suffix='.nii.gz', delete=False) as tmp:
-            file.save(tmp.name)
-            tmp_input_path = tmp.name
-        
-        # Load image
-        image = sitk.ReadImage(tmp_input_path)
-        image_array = sitk.GetArrayFromImage(image)
-        os.unlink(tmp_input_path)
-        
-        # Run inference
-        model = loaded_models[model_name]
-        logger.info(f"Running inference with model: {model_name}, shape: {image_array.shape}")
-        seg_logits, sem_seg_map = model.infer(image_array, force_cpu=force_cpu)
-        
-        # Create segmentation image
-        seg_map_squeezed = sem_seg_map.squeeze()  # Remove batch dimension
-        seg_image = sitk.GetImageFromArray(seg_map_squeezed.astype(np.uint8))
-        
-        # Copy metadata from input image
-        seg_image.SetOrigin(image.GetOrigin())
-        seg_image.SetSpacing(image.GetSpacing())
-        seg_image.SetDirection(image.GetDirection())
-        
-        # Save to temporary file
-        with tempfile.NamedTemporaryFile(suffix='.nii.gz', delete=False) as tmp:
-            tmp_output_path = tmp.name
-        
-        sitk.WriteImage(seg_image, tmp_output_path)
-        
-        logger.info(f"Inference completed. Unique labels: {np.unique(seg_map_squeezed)}")
-        
-        # Return the file and register cleanup
-        @app.after_request
-        def cleanup_temp_file(response):
-            """Clean up temporary file after sending response."""
-            try:
-                if os.path.exists(tmp_output_path):
-                    os.unlink(tmp_output_path)
-            except Exception as e:
-                logger.error(f"Failed to cleanup temp file: {e}")
-            return response
-        
-        return send_file(
-            tmp_output_path,
-            mimetype='application/octet-stream',
-            as_attachment=True,
-            download_name='segmentation.nii.gz'
-        )
-    
-    except Exception as e:
-        logger.error(f"Error during inference: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+    if current_model is None:
+        return jsonify({"error": "No model loaded"}), 400
+
+    if "image" not in request.files:
+        return jsonify({"error": "No image file uploaded"}), 400
+
+    file = request.files["image"]
+    force_cpu = request.form.get("force_cpu", "false").lower() == "true"
+    wl_override = request.form.get("window_level")
+    ww_override = request.form.get("window_width")
+
+    # Save and load image
+    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tmp:
+        file.save(tmp.name)
+        tmp_input_path = tmp.name
+
+    image = sitk.ReadImage(tmp_input_path)
+    image_lpi = sitk.DICOMOrient(image, "LPI")
+    image_array = sitk.GetArrayFromImage(image_lpi)
+    os.unlink(tmp_input_path)
+
+    # Resolve windowing
+    wl = float(wl_override) if wl_override else None
+    ww = float(ww_override) if ww_override else None
+    if not wl or not ww:
+        model_wl, model_ww = _get_windowing_from_model(current_model)
+        wl = wl or model_wl
+        ww = ww or model_ww
+    if not wl or not ww:
+        return jsonify({"error": "window_level/window_width required"}), 400
+
+    image_array = _apply_windowing(image_array, wl, ww)
+    logger.info(
+        "Inference: model=%s shape=%s WL=%.1f WW=%.1f",
+        current_model.name,
+        image_array.shape,
+        wl,
+        ww,
+    )
+
+    seg_logits, sem_seg_map = current_model.infer(image_array, force_cpu=force_cpu)
+    seg_map_squeezed = sem_seg_map.squeeze()
+
+    # Create output
+    seg_image = sitk.GetImageFromArray(seg_map_squeezed.astype(np.uint8))
+    seg_image.SetOrigin(image_lpi.GetOrigin())
+    seg_image.SetSpacing(image_lpi.GetSpacing())
+    seg_image.SetDirection(image_lpi.GetDirection())
+
+    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tmp:
+        tmp_output_path = tmp.name
+    sitk.WriteImage(seg_image, tmp_output_path)
+
+    logger.info("Inference completed. Labels: %s", np.unique(seg_map_squeezed))
+
+    response = send_file(
+        tmp_output_path,
+        mimetype="application/octet-stream",
+        as_attachment=True,
+        download_name="segmentation.nii.gz",
+    )
+    response.call_on_close(
+        lambda: os.path.exists(tmp_output_path) and os.unlink(tmp_output_path)
+    )
+    return response
 
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description='ITKIT Inference Server')
-    parser.add_argument('--host', type=str, default='127.0.0.1',
-                       help='Host address (default: 127.0.0.1)')
-    parser.add_argument('--port', type=int, default=8000,
-                       help='Port number (default: 8000)')
-    parser.add_argument('--debug', action='store_true',
-                       help='Enable debug mode')
+    parser = argparse.ArgumentParser(description="ITKIT Inference Server")
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Host address (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port", type=int, default=8000, help="Port number (default: 8000)"
+    )
+    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
     return parser.parse_args()
 
 
 def main():
     """Main entry point."""
     args = parse_args()
-    
-    logger.info("="*60)
+
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+
+    logger.info("=" * 60)
     logger.info("ITKIT Inference Server")
-    logger.info("="*60)
-    logger.info(f"Host: {args.host}")
-    logger.info(f"Port: {args.port}")
-    logger.info(f"CUDA Available: {torch.cuda.is_available()}")
-    if torch.cuda.is_available():
-        logger.info(f"CUDA Devices: {torch.cuda.device_count()}")
-    logger.info("="*60)
-    
-    # Start server
+    logger.info("=" * 60)
+    logger.info("Host: %s Port: %d Debug: %s", args.host, args.port, args.debug)
+    logger.info(
+        "CUDA: %s Devices: %d",
+        torch.cuda.is_available(),
+        torch.cuda.device_count() if torch.cuda.is_available() else 0,
+    )
+    logger.info("=" * 60)
+
     app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

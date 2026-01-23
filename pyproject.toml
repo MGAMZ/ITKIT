@@ -75,6 +75,9 @@ advanced = [
   "onedl-mmcv[torch]",
   "onedl-mmengine",
   "onedl-mmsegmentation",
+  "flask",
+  "flask_cors",
+  "requests"
 ]
 onnx = [
   "onnx",

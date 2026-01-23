@@ -5,6 +5,7 @@ ITKIT provides a native 3D Slicer extension for running inference directly withi
 ## Overview
 
 The ITKIT Slicer extension (SlicerITKIT) provides a user-friendly interface for:
+
 - Loading and configuring deep learning models
 - Running inference on 3D medical volumes
 - Generating segmentation results as Slicer segmentation nodes
@@ -13,20 +14,24 @@ The ITKIT Slicer extension (SlicerITKIT) provides a user-friendly interface for:
 ## Features
 
 ### Multiple Backend Support
+
 - **MMEngine Backend**: Full PyTorch model support with configuration files
 - **ONNX Backend**: Optimized inference with ONNX Runtime
 
 ### Sliding Window Inference
+
 - Handle large volumes that don't fit in GPU memory
 - Configurable patch size and stride for optimal results
 - Automatic padding and cropping
 
 ### GPU Acceleration
+
 - CUDA support for fast inference
 - Mixed precision (FP16) support
 - CPU fallback for systems without GPU
 
 ### Seamless Integration
+
 - Works directly with Slicer volume nodes
 - Outputs standard Slicer segmentation nodes
 - Compatible with Slicer's segment editor and visualization tools
@@ -36,6 +41,7 @@ The ITKIT Slicer extension (SlicerITKIT) provides a user-friendly interface for:
 See the [Installation Guide](../SlicerITKIT/INSTALLATION.md) for detailed instructions.
 
 Quick summary:
+
 1. Install 3D Slicer (5.0+)
 2. Install ITKIT: `pip install itkit[advanced]`
 3. Add the extension path to Slicer
@@ -46,6 +52,7 @@ Quick summary:
 ### Basic Workflow
 
 1. **Load Your Data**
+
    ```python
    # Load a volume in Slicer (via GUI or Python)
    import slicer
@@ -189,7 +196,7 @@ for filename in os.listdir(input_dir):
         # Load volume
         filepath = os.path.join(input_dir, filename)
         volumeNode = slicer.util.loadVolume(filepath)
-        
+
         # Run inference
         segmentation = logic.process(
             inputVolume=volumeNode,
@@ -202,11 +209,11 @@ for filename in os.listdir(input_dir):
             fp16=False,
             forceCpu=False
         )
-        
+
         # Save segmentation
         output_path = os.path.join(output_dir, filename.replace('.nii.gz', '_seg.nii.gz'))
         slicer.util.saveNode(segmentation, output_path)
-        
+
         # Clean up
         slicer.mrmlScene.RemoveNode(volumeNode)
         slicer.mrmlScene.RemoveNode(segmentation)
@@ -270,22 +277,27 @@ custom_config = {
 ### Common Issues
 
 **Problem**: Module doesn't appear in Slicer
+
 - **Solution**: Check that the extension path is correctly added in Application Settings → Modules
 
 **Problem**: "ITKIT is not installed" error
+
 - **Solution**: Install ITKIT in Slicer's Python:
+
   ```python
   import pip
   pip.main(['install', 'itkit[advanced]'])
   ```
 
 **Problem**: CUDA out of memory
-- **Solution**: 
+
+- **Solution**:
   - Enable "Force CPU Accumulation"
   - Reduce patch size
   - Use FP16 precision
 
 **Problem**: Slow inference
+
 - **Solution**:
   - Enable FP16
   - Use ONNX backend
@@ -293,6 +305,7 @@ custom_config = {
   - Reduce overlap (larger stride)
 
 **Problem**: Segmentation results look blocky
+
 - **Solution**:
   - Reduce stride (more overlap)
   - Use Gaussian blending (configure in inference_config)
@@ -302,6 +315,7 @@ custom_config = {
 ### Segment Editor Integration
 
 After inference, use Slicer's Segment Editor to:
+
 - Refine segmentation results
 - Add/remove segments
 - Apply smoothing and morphological operations
@@ -317,6 +331,7 @@ After inference, use Slicer's Segment Editor to:
 ### Quantification
 
 Use Slicer's analysis modules:
+
 - Segment Statistics for volume/surface measurements
 - Label Statistics for intensity analysis
 - Distance metrics between structures
@@ -343,6 +358,7 @@ def process(self,
 ```
 
 **Parameters:**
+
 - `inputVolume`: Input 3D volume node
 - `outputSegmentation`: Existing segmentation node or None to create new
 - `backend`: "MMEngine" or "ONNX"
@@ -355,14 +371,15 @@ def process(self,
 - `progressCallback`: Optional callback for progress updates
 
 **Returns:**
+
 - Output segmentation node with results
 
 ## Support
 
-- GitHub: https://github.com/MGAMZ/ITKIT
-- Issues: https://github.com/MGAMZ/ITKIT/issues
-- Documentation: https://itkit.readthedocs.io/
-- Email: 312065559@qq.com
+- GitHub: <https://github.com/MGAMZ/ITKIT>
+- Issues: <https://github.com/MGAMZ/ITKIT/issues>
+- Documentation: <https://itkit.readthedocs.io/>
+- Email: <312065559@qq.com>
 
 ## Contributing
 
