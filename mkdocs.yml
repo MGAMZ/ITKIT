@@ -28,6 +28,7 @@ nav:
       - itk_convert: itk_convert.md
   - Advanced Topics:
       - Framework Integration: framework_integration.md
+      - 3D Slicer Integration: slicer_integration.md
       - Neural Network Models: models.md
       - Supported Datasets: datasets.md
   - Community:

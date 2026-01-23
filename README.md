@@ -14,6 +14,7 @@ ITKIT is a comprehensive toolkit for medical image preprocessing and analysis, p
 - **🖥️ GUI Application**: User-friendly PyQt6 interface for all operations
 - **🧠 Neural Networks**: 16+ state-of-the-art segmentation models (SegFormer, MedNeXt, VMamba, etc.)
 - **🔌 Framework Support**: Integration with OpenMMLab, MONAI, TorchIO, and PyTorch Lightning
+- **🏥 3D Slicer Extension**: Native extension for running inference directly in 3D Slicer
 - **📊 Dataset Conversion**: Scripts for 12+ popular medical imaging datasets
 - **⚡ High Performance**: Multiprocessing support for faster batch processing
 
@@ -56,6 +57,7 @@ You can also find the docs on [readthedocs](https://itkit.readthedocs.io/).
 - **[Dataset Structure](docs/dataset_structure.md)** - Required dataset format
 - **[Preprocessing Tools](docs/preprocessing.md)** - Complete command reference
 - **[Framework Integration](docs/framework_integration.md)** - OpenMMLab, MONAI, TorchIO
+- **[3D Slicer Integration](docs/slicer_integration.md)** - Run inference in 3D Slicer
 - **[Neural Network Models](docs/models.md)** - Available segmentation models
 - **[Supported Datasets](docs/datasets.md)** - Dataset conversion scripts
 - **[FAQ & Troubleshooting](docs/faq.md)** - Common issues and solutions
