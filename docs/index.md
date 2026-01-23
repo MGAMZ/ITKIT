@@ -32,6 +32,12 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
   - TorchIO integration
   - PyTorch Lightning support
 
+- **[3D Slicer Integration](slicer_integration.md)** - 3D Slicer extension for inference
+  - Install and configure the Slicer extension
+  - Run inference directly in 3D Slicer
+  - MMEngine and ONNX backend support
+  - Sliding window inference for large volumes
+
 - **[Neural Network Models](models.md)** - State-of-the-art segmentation models
   - Transformer-based models (SegFormer, UNETR, DA-TransUNet)
   - State space models (VMamba, SwinUMamba, SegMamba)

@@ -1,0 +1,5 @@
+This is a placeholder for the icon file.
+For actual deployment, replace this with a PNG icon file (typically 128x128 pixels).
+
+You can use the ITKIT logo or create a custom icon representing the segmentation functionality.
+The icon will appear in the Slicer module selector.
