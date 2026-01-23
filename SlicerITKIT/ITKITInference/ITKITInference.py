@@ -6,18 +6,15 @@ Users can specify configuration files, checkpoint paths, and inference parameter
 initialize the inferencer and perform segmentation on loaded volumes.
 """
 
+import logging
 import os
-from typing import Annotated, Optional
+from typing import Optional
 
 import ctk
 import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
-from slicer.parameterNodeWrapper import (
-    parameterNodeWrapper,
-    WithinRange,
-)
 
 try:
     import numpy as np
@@ -436,9 +433,12 @@ class ITKITInferenceLogic(ScriptedLoadableModuleLogic):
             progressCallback(50, "Initializing backend...")
 
         # Create inference config
+        # If forceCpu is True, use CPU for accumulation to avoid GPU OOM
+        accumulate_device = 'cpu' if forceCpu else 'cuda'
         inferenceConfig = InferenceConfig(
             patch_size=patchSize,
-            patch_stride=patchStride
+            patch_stride=patchStride,
+            accumulate_device=accumulate_device
         )
 
         # Initialize backend
