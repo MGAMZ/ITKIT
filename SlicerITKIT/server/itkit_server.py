@@ -230,10 +230,27 @@ def run_inference():
     - model_name: Name of the model to use
     - force_cpu: (optional) Force CPU accumulation
     """
+    # Validate file size (limit to 2GB)
+    MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2GB
+    
     try:
         # Get parameters
         if 'image' not in request.files:
             return jsonify({'error': 'No image file uploaded'}), 400
+        
+        file = request.files['image']
+        
+        # Validate file size
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        
+        if file_size > MAX_FILE_SIZE:
+            return jsonify({'error': f'File too large. Maximum size: {MAX_FILE_SIZE / (1024**3):.1f}GB'}), 400
+        
+        # Validate content type/extension
+        if not file.filename.endswith(('.nii', '.nii.gz', '.nrrd', '.mha')):
+            return jsonify({'error': 'Invalid file format. Supported: .nii, .nii.gz, .nrrd, .mha'}), 400
         
         model_name = request.form.get('model_name')
         force_cpu = request.form.get('force_cpu', 'false').lower() == 'true'
@@ -245,7 +262,6 @@ def run_inference():
             return jsonify({'error': f'Model not loaded: {model_name}'}), 404
         
         # Save uploaded file
-        file = request.files['image']
         with tempfile.NamedTemporaryFile(suffix='.nii.gz', delete=False) as tmp:
             file.save(tmp.name)
             tmp_input_path = tmp.name
@@ -277,7 +293,17 @@ def run_inference():
         
         logger.info(f"Inference completed. Unique labels: {np.unique(seg_map_squeezed)}")
         
-        # Return the file
+        # Return the file and register cleanup
+        @app.after_request
+        def cleanup_temp_file(response):
+            """Clean up temporary file after sending response."""
+            try:
+                if os.path.exists(tmp_output_path):
+                    os.unlink(tmp_output_path)
+            except Exception as e:
+                logger.error(f"Failed to cleanup temp file: {e}")
+            return response
+        
         return send_file(
             tmp_output_path,
             mimetype='application/octet-stream',
@@ -301,8 +327,6 @@ def parse_args():
                        help='Port number (default: 8000)')
     parser.add_argument('--debug', action='store_true',
                        help='Enable debug mode')
-    parser.add_argument('--model-dir', type=str, default=None,
-                       help='Directory to auto-load models from')
     return parser.parse_args()
 
 
@@ -319,11 +343,6 @@ def main():
     if torch.cuda.is_available():
         logger.info(f"CUDA Devices: {torch.cuda.device_count()}")
     logger.info("="*60)
-    
-    # Auto-load models if model directory specified
-    if args.model_dir and os.path.exists(args.model_dir):
-        logger.info(f"Auto-loading models from: {args.model_dir}")
-        # TODO: Implement auto-loading logic
     
     # Start server
     app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)

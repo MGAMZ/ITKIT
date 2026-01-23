@@ -343,7 +343,7 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.inferenceModelSelector.addItem(model_name)
         
         # Enable/disable inference button
-        self.applyButton.enabled = self.inferenceModelSelector.count > 0
+        self.applyButton.enabled = self.inferenceModelSelector.count() > 0
 
     def onBackendChanged(self):
         """Called when backend type is changed."""
