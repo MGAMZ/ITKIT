@@ -132,8 +132,13 @@ backend = MMEngineInferBackend(
 
 # Export to ONNX
 dummy_input = torch.randn(1, 1, 96, 96, 96).cuda()
+
+# Note: The model component to export depends on your model architecture
+# For models with a separate backbone: use backend.model.backbone
+# For models without backbone separation: use backend.model directly
+# Adjust based on your specific model structure
 torch.onnx.export(
-    backend.model.backbone,
+    backend.model.backbone,  # or backend.model for some architectures
     dummy_input,
     'model.onnx',
     input_names=['input'],

@@ -434,7 +434,13 @@ class ITKITInferenceLogic(ScriptedLoadableModuleLogic):
 
         # Create inference config
         # If forceCpu is True, use CPU for accumulation to avoid GPU OOM
-        accumulate_device = 'cpu' if forceCpu else 'cuda'
+        # Otherwise, check if CUDA is available and use it, else fall back to CPU
+        if forceCpu:
+            accumulate_device = 'cpu'
+        else:
+            import torch
+            accumulate_device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        
         inferenceConfig = InferenceConfig(
             patch_size=patchSize,
             patch_stride=patchStride,
