@@ -13,7 +13,6 @@ import pytest
 
 torch = pytest.importorskip("torch", reason="PyTorch not installed")
 
-
 @pytest.mark.torch
 def test_segformer3d_io():
     """Test SegFormer3D IO - reference implementation."""
@@ -39,7 +38,49 @@ def test_segformer3d_io():
     assert output.shape == expected_shape, \
         f"SegFormer3D output shape {output.shape} != expected {expected_shape}"
 
+@pytest.mark.torch
+@pytest.mark.parametrize("stage_count", [1, 2, 3, 4])
+def test_segformer3d_variable_stage_counts(stage_count):
+    """Test SegFormer3D IO with different stage counts."""
+    from itkit.models.SegFormer3D import SegFormer3D
 
+    in_channels = 1
+    num_classes = 2
+
+    embed_dims = [16, 32, 64, 128][:stage_count]
+    num_heads = [1, 2, 4, 8][:stage_count]
+    mlp_ratios = [2] * stage_count
+    depths = [1] * stage_count
+    sr_ratios = [1] * stage_count
+    patch_kernel_size = [3] * stage_count
+    patch_stride = [2] * stage_count
+    patch_padding = [1] * stage_count
+
+    model = SegFormer3D(
+        in_channels=in_channels,
+        embed_dims=embed_dims,
+        num_heads=num_heads,
+        mlp_ratios=mlp_ratios,
+        depths=depths,
+        sr_ratios=sr_ratios,
+        patch_kernel_size=patch_kernel_size,
+        patch_stride=patch_stride,
+        patch_padding=patch_padding,
+        num_classes=num_classes,
+        decoder_head_embedding_dim=64,
+    )
+    model.eval()
+
+    batch_size = 1
+    depth, height, width = 32, 32, 32
+    x = torch.randn(batch_size, in_channels, depth, height, width)
+
+    with torch.no_grad():
+        output = model(x)
+
+    expected_shape = (batch_size, num_classes, depth, height, width)
+    assert output.shape == expected_shape, \
+        f"SegFormer3D({stage_count} stages) output shape {output.shape} != expected {expected_shape}"
 
 @pytest.mark.torch
 def test_unetr_io():
@@ -79,8 +120,6 @@ def test_unetr_io():
     assert output.shape == expected_shape, \
         f"UNETR output shape {output.shape} != expected {expected_shape}"
 
-
-
 @pytest.mark.torch
 def test_mednext_io():
     """Test MedNeXt IO."""
@@ -115,8 +154,6 @@ def test_mednext_io():
     expected_shape = (batch_size, n_classes, depth, height, width)
     assert output.shape == expected_shape, \
         f"MedNeXt output shape {output.shape} != expected {expected_shape}"
-
-
 
 @pytest.mark.torch
 def test_mednext_deep_supervision_io():
@@ -158,8 +195,6 @@ def test_mednext_deep_supervision_io():
     assert main_output.shape == expected_shape, \
         f"MedNeXt main output shape {main_output.shape} != expected {expected_shape}"
 
-
-
 @pytest.mark.torch
 def test_unet3plus_3d_io():
     """Test UNet3Plus 3D IO."""
@@ -193,8 +228,6 @@ def test_unet3plus_3d_io():
     expected_shape = (batch_size, output_channels, depth, height, width)
     assert output.shape == expected_shape, \
         f"UNet3Plus 3D output shape {output.shape} != expected {expected_shape}"
-
-
 
 @pytest.mark.torch
 def test_unet3plus_2d_io():
@@ -230,8 +263,6 @@ def test_unet3plus_2d_io():
     assert output.shape == expected_shape, \
         f"UNet3Plus 2D output shape {output.shape} != expected {expected_shape}"
 
-
-
 @pytest.mark.torch
 def test_segmamba_io():
     """Test SegMamba IO."""
@@ -266,8 +297,6 @@ def test_segmamba_io():
     assert output.shape == expected_shape, \
         f"SegMamba output shape {output.shape} != expected {expected_shape}"
 
-
-
 @pytest.mark.torch
 def test_egeunet_io():
     """Test EGE-UNet IO (2D model)."""
@@ -299,8 +328,6 @@ def test_egeunet_io():
     assert output.shape == expected_shape, \
         f"EGE-UNet output shape {output.shape} != expected {expected_shape}"
 
-
-
 @pytest.mark.torch
 def test_dconnnet_io():
     """Test DconnNet IO (2D model)."""
@@ -327,8 +354,6 @@ def test_dconnnet_io():
     assert output.shape[1] == num_classes * 8, f"Expected {num_classes * 8} channels, got {output.shape[1]}"
     assert output.shape[2] == height, "Height mismatch"
     assert output.shape[3] == width, "Width mismatch"
-
-
 
 @pytest.mark.torch
 def test_smp_segformer_io():
@@ -360,8 +385,6 @@ def test_smp_segformer_io():
     assert output.shape == expected_shape, \
         f"SMP_Segformer output shape {output.shape} != expected {expected_shape}"
 
-
-
 @pytest.mark.torch
 def test_dsnet_io():
     """Test DSNet IO (2D model)."""
@@ -385,8 +408,6 @@ def test_dsnet_io():
     # Check output - DSNet outputs single channel saliency map
     assert output.shape[0] == batch_size, "Batch size mismatch"
     assert output.shape[1] == 1, "DSNet should output 1 channel"
-
-
 
 @pytest.mark.torch
 def test_efficientnetv2_io():
@@ -418,8 +439,6 @@ def test_efficientnetv2_io():
     assert output.shape == expected_shape, \
         f"EfficientNetV2 output shape {output.shape} != expected {expected_shape}"
 
-
-
 @pytest.mark.torch
 def test_efficientformerv2_io():
     """Test EfficientFormerV2 IO (segmentation model)."""
@@ -450,8 +469,6 @@ def test_efficientformerv2_io():
     assert output.shape == expected_shape, \
         f"EfficientFormerV2 output shape {output.shape} != expected {expected_shape}"
 
-
-
 @pytest.mark.torch
 def test_datransunet_io():
     """Test DA-TransUNet IO (2D model)."""
@@ -479,7 +496,6 @@ def test_datransunet_io():
     assert output.shape == expected_shape, \
         f"DA-TransUNet output shape {output.shape} != expected {expected_shape}"
 
-
 @pytest.mark.torch
 def test_lmnet_io():
     """Test LM-Net IO (2D model)."""
@@ -505,7 +521,6 @@ def test_lmnet_io():
     expected_shape = (batch_size, num_classes, height, width)
     assert output.shape == expected_shape, \
         f"LM-Net output shape {output.shape} != expected {expected_shape}"
-
 
 @pytest.mark.torch
 def test_swinumamba_io():
@@ -555,8 +570,6 @@ def test_swinumamba_io():
     expected_shape = (batch_size, num_classes, depth, height, width)
     assert output.shape == expected_shape, \
         f"SwinUMamba output shape {output.shape} != expected {expected_shape}"
-
-
 
 @pytest.mark.torch
 def test_volumevssm_io():
