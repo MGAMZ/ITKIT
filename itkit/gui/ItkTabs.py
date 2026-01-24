@@ -193,6 +193,9 @@ class ItkCheckTab(CommandFormBase):
         self.same_size.setPlaceholderText("A B, e.g. X Y")
         _style_lineedit_placeholder(self.same_size)
         self.mp = self._check("Multi Processing")
+        self.workers = QtWidgets.QSpinBox()
+        self.workers.setRange(1, 512)
+        self.workers.setValue(8)
 
         self.form.addRow("min-size (Z Y X)", self.min_size)
         self.form.addRow("max-size (Z Y X)", self.max_size)
@@ -201,6 +204,7 @@ class ItkCheckTab(CommandFormBase):
         self.form.addRow("same-spacing", self.same_spacing)
         self.form.addRow("same-size", self.same_size)
         self.form.addRow(self.mp)
+        self.form.addRow("workers", self.workers)
 
     def build_chunks(self) -> list[CmdChunk]:
         if not self.sample_folder.text().strip():
@@ -234,6 +238,8 @@ class ItkCheckTab(CommandFormBase):
             args += ["--same-size", *parts]
         if self.mp.isChecked():
             args.append("--mp")
+        if self.workers.value() > 0:
+            args += ["--workers", str(self.workers.value())]
         return [CmdChunk(program=args[0], args=args[1:])]
 
 
@@ -363,16 +369,26 @@ class ItkPatchTab(CommandFormBase):
         self.min_fg.setRange(0.0, 1.0)
         self.min_fg.setSingleStep(0.01)
         self.min_fg.setValue(0.0)
+        self.keep_empty_prob = QtWidgets.QDoubleSpinBox()
+        self.keep_empty_prob.setRange(0.0, 1.0)
+        self.keep_empty_prob.setSingleStep(0.01)
+        self.keep_empty_prob.setValue(1.0)
+        self.keep_empty_prob.setToolTip("Probability to keep patches with only background (0.0-1.0)")
         self.still_save = self._check("Save samples without labels")
         self.mp = self._check("Multi Processing")
+        self.workers = QtWidgets.QSpinBox()
+        self.workers.setRange(1, 512)
+        self.workers.setValue(8)
 
         self.form.addRow("src_folder", srcw)
         self.form.addRow("dst_folder", dstw)
         self.form.addRow("patch-size", self.patch_size)
         self.form.addRow("patch-stride", self.patch_stride)
         self.form.addRow("minimum-foreground-ratio", self.min_fg)
+        self.form.addRow("keep-empty-label-prob", self.keep_empty_prob)
         self.form.addRow(self.still_save)
         self.form.addRow(self.mp)
+        self.form.addRow("workers", self.workers)
 
     def build_chunks(self) -> list[CmdChunk]:
         if not self.src.text().strip():
@@ -396,10 +412,14 @@ class ItkPatchTab(CommandFormBase):
         ]
         if self.min_fg.value() > 0:
             args += ["--minimum-foreground-ratio", str(self.min_fg.value())]
+        if self.keep_empty_prob.value() < 1.0:
+            args += ["--keep-empty-label-prob", str(self.keep_empty_prob.value())]
         if self.still_save.isChecked():
             args.append("--still-save-when-no-label")
         if self.mp.isChecked():
             args.append("--mp")
+        if self.workers.value() > 0:
+            args += ["--workers", str(self.workers.value())]
         return [CmdChunk(program=args[0], args=args[1:])]
 
 
@@ -415,6 +435,9 @@ class ItkAugTab(CommandFormBase):
         self.num.setValue(5)
         self.mp = self._check("Multi Processing")
         self.random_rot = self._spin_int3(-1, 360, placeholder="Z Y X")
+        self.workers = QtWidgets.QSpinBox()
+        self.workers.setRange(1, 512)
+        self.workers.setValue(8)
         self.form.addRow("img_folder", imgw)
         self.form.addRow("lbl_folder", lblw)
         self.form.addRow("out-img-folder (-oimg)", oimgw)
@@ -422,6 +445,7 @@ class ItkAugTab(CommandFormBase):
         self.form.addRow("num", self.num)
         self.form.addRow("random-rot (Z Y X)", self.random_rot)
         self.form.addRow(self.mp)
+        self.form.addRow("workers", self.workers)
 
     def build_chunks(self) -> list[CmdChunk]:
         if not self.img.text().strip():
@@ -444,6 +468,8 @@ class ItkAugTab(CommandFormBase):
         rot = self.parse_triplet_int(self.random_rot.text())
         if rot:
             args += ["--random-rot", *map(str, rot)]
+        if self.workers.value() > 0:
+            args += ["--workers", str(self.workers.value())]
         return [CmdChunk(program=args[0], args=args[1:])]
 
 
