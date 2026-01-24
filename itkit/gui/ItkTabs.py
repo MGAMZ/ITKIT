@@ -241,8 +241,9 @@ class ItkResampleTab(CommandFormBase):
     def __init__(self, parent=None):
         super().__init__("itk_resample", parent)
         self.field = QtWidgets.QComboBox()
-        self.field.addItems(["image", "label"])
-        self.form.addRow("field", self.field)
+        self.field.addItems(["image", "label", "dataset"])
+        self.field.setToolTip("Mode: 'image'/'label' for single folder, 'dataset' for paired image/label folders")
+        self.form.addRow("mode", self.field)
         srcw, self.src = self._file_picker("Browse", mode="dir")
         dstw, self.dst = self._file_picker("Browse", mode="dir")
         self.form.addRow("source_folder", srcw)
@@ -303,11 +304,19 @@ class ItkOrientTab(CommandFormBase):
         self.orient = QtWidgets.QLineEdit()
         self.orient.setPlaceholderText("e.g.: LPI")
         _style_lineedit_placeholder(self.orient)
+        self.field = QtWidgets.QComboBox()
+        self.field.addItems(["auto", "image", "label", "dataset"])
+        self.field.setToolTip("Field type: 'auto' detects dataset structure, 'dataset' for paired image/label folders")
         self.mp = self._check("Multi Processing")
+        self.workers = QtWidgets.QSpinBox()
+        self.workers.setRange(1, 512)
+        self.workers.setValue(8)
         self.form.addRow("src_dir", srcw)
         self.form.addRow("dst_dir", dstw)
         self.form.addRow("orient", self.orient)
+        self.form.addRow("field", self.field)
         self.form.addRow(self.mp)
+        self.form.addRow("workers", self.workers)
 
     def build_chunks(self) -> list[CmdChunk]:
         if not self.src.text().strip():
@@ -316,14 +325,30 @@ class ItkOrientTab(CommandFormBase):
             raise ValueError("Please fill in dst_dir")
         if not self.orient.text().strip():
             raise ValueError("Please fill in orient, e.g. LPI")
+        
+        # Determine field type
+        field = self.field.currentText()
+        if field == "auto":
+            # Auto-detect dataset structure
+            src_path = self.src.text()
+            img_dir = os.path.join(src_path, "image")
+            lbl_dir = os.path.join(src_path, "label")
+            if os.path.isdir(img_dir) and os.path.isdir(lbl_dir):
+                field = "dataset"
+            else:
+                field = "image"
+        
         args = [
             "itk_orient",
             self.src.text(),
             self.dst.text(),
             self.orient.text(),
+            "--field", field,
         ]
         if self.mp.isChecked():
             args.append("--mp")
+        if self.workers.value() > 0:
+            args += ["--workers", str(self.workers.value())]
         return [CmdChunk(program=args[0], args=args[1:])]
 
 
