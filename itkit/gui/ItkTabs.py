@@ -238,8 +238,7 @@ class ItkCheckTab(CommandFormBase):
             args += ["--same-size", *parts]
         if self.mp.isChecked():
             args.append("--mp")
-        if self.workers.value() > 0:
-            args += ["--workers", str(self.workers.value())]
+        args += ["--workers", str(self.workers.value())]
         return [CmdChunk(program=args[0], args=args[1:])]
 
 
@@ -331,7 +330,7 @@ class ItkOrientTab(CommandFormBase):
             raise ValueError("Please fill in dst_dir")
         if not self.orient.text().strip():
             raise ValueError("Please fill in orient, e.g. LPI")
-        
+
         # Determine field type
         field = self.field.currentText()
         if field == "auto":
@@ -343,7 +342,7 @@ class ItkOrientTab(CommandFormBase):
                 field = "dataset"
             else:
                 field = "image"
-        
+
         args = [
             "itk_orient",
             self.src.text(),
@@ -353,8 +352,7 @@ class ItkOrientTab(CommandFormBase):
         ]
         if self.mp.isChecked():
             args.append("--mp")
-        if self.workers.value() > 0:
-            args += ["--workers", str(self.workers.value())]
+        args += ["--workers", str(self.workers.value())]
         return [CmdChunk(program=args[0], args=args[1:])]
 
 
@@ -418,8 +416,7 @@ class ItkPatchTab(CommandFormBase):
             args.append("--still-save-when-no-label")
         if self.mp.isChecked():
             args.append("--mp")
-        if self.workers.value() > 0:
-            args += ["--workers", str(self.workers.value())]
+        args += ["--workers", str(self.workers.value())]
         return [CmdChunk(program=args[0], args=args[1:])]
 
 
@@ -468,8 +465,7 @@ class ItkAugTab(CommandFormBase):
         rot = self.parse_triplet_int(self.random_rot.text())
         if rot:
             args += ["--random-rot", *map(str, rot)]
-        if self.workers.value() > 0:
-            args += ["--workers", str(self.workers.value())]
+        args += ["--workers", str(self.workers.value())]
         return [CmdChunk(program=args[0], args=args[1:])]
 
 
