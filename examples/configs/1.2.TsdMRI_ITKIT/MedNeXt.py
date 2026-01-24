@@ -13,7 +13,7 @@ model = dict(
     backbone=dict(
         type=MedNeXt,
         in_channels=in_channels, # pyright: ignore
-        n_channels=16,
+        n_channels=12,
         n_classes=num_classes,
         exp_r=2,
     ),
