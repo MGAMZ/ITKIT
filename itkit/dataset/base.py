@@ -212,7 +212,7 @@ class SeriesVolumeDataset(ITKITBaseSegDataset):
         if dropped:
             print_log(f'Series Filter: Abandon {len(dropped)}/{len(series_uids)}。', MMLogger.get_current_instance(), logging.INFO)
             preview = '\n'.join([f'  {u}: {r}' for u, r in dropped[:10]])
-            print_log(f'示例(前10条):\n{preview}', MMLogger.get_current_instance(), logging.INFO)
+            print_log(f'示例(前10条):\n{preview}', MMLogger.get_current_instance(), logging.DEBUG)
 
         return kept
 
