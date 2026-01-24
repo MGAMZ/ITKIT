@@ -49,7 +49,7 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
 
 ### Community
 
-- **[Contributing Guide](contributing.md)** - How to contribute to ITKIT
+- **[Contributing Guide](contributing.md)**
   - Development setup
   - Code style guidelines
   - Submission process
