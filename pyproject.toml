@@ -108,10 +108,11 @@ itk_convert = "itkit.process.itk_convert:main"
 itk_evaluate = "itkit.process.itk_evaluate:main"
 itk_combine = "itkit.process.itk_combine:main"
 itkit-app = "itkit.gui.app:main"
+itk_slicer = "SlicerITKIT.server.itkit_server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["itkit*"]
+include = ["itkit*", "SlicerITKIT*"]
 
 [tool.pyright]
 pythonVersion = "3.14"
