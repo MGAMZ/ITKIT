@@ -77,6 +77,7 @@ ITKIT provides several preprocessing commands:
 | `itk_extract` | Extract specific classes from segmentation maps |
 | `itk_convert` | Convert between formats (MHA, NIfTI, NRRD) and frameworks (MONAI, TorchIO) |
 | `itkit-app` | Launch graphical user interface |
+| `itk_slicer` | Start ITKIT inference server for 3D Slicer integration |
 | `mmrun` | Run OpenMMLab experiments |
 
 Use `--help` with any command for detailed usage information.
