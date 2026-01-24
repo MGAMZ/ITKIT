@@ -70,14 +70,17 @@ Module will appear: Modules → Segmentation → ITKIT
 ### 1. Start Server
 
 ```bash
-# Basic (localhost)
+# Basic (localhost) - using the command-line tool
+itk_slicer
+
+# Or using the full path
 python SlicerITKIT/server/itkit_server.py
 
 # Allow external connections
-python SlicerITKIT/server/itkit_server.py --host 0.0.0.0 --port 8000
+itk_slicer --host 0.0.0.0 --port 8000
 
 # Enable debug logging
-python SlicerITKIT/server/itkit_server.py --debug
+itk_slicer --debug
 ```
 
 Server starts at `http://localhost:8000`
@@ -183,7 +186,7 @@ with open("segmentation.nii.gz", "wb") as f:
 ### Server Configuration
 
 ```bash
-python itkit_server.py --help
+itk_slicer --help
 
 Options:
   --host HOST    Host address (default: 127.0.0.1)
@@ -196,7 +199,7 @@ Options:
 ### Local Development
 
 ```bash
-python itkit_server.py
+itk_slicer
 ```
 
 ### Docker
@@ -211,7 +214,7 @@ docker run -p 8000:8000 --gpus all itkit-server
 
 ```bash
 # On server with GPU
-python itkit_server.py --host 0.0.0.0 --port 8000
+itk_slicer --host 0.0.0.0 --port 8000
 
 # In Slicer, connect to:
 # http://<server-ip>:8000
