@@ -209,68 +209,7 @@ For each supported dataset, you can find conversion scripts at: `itkit/dataset/<
 
 ---
 
-## Dataset Categories
-
-### By Modality
-
-**CT Datasets:**
-
-- AbdomenCT-1K
-- CT-ORG
-- CTSpine1K
-- FLARE 2022/2023
-- ImageTBAD
-- KiTS23
-- LUNA16
-- TotalSegmentator
-- LiTS
-
-**MRI Datasets:**
-
-- BraTS 2024
-
-**Multi-Modal:**
-
-- TCGA
-
-### By Anatomical Region
-
-**Abdomen:**
-
-- AbdomenCT-1K
-- FLARE 2022/2023
-- LiTS
-
-**Brain:**
-
-- BraTS 2024
-- CT-ORG (brain)
-
-**Thorax:**
-
-- LUNA16
-- CT-ORG (lungs)
-
-**Kidney:**
-
-- KiTS23
-- CT-ORG (kidneys)
-
-**Cardiovascular:**
-
-- ImageTBAD
-
-**Spine:**
-
-- CTSpine1K
-
-**Whole Body:**
-
-- TotalSegmentator
-
-## Using Conversion Scripts
-
-### Example: Converting AbdomenCT-1K
+## Example: Converting AbdomenCT-1K
 
 ```bash
 # Navigate to dataset conversion directory
@@ -282,12 +221,12 @@ python convert_official.py \
     --output /path/to/itkit/format
 ```
 
-### General Workflow
+## General Workflow
 
 1. **Download official dataset** from the source
 2. **Locate conversion script** in `itkit/dataset/<dataset_name>/`
 3. **Run conversion script** with appropriate paths
-4. **Verify structure** matches ITKIT format (image/ and label/ folders)
+4. **Verify structure** matches ITKIT format (`image/` and `label/` folders)
 5. **Use with ITKIT tools** for preprocessing and training
 
 ## Custom Dataset Preparation
