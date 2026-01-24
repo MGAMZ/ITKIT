@@ -66,8 +66,8 @@ dynamic_intervals = None
 # Dataset
 data_root = "/mnt/wsl/Fwsldatavhdx/mgam_datasets/TotalSegmentatorMRI/spacing2"
 num_classes = 57
-wl = 100     # window level
-ww = 300    # window width
+wl = 200     # window level
+ww = 400    # window width
 size = (32,96,96) # [Z, Y, X]
 pad_val = 0
 seg_pad_val = 0
