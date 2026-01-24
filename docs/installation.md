@@ -129,25 +129,3 @@ python -c "import itkit; print(itkit.__version__)"
 itk_check --help
 itk_resample --help
 ```
-
-## Troubleshooting
-
-### Import Errors
-
-If you encounter import errors, ensure all dependencies are installed:
-
-```bash
-pip install itkit --force-reinstall
-```
-
-### GUI DPI Issues
-
-If the GUI's DPI is not optimal, specify the `QT_SCALE_FACTOR` environment variable:
-
-```bash
-QT_SCALE_FACTOR=2 itkit-app
-```
-
-### PyTorch Compatibility
-
-For GPU support with PyTorch-based features, install PyTorch separately following the [official PyTorch installation guide](https://pytorch.org/get-started/locally/).

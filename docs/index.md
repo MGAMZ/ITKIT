@@ -9,12 +9,10 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
 ### Getting Started
 
 - **[Installation Guide](installation.md)** - Install ITKIT and its dependencies
-- **[Quick Start](quickstart.md)** - Get started with basic usage and examples
 - **[Dataset Structure](dataset_structure.md)** - Understand the required dataset format
 
 ### Processing Tools
 
-- **[Overview](preprocessing.md)** - General notes and best practices
 - **[itk_check](itk_check.md)** - Image checking and validation
 - **[itk_resample](itk_resample.md)** - Resampling to target spacing/size
 - **[itk_orient](itk_orient.md)** - Image re-orientation
@@ -57,12 +55,6 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
   - Submission process
   - Release policy
 
-- **[FAQ & Troubleshooting](faq.md)** - Common issues and solutions
-  - Installation problems
-  - Usage questions
-  - Performance tips
-  - Framework integration issues
-
 ## 🚀 Key Features
 
 - **🔧 Feasible Operations**: Simple command-line interface for complex ITK operations
@@ -72,29 +64,6 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
 - **📊 Multiple Datasets**: Conversion scripts for 12+ popular medical imaging datasets
 - **⚡ High Performance**: Multiprocessing support for faster preprocessing
 - **🎨 Flexible**: Works with multiple file formats (MHA, NIfTI, NRRD, DICOM)
-
-## 🎯 Quick Navigation
-
-**New to ITKIT?**
-
-1. Start with [Installation Guide](installation.md)
-2. Follow the [Quick Start](quickstart.md) tutorial
-3. Learn about [Dataset Structure](dataset_structure.md)
-
-**Ready to preprocess data?**
-
-- See [Processing Tools](preprocessing.md) for command documentation and overview.
-- Use the GUI: `pip install "itkit[gui]"` then `itkit-app`
-
-**Building models?**
-
-- Explore [Framework Integration](framework_integration.md)
-- Check available [Models](models.md)
-
-**Need help?**
-
-- Check [FAQ & Troubleshooting](faq.md)
-- See [Contributing Guide](contributing.md) to report issues
 
 ## 📝 Citation
 

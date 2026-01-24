@@ -183,7 +183,7 @@ from itkit.models import DA_TransUNet
 
 # Model config in your experiment config file
 model = dict(
-    type='DA_TransUNet',
+    type=DA_TransUNet,
     in_channels=1,
     num_classes=3,
     # ... other parameters
