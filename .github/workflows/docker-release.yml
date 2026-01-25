@@ -44,5 +44,5 @@ jobs:
         file: ./Dockerfile
         push: true
         tags: |
-          ${{ steps.image.outputs.OWNER }}/itkit:latest
-          ${{ steps.image.outputs.OWNER }}/itkit:${{ steps.vars.outputs.VERSION }}
+          ${{ secrets.DOCKER_USERNAME }}/itkit:latest
+          ${{ secrets.DOCKER_USERNAME }}/itkit:${{ steps.vars.outputs.VERSION }}
