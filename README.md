@@ -2,9 +2,13 @@
 
 # ITKIT: Feasible Medical Image Operation based on SimpleITK API
 
-[![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![SimpleITK >= 2.5.0](https://img.shields.io/badge/SimpleITK-%3E%3D2.5-yellow)](https://github.com/SimpleITK/SimpleITK) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) ![CI Status](https://github.com/MGAMZ/ITKIT/actions/workflows/test.yml/badge.svg)
+[![Python >= 3.10](https://img.shields.io/badge/python-%3E%3D3.10-blue)](https://www.python.org/) [![SimpleITK >= 2.5.0](https://img.shields.io/badge/SimpleITK-%3E%3D2.5-blue)](https://github.com/SimpleITK/SimpleITK) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) ![CI Status](https://github.com/MGAMZ/ITKIT/actions/workflows/test.yml/badge.svg)
 
-[📘Documentation](https://itkit.readthedocs.io/) | [💾PyPI](https://pypi.org/project/itkit/)
+PyPI: [![PyPI version](https://img.shields.io/pypi/v/itkit?color=blue)](https://pypi.org/project/itkit/) [![Downloads](https://img.shields.io/pypi/dm/itkit)](https://pypi.org/project/itkit/)
+
+Docker Image: [![Docker Pulls](https://img.shields.io/docker/pulls/mgam1009/itkit)](https://hub.docker.com/repository/docker/mgam1009/itkit/general)
+
+Readthedocs: [![Readthedocs](https://readthedocs.org/projects/itkit/badge/)](https://itkit.readthedocs.io/)
 
 ITKIT is a comprehensive toolkit for medical image preprocessing and analysis, providing command-line tools, a GUI application, and deep learning framework integrations for CT and MRI image processing.
 
@@ -26,6 +30,12 @@ ITKIT is a comprehensive toolkit for medical image preprocessing and analysis, p
 pip install itkit
 # Optional: Install GUI support
 pip install "itkit[gui]"
+```
+
+We also provide a docker image:
+
+```bash
+docker pull mgam1009/itkit:latest
 ```
 
 > [!NOTE]
