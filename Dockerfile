@@ -19,15 +19,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ITKIT from PyPI
-# Using build-arg to allow for specifying a specific version
-ARG ITKIT_VERSION=latest
+# Copy the source code
+COPY . /workspace/ITKIT
+
+# Install ITKIT from source
 RUN pip install --upgrade pip setuptools wheel && \
-    if [ "${ITKIT_VERSION}" = "latest" ]; then \
-        pip install itkit; \
-    else \
-        pip install "itkit==${ITKIT_VERSION}"; \
-    fi
+    pip install /workspace/ITKIT
 
 # Verify installation
 RUN python -c "import itkit; print(f'ITKIT {itkit.__version__} installed successfully')" && \

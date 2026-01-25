@@ -46,5 +46,3 @@ jobs:
         tags: |
           ${{ steps.image.outputs.OWNER }}/itkit:latest
           ${{ steps.image.outputs.OWNER }}/itkit:${{ steps.vars.outputs.VERSION }}
-        build-args: |
-          ITKIT_VERSION=${{ steps.vars.outputs.VERSION }}
