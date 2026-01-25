@@ -11,23 +11,23 @@ ENV DEBIAN_FRONTEND=noninteractive \
 WORKDIR /workspace
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    ca-certificates \
-    wget \
-    libgl1 \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt update
+RUN apt install -y --no-install-recommends \
+    git ca-certificates wget libgl1 build-essential
+RUN rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN pip install --no-cache-dir uv
 
 # Copy the source code
 COPY . /workspace/ITKIT
 
-# Install ITKIT from source
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install /workspace/ITKIT
+# Install ITKIT from source using uv
+RUN uv pip install --system /workspace/ITKIT
+RUN uv cache clean
 
 # Verify installation
-RUN python -c "import itkit; print(f'ITKIT {itkit.__version__} installed successfully')" && \
+RUN python -c "import itkit; print('ITKIT installed successfully')" && \
     python -c "import SimpleITK; print('SimpleITK installed successfully')"
 
 # Create a non-root user
