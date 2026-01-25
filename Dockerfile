@@ -11,10 +11,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
 WORKDIR /workspace
 
 # Install system dependencies
-RUN apt update
-RUN apt install -y --no-install-recommends \
-    git ca-certificates wget libgl1 build-essential
-RUN rm -rf /var/lib/apt/lists/*
+RUN apt update && \
+    apt install -y --no-install-recommends \
+      git ca-certificates wget libgl1 build-essential && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install uv
 RUN pip install --no-cache-dir uv
@@ -24,7 +25,6 @@ COPY . /workspace/ITKIT
 
 # Install ITKIT from source using uv
 RUN uv pip install --system --no-cache /workspace/ITKIT
-RUN uv cache clean
 
 # Verify installation
 RUN python -c "import itkit; print('ITKIT installed successfully')" && \
