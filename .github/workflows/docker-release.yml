@@ -29,7 +29,11 @@ jobs:
     - name: Extract release version
       id: vars
       run: |
-        VERSION=${GITHUB_REF#refs/tags/}
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+        else
+          VERSION="dev-${GITHUB_SHA:0:7}"
+        fi
         echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
         echo "Release version: ${VERSION}"
 
