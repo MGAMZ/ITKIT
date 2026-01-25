@@ -26,29 +26,13 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Prepare image owner
-      id: image
-      env:
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      run: |
-        if [ -z "${DOCKER_USERNAME}" ]; then
-          echo "DOCKER_USERNAME is empty" >&2
-          exit 1
-        fi
-        OWNER="$(echo "${DOCKER_USERNAME}" | tr '[:upper:]' '[:lower:]' | xargs)"
-        if ! [[ "${OWNER}" =~ ^[a-z0-9][a-z0-9_.-]+$ ]]; then
-          echo "Invalid Docker Hub username after normalization: ${OWNER}" >&2
-          exit 1
-        fi
-        echo "OWNER=${OWNER}" >> $GITHUB_OUTPUT
-
     - name: Extract release version
       id: vars
       run: |
         if [[ "${{ github.ref }}" == refs/tags/* ]]; then
           VERSION=${GITHUB_REF#refs/tags/}
         else
-          VERSION="dev-${GITHUB_SHA:0:7}"
+          VERSION="latest"
         fi
         echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
         echo "Release version: ${VERSION}"
