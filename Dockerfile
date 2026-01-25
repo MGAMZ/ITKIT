@@ -30,10 +30,5 @@ RUN uv pip install --system --no-cache /workspace/ITKIT
 RUN python -c "import itkit; print('ITKIT installed successfully')" && \
     python -c "import SimpleITK; print('SimpleITK installed successfully')"
 
-# Create a non-root user
-RUN useradd -m -s /bin/bash itkit
-
-WORKDIR /home/itkit
-
 # Default command
 CMD ["bash"]
