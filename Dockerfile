@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir uv
 COPY . /workspace/ITKIT
 
 # Install ITKIT from source using uv
-RUN uv pip install --system /workspace/ITKIT
+RUN uv pip install --system --no-cache /workspace/ITKIT
 RUN uv cache clean
 
 # Verify installation
