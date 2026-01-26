@@ -109,6 +109,7 @@ itk_evaluate = "itkit.process.itk_evaluate:main"
 itk_combine = "itkit.process.itk_combine:main"
 itkit-app = "itkit.gui.app:main"
 itk_slicer = "SlicerITKIT.server.itkit_server:main"
+itk_infer = "itkit.inference.itk_infer:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
