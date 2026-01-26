@@ -24,6 +24,7 @@ nav:
       - itk_aug: itk_aug.md
       - itk_extract: itk_extract.md
       - itk_convert: itk_convert.md
+      - itk_infer: itk_infer.md
   - Advanced Topics:
       - Framework Integration: framework_integration.md
       - 3D Slicer Integration: slicer_integration.md
