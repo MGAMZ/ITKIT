@@ -221,7 +221,7 @@ class BaseITKProcessor:
                     source_files_set.add(self._normalize_filename(f))
 
         # Generate metadata for files that exist and would be skipped
-        for dest_file in existing_files:
+        for dest_file in tqdm(existing_files, desc="Parse Meta from Files", leave=False):
             dest_basename = os.path.basename(dest_file)
             dest_normalized = self._normalize_filename(dest_basename)
 
