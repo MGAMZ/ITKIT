@@ -89,6 +89,7 @@ class SeriesMetadata(BaseModel):
 
 class MetadataManager:
     def __init__(self, meta_file_path:str|Path|None=None):
+        self.meta_file_path = meta_file_path
         if (meta_file_path is None) or (not Path(meta_file_path).exists()):
             self.meta: dict[str, SeriesMetadata] = {}
         else:
@@ -141,3 +142,8 @@ class MetadataManager:
             for name, meta in self.meta.items()
         }
         Path(path).write_text(json.dumps(data, indent=4))
+
+    def flush(self):
+        if self.meta_file_path is None:
+            raise ValueError("Meta file path is not set.")
+        self.save(self.meta_file_path)

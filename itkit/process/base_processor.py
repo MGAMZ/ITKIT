@@ -237,6 +237,8 @@ class BaseITKProcessor:
                     except Exception as e:
                         print(f"Warning: Could not generate metadata for {dest_file}: {e}")
 
+        self.meta_manager.flush()
+
     def _normalize_filename(self, filepath: str) -> str:
         base = os.path.splitext(filepath)[0]
         # Handle double extensions like .nii.gz
