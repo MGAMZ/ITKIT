@@ -227,8 +227,12 @@ class ResampleProcessor(DatasetProcessor, _ResampleMixin):
         img_out_path = os.path.join(self.dest_folder, "image", os.path.basename(img_path))
         lbl_out_path = os.path.join(self.dest_folder, "label", os.path.basename(lbl_path))
 
-        if Path(img_out_path).exists() and Path(lbl_out_path).exists():
-            print(f"Output files already exist, skipping: {img_out_path}, {lbl_out_path}")
+        # Check .mha files since resample_one_sample converts to .mha
+        img_out_path_mha = img_out_path.replace(".nii.gz", ".mha").replace(".nii", ".mha").replace(".mhd", ".mha")
+        lbl_out_path_mha = lbl_out_path.replace(".nii.gz", ".mha").replace(".nii", ".mha").replace(".mhd", ".mha")
+
+        if Path(img_out_path_mha).exists() and Path(lbl_out_path_mha).exists():
+            print(f"Output files already exist, skipping: {img_out_path_mha}, {lbl_out_path_mha}")
             return None
 
         img_meta = self.resample_one_sample(
@@ -304,8 +308,10 @@ class SingleResampleProcessor(SingleFolderProcessor, _ResampleMixin):
         else:
             output_path = os.path.join(self.dest_folder, os.path.basename(file_path))
 
-        if Path(output_path).exists():
-            print(f"Output file already exists, skipping: {output_path}")
+        # Check .mha file since resample_one_sample converts to .mha
+        output_path_mha = output_path.replace(".nii.gz", ".mha").replace(".nii", ".mha").replace(".mhd", ".mha")
+        if Path(output_path_mha).exists():
+            print(f"Output file already exists, skipping: {output_path_mha}")
             return None
 
         return self.resample_one_sample(file_path, self.field, output_path)
