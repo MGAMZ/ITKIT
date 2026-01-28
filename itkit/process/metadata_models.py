@@ -143,7 +143,10 @@ class MetadataManager:
         }
         Path(path).write_text(json.dumps(data, indent=4))
 
-    def flush(self):
+    def flush(self, skip_if_no_path: bool = True):
         if self.meta_file_path is None:
-            raise ValueError("Meta file path is not set.")
+            if skip_if_no_path:
+                return
+            else:
+                raise ValueError("Meta file path is not set.")
         self.save(self.meta_file_path)
