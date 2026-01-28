@@ -95,6 +95,7 @@ class BaseITKProcessor:
             extensions (tuple[str, ...]): A tuple of file extensions to look for.
         """
 
+        self.meta_path = meta_path
         self.meta_manager = MetadataManager(meta_path)
         self.task_description = task_description
         self.mp = mp
@@ -221,7 +222,7 @@ class BaseITKProcessor:
                     source_files_set.add(self._normalize_filename(f))
 
         # Generate metadata for files that exist and would be skipped
-        for dest_file in existing_files:
+        for dest_file in tqdm(existing_files, desc="Parse Meta from Files", leave=False):
             dest_basename = os.path.basename(dest_file)
             dest_normalized = self._normalize_filename(dest_basename)
 
@@ -236,6 +237,9 @@ class BaseITKProcessor:
                         self.meta_manager.update(meta, allow_and_overwrite_existed=False)
                     except Exception as e:
                         print(f"Warning: Could not generate metadata for {dest_file}: {e}")
+
+        if self.meta_path is not None:
+            self.meta_manager.save()
 
     def _normalize_filename(self, filepath: str) -> str:
         base = os.path.splitext(filepath)[0]

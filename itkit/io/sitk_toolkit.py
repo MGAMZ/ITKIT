@@ -1,11 +1,8 @@
 import os
-import warnings
 from typing import Literal
 
 import numpy as np
-import pydicom
 import SimpleITK as sitk
-from colorama import Fore, Style
 
 STANDARD_DIRECTION = [1, 0, 0, 0, 1, 0, 0, 0, 1]
 STANDARD_ORIGIN = [0, 0, 0]
@@ -177,28 +174,12 @@ def nii_to_sitk(
     return sitk_img
 
 
-def LoadDcmAsSitkImage(dcm_paths, read_workers=8):
-    dcms = []
-
-    for dcm_path in dcm_paths:
-        ds = pydicom.dcmread(dcm_path, force=True)
-        if (0x20, 0x32) not in ds:  # (0020, 0032) Image Position (Patient)
-            warnings.warn(
-                Fore.YELLOW
-                + f"ImagePosition Missing, Deprecating: {dcm_paths}"
-                + Style.RESET_ALL
-            )
-            return False
-        dcms.append((dcm_path, ds[0x20, 0x32].value[-1]))
-    else:
-        dcms = sorted(dcms, key=lambda x: x[1], reverse=False)
-
-    sorted_dcm_paths = [dcm[0] for dcm in dcms]
+def LoadDcmAsSitkImage(series_folder:str, read_workers=8):
     reader = sitk.ImageSeriesReader()
-    reader.SetFileNames(sorted_dcm_paths)
+    dicom_names = reader.GetGDCMSeriesFileNames(series_folder)
+    reader.SetFileNames(dicom_names)
     reader.SetNumberOfWorkUnits(read_workers)
     sitk_image: sitk.Image = reader.Execute()
-
     return sitk_image
 
 

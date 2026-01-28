@@ -15,7 +15,6 @@ from itkit.io.sitk_toolkit import (
     PIXEL_TYPE,
     STANDARD_DIRECTION,
     STANDARD_ORIGIN,
-    LoadDcmAsSitkImage,
     merge_masks,
     nii_to_sitk,
     sitk_new_blank_image,
@@ -529,25 +528,3 @@ class TestSplitImageLabelPairsTo2D:
         img_slice_9, lbl_slice_9 = slices[9]
         assert np.array_equal(img_slice_9, img_arr[9])
         assert np.array_equal(lbl_slice_9, lbl_arr[9])
-
-
-class TestLoadDcmAsSitkImage:
-    """Test LoadDcmAsSitkImage function.
-
-    Note: This test requires actual DICOM files, so we test error handling
-    and basic functionality with mock data where possible.
-    """
-
-    def test_load_dcm_missing_image_position_returns_false(self, tmp_path):
-        """Test that DICOM without ImagePositionPatient returns False."""
-        # This test would require creating mock DICOM files
-        # For now, we test that the function exists and has correct signature
-        assert callable(LoadDcmAsSitkImage)
-
-    def test_load_dcm_function_signature(self):
-        """Test that function has correct signature."""
-        import inspect
-        sig = inspect.signature(LoadDcmAsSitkImage)
-        assert 'dcm_paths' in sig.parameters
-        assert 'read_workers' in sig.parameters
-        assert sig.parameters['read_workers'].default == 8

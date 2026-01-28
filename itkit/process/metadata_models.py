@@ -89,6 +89,7 @@ class SeriesMetadata(BaseModel):
 
 class MetadataManager:
     def __init__(self, meta_file_path:str|Path|None=None):
+        self.meta_file_path = meta_file_path
         if (meta_file_path is None) or (not Path(meta_file_path).exists()):
             self.meta: dict[str, SeriesMetadata] = {}
         else:
@@ -135,7 +136,11 @@ class MetadataManager:
         except (json.JSONDecodeError, Exception) as e:
             print(f"Warning: Could not load metadata from {meta_file_path}: {e}")
 
-    def save(self, path: str|Path):
+    def save(self, path: str | Path | None = None):
+        if path is None:
+            if self.meta_file_path is None:
+                raise ValueError("No path specified for saving metadata.")
+            path = self.meta_file_path
         data = {
             name: meta.model_dump(mode="json", exclude={'name'})
             for name, meta in self.meta.items()
