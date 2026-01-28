@@ -136,17 +136,13 @@ class MetadataManager:
         except (json.JSONDecodeError, Exception) as e:
             print(f"Warning: Could not load metadata from {meta_file_path}: {e}")
 
-    def save(self, path: str|Path):
+    def save(self, path: str | Path | None = None):
+        if path is None:
+            if self.meta_file_path is None:
+                raise ValueError("No path specified for saving metadata.")
+            path = self.meta_file_path
         data = {
             name: meta.model_dump(mode="json", exclude={'name'})
             for name, meta in self.meta.items()
         }
         Path(path).write_text(json.dumps(data, indent=4))
-
-    def flush(self, skip_if_no_path: bool = True):
-        if self.meta_file_path is None:
-            if skip_if_no_path:
-                return
-            else:
-                raise ValueError("Meta file path is not set.")
-        self.save(self.meta_file_path)
