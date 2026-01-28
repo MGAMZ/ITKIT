@@ -16,8 +16,8 @@ def read_dcm_as_sitk(data_directory: str, need_dcms:bool=True
         print(f"ERROR: given directory `{data_directory}` does not contain a DICOM series.")
         return None, None
 
-    series_file_names = sitk.ImageSeriesReader.GetGDCMSeriesFileNames(data_directory, series_IDs[0], useSeriesDetails=True)
     series_reader = sitk.ImageSeriesReader()
+    series_file_names = series_reader.GetGDCMSeriesFileNames(data_directory, series_IDs[0], useSeriesDetails=True)
     series_reader.SetFileNames(series_file_names)
     series_reader.SetOutputPixelType(sitk.sitkInt16)
 
