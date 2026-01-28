@@ -73,6 +73,8 @@ def test_itk_evaluate_basic(tmp_path, monkeypatch):
     assert (save_dir / "per_class_sample_avg.csv").exists()
     assert (save_dir / "per_sample_per_class.csv").exists()
     assert (save_dir / "per_sample_class_avg.csv").exists()
+    assert (save_dir / "per_sample_per_class_volume_gt.csv").exists()
+    assert (save_dir / "per_sample_per_class_volume_pred.csv").exists()
 
     # Verify metrics are perfect (Dice=1.0 for perfect match)
     import pandas as pd
@@ -126,6 +128,8 @@ def test_itk_evaluate_excel_format(tmp_path, monkeypatch):
     assert 'PerClass_SampleAvg' in xl_file.sheet_names
     assert 'PerSample_PerClass' in xl_file.sheet_names
     assert 'PerSample_ClassAvg' in xl_file.sheet_names
+    assert 'Volume_GT' in xl_file.sheet_names
+    assert 'Volume_Pred' in xl_file.sheet_names
 
 
 @pytest.mark.itk_process
@@ -300,3 +304,67 @@ def test_itk_evaluate_multiprocessing(tmp_path, monkeypatch):
     for col in dice_row.columns:
         if col.startswith('class_'):
             assert dice_row[col].values[0] == pytest.approx(1.0, abs=1e-6)
+
+
+@pytest.mark.itk_process
+def test_itk_evaluate_volume_calculation(tmp_path, monkeypatch):
+    """Test that volume calculations are correct for known geometries."""
+    pytest.importorskip("SimpleITK", reason="SimpleITK not installed")
+    pytest.importorskip("sklearn", reason="scikit-learn not installed")
+    pytest.importorskip("pandas", reason="pandas not installed")
+
+    from itkit.process import itk_evaluate
+
+    gt_dir = tmp_path / "gt"
+    pred_dir = tmp_path / "pred"
+    save_dir = tmp_path / "results"
+
+    # Create GT with known geometry: 4x4x4 voxels of class 1
+    gt_label = np.zeros((8, 8, 8), dtype=np.uint8)
+    gt_label[2:6, 2:6, 2:6] = 1  # 4x4x4 = 64 voxels
+    spacing = (2.0, 2.0, 2.0)  # 2mm spacing
+    _write_mha(gt_dir / "case1.mha", gt_label, spacing=spacing)
+
+    # Create prediction with different volume: 3x3x3 voxels of class 1
+    pred_label = np.zeros((8, 8, 8), dtype=np.uint8)
+    pred_label[2:5, 2:5, 2:5] = 1  # 3x3x3 = 27 voxels
+    _write_mha(pred_dir / "case1.mha", pred_label, spacing=spacing)
+
+    # Run evaluation
+    monkeypatch.setattr(sys, "argv", [
+        "itk_evaluate",
+        str(gt_dir),
+        str(pred_dir),
+        str(save_dir),
+        "csv"
+    ])
+    itk_evaluate.main()
+
+    # Verify volume calculations
+    import pandas as pd
+
+    # Check Volume_GT
+    volume_gt = pd.read_csv(save_dir / "per_sample_per_class_volume_gt.csv")
+    assert 'sample' in volume_gt.columns
+    assert volume_gt['sample'].values[0] == 'case1'
+
+    # Expected GT volume: 64 voxels * (2*2*2) mm³/voxel = 512 mm³ for class 1
+    voxel_volume = 2.0 * 2.0 * 2.0
+    expected_gt_volume_class1 = 64 * voxel_volume
+    if 'class_1' in volume_gt.columns:
+        actual_gt_volume = volume_gt['class_1'].values[0]
+        assert actual_gt_volume == pytest.approx(expected_gt_volume_class1, abs=0.1)
+
+    # Check Volume_Pred
+    volume_pred = pd.read_csv(save_dir / "per_sample_per_class_volume_pred.csv")
+    assert 'sample' in volume_pred.columns
+
+    # Expected Pred volume: 27 voxels * (2*2*2) mm³/voxel = 216 mm³ for class 1
+    expected_pred_volume_class1 = 27 * voxel_volume
+    if 'class_1' in volume_pred.columns:
+        actual_pred_volume = volume_pred['class_1'].values[0]
+        assert actual_pred_volume == pytest.approx(expected_pred_volume_class1, abs=0.1)
+
+    # Verify GT and Pred volumes are different (as expected)
+    if 'class_1' in volume_gt.columns and 'class_1' in volume_pred.columns:
+        assert volume_gt['class_1'].values[0] != volume_pred['class_1'].values[0]
