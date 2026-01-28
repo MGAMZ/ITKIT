@@ -22,6 +22,7 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
 - **[itk_combine](itk_combine.md)** - Label merging and intersection
 - **[itk_convert](itk_convert.md)** - Format conversion
 - **[itk_infer](itk_infer.md)** - Batch inference with MMEngine/ONNX backends
+- **[itk_evaluate](itk_evaluate.md)** - Segmentation evaluation with comprehensive metrics
 
 ### Advanced Topics
 

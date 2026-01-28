@@ -23,8 +23,10 @@ nav:
       - itk_patch: itk_patch.md
       - itk_aug: itk_aug.md
       - itk_extract: itk_extract.md
+      - itk_combine: itk_combine.md
       - itk_convert: itk_convert.md
       - itk_infer: itk_infer.md
+      - itk_evaluate: itk_evaluate.md
   - Advanced Topics:
       - Framework Integration: framework_integration.md
       - 3D Slicer Integration: slicer_integration.md
