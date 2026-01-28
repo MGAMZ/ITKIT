@@ -65,7 +65,7 @@ def test_itk_evaluate_basic(tmp_path, monkeypatch):
         str(gt_dir),
         str(pred_dir),
         str(save_dir),
-        "csv"
+        "--format", "csv"
     ])
     itk_evaluate.main()
 
@@ -114,7 +114,7 @@ def test_itk_evaluate_excel_format(tmp_path, monkeypatch):
         str(gt_dir),
         str(pred_dir),
         str(save_dir),
-        "excel"
+        "--format", "excel"
     ])
     itk_evaluate.main()
 
@@ -159,7 +159,7 @@ def test_itk_evaluate_resampling(tmp_path, monkeypatch):
         str(gt_dir),
         str(pred_dir),
         str(save_dir),
-        "csv"
+        "--format", "csv"
     ])
     itk_evaluate.main()
 
@@ -199,7 +199,7 @@ def test_itk_evaluate_multiple_samples(tmp_path, monkeypatch):
         str(gt_dir),
         str(pred_dir),
         str(save_dir),
-        "csv"
+        "--format", "csv"
     ])
     itk_evaluate.main()
 
@@ -244,7 +244,7 @@ def test_itk_evaluate_imperfect_prediction(tmp_path, monkeypatch):
         str(gt_dir),
         str(pred_dir),
         str(save_dir),
-        "csv"
+        "--format", "csv"
     ])
     itk_evaluate.main()
 
@@ -284,7 +284,7 @@ def test_itk_evaluate_multiprocessing(tmp_path, monkeypatch):
         str(gt_dir),
         str(pred_dir),
         str(save_dir),
-        "csv",
+        "--format", "csv",
         "--mp",
         "--workers", "2"
     ])
@@ -336,7 +336,7 @@ def test_itk_evaluate_volume_calculation(tmp_path, monkeypatch):
         str(gt_dir),
         str(pred_dir),
         str(save_dir),
-        "csv"
+        "--format", "csv"
     ])
     itk_evaluate.main()
 
