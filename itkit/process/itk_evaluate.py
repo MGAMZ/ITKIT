@@ -356,9 +356,10 @@ def parse_args():
         help='Folder to save evaluation results (created if not exists)'
     )
     parser.add_argument(
-        'format',
+        '--format',
         type=str,
         choices=['csv', 'excel'],
+        default='excel',
         help='Output format: "csv" (multiple files) or "excel" (1 file with multiple sheets)'
     )
     parser.add_argument(
@@ -370,7 +371,7 @@ def parse_args():
         '--workers',
         type=int,
         default=None,
-        help='Number of worker processes (default: half of CPU cores)'
+        help='Number of worker processes'
     )
 
     return parser.parse_args()
