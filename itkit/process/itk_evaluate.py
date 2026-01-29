@@ -76,16 +76,27 @@ def calculate_metrics_for_sample(
         zero_division=0
     )
 
+    # Calculate voxel volume in cubic millimeters
+    spacing = gt_itk.GetSpacing()
+    voxel_volume_mm3 = spacing[0] * spacing[1] * spacing[2]
+
     # Organize results
     result = {'sample': sample_name, 'accuracy': overall_accuracy}
 
+    gt_array_3d = sitk.GetArrayFromImage(gt_itk)
+    pred_array_3d = sitk.GetArrayFromImage(pred_itk)
+
     for i, class_idx in enumerate(all_classes):
-        result[f'class_{int(class_idx)}_dice'] = f1score[i]
-        result[f'class_{int(class_idx)}_iou'] = iou[i]
+        result[f'class_{int(class_idx)}_dice'] = f1score[i]  # pyright: ignore[reportIndexIssue]
+        result[f'class_{int(class_idx)}_iou'] = iou[i]  # pyright: ignore[reportIndexIssue]
         # Note: F-score equals Dice coefficient for segmentation metrics
-        result[f'class_{int(class_idx)}_fscore'] = f1score[i]
-        result[f'class_{int(class_idx)}_recall'] = recall[i]
-        result[f'class_{int(class_idx)}_precision'] = precision[i]
+        result[f'class_{int(class_idx)}_fscore'] = f1score[i]  # pyright: ignore[reportIndexIssue]
+        result[f'class_{int(class_idx)}_recall'] = recall[i]  # pyright: ignore[reportIndexIssue]
+        result[f'class_{int(class_idx)}_precision'] = precision[i]  # pyright: ignore[reportIndexIssue]
+        voxel_count_gt = np.sum(gt_array_3d == class_idx)
+        voxel_count_pred = np.sum(pred_array_3d == class_idx)
+        result[f'class_{int(class_idx)}_volume_gt_mm3'] = voxel_count_gt * voxel_volume_mm3
+        result[f'class_{int(class_idx)}_volume_pred_mm3'] = voxel_count_pred * voxel_volume_mm3
 
     return result
 
@@ -161,15 +172,15 @@ class EvaluateProcessor(SeparateFoldersProcessor):
         # Don't call parent since we return dicts, not SeriesMetadata
 
 
-
-def aggregate_metrics(results: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Aggregate metrics into three different views.
+def aggregate_metrics(results: list[dict]):
+    """Aggregate metrics into five different views.
 
     Args:
         results: List of per-sample metric dictionaries
 
     Returns:
-        Tuple of (per_class_sample_avg, per_sample_per_class, per_sample_class_avg)
+        Tuple of (per_class_sample_avg,per_sample_per_class, per_sample_class_avg,
+                  per_sample_per_class_volume_gt, per_sample_per_class_volume_pred)
     """
     # Create DataFrame from results
     df = pd.DataFrame(results)
@@ -238,22 +249,48 @@ def aggregate_metrics(results: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame, 
 
     per_sample_class_avg = pd.DataFrame(per_sample_class_avg_data)
 
-    return per_class_sample_avg, per_sample_per_class, per_sample_class_avg
+    # 4. Per-sample per-class volume for GT (in cubic millimeters)
+    # Columns: sample, class_0, class_1, ..., class_N
+    volume_gt_data = {'sample': df['sample'].tolist()}
+    for class_idx in classes:
+        col_name = f'class_{class_idx}_volume_gt_mm3'
+        if col_name in df.columns:
+            volume_gt_data[f'class_{class_idx}'] = df[col_name].tolist()
+    per_sample_per_class_volume_gt = pd.DataFrame(volume_gt_data)
+
+    # 5. Per-sample per-class volume for Pred (in cubic millimeters)
+    # Columns: sample, class_0, class_1, ..., class_N
+    volume_pred_data = {'sample': df['sample'].tolist()}
+    for class_idx in classes:
+        col_name = f'class_{class_idx}_volume_pred_mm3'
+        if col_name in df.columns:
+            volume_pred_data[f'class_{class_idx}'] = df[col_name].tolist()
+    per_sample_per_class_volume_pred = pd.DataFrame(volume_pred_data)
+
+    return (per_class_sample_avg,
+            per_sample_per_class,
+            per_sample_class_avg,
+            per_sample_per_class_volume_gt,
+            per_sample_per_class_volume_pred)
 
 
 def save_results(
     per_class_sample_avg: pd.DataFrame,
     per_sample_per_class: pd.DataFrame,
     per_sample_class_avg: pd.DataFrame,
+    per_sample_per_class_volume_gt: pd.DataFrame,
+    per_sample_per_class_volume_pred: pd.DataFrame,
     save_folder: str,
     format: Literal['csv', 'excel']
 ):
-    """Save the three metric tables to files.
+    """Save metric tables to files.
 
     Args:
         per_class_sample_avg: Per-class sample-averaged metrics
         per_sample_per_class: Per-sample per-class metrics
         per_sample_class_avg: Per-sample class-averaged metrics
+        per_sample_per_class_volume_gt: Per-sample per-class volumes (GT) in cubic millimeters
+        per_sample_per_class_volume_pred: Per-sample per-class volumes (Pred) in cubic millimeters
         save_folder: Directory to save results
         format: Output format ('csv' or 'excel')
     """
@@ -261,7 +298,6 @@ def save_results(
     os.makedirs(save_folder, exist_ok=True)
 
     if format == 'csv':
-        # Save as three separate CSV files
         per_class_sample_avg.to_csv(
             os.path.join(save_folder, 'per_class_sample_avg.csv'),
             index=False
@@ -274,15 +310,24 @@ def save_results(
             os.path.join(save_folder, 'per_sample_class_avg.csv'),
             index=False
         )
+        per_sample_per_class_volume_gt.to_csv(
+            os.path.join(save_folder, 'per_sample_per_class_volume_gt.csv'),
+            index=False
+        )
+        per_sample_per_class_volume_pred.to_csv(
+            os.path.join(save_folder, 'per_sample_per_class_volume_pred.csv'),
+            index=False
+        )
         print(f"Results saved to {save_folder}/*.csv")
 
     elif format == 'excel':
-        # Save as one Excel file with three sheets
         excel_path = os.path.join(save_folder, 'evaluation_results.xlsx')
         with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
             per_class_sample_avg.to_excel(writer, sheet_name='PerClass_SampleAvg', index=False)
             per_sample_per_class.to_excel(writer, sheet_name='PerSample_PerClass', index=False)
             per_sample_class_avg.to_excel(writer, sheet_name='PerSample_ClassAvg', index=False)
+            per_sample_per_class_volume_gt.to_excel(writer, sheet_name='Volume_GT', index=False)
+            per_sample_per_class_volume_pred.to_excel(writer, sheet_name='Volume_Pred', index=False)
         print(f"Results saved to {excel_path}")
 
     else:
@@ -311,10 +356,11 @@ def parse_args():
         help='Folder to save evaluation results (created if not exists)'
     )
     parser.add_argument(
-        'format',
+        '--format',
         type=str,
         choices=['csv', 'excel'],
-        help='Output format: "csv" (3 files) or "excel" (1 file with 3 sheets)'
+        default='excel',
+        help='Output format: "csv" (multiple files) or "excel" (1 file with multiple sheets)'
     )
     parser.add_argument(
         '--mp',
@@ -325,7 +371,7 @@ def parse_args():
         '--workers',
         type=int,
         default=None,
-        help='Number of worker processes (default: half of CPU cores)'
+        help='Number of worker processes'
     )
 
     return parser.parse_args()
@@ -364,8 +410,7 @@ def main():
 
     print(f"Evaluated {len(processor.results)} samples.")
 
-    # Aggregate metrics into three views
-    per_class_sample_avg, per_sample_per_class, per_sample_class_avg = aggregate_metrics(
+    per_class_sample_avg, per_sample_per_class, per_sample_class_avg, per_sample_per_class_volume_gt, per_sample_per_class_volume_pred = aggregate_metrics(
         processor.results
     )
 
@@ -374,16 +419,20 @@ def main():
         per_class_sample_avg,
         per_sample_per_class,
         per_sample_class_avg,
+        per_sample_per_class_volume_gt,
+        per_sample_per_class_volume_pred,
         args.save_folder,
         args.format
     )
 
     # Print summary
     print("\nEvaluation complete!")
-    print("\nThree types of metric tables saved:")
+    print("\nFive types of metric tables saved:")
     print("1. Per-class sample-averaged: Mean metric for each class across all samples")
     print("2. Per-sample per-class: Detailed metrics for each sample and class")
     print("3. Per-sample class-averaged: Mean metric across classes for each sample")
+    print("4. Volume_GT: Volume in cubic millimeters for each class in each sample (from GT)")
+    print("5. Volume_Pred: Volume in cubic millimeters for each class in each sample (from Prediction)")
 
 
 if __name__ == '__main__':
