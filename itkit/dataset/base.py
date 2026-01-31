@@ -167,7 +167,7 @@ class SeriesVolumeDataset(ITKITBaseSegDataset):
                 self._series_meta_cache = json.load(f)
         except Exception as e:
             print_log(f'读取 meta.json 失败 ({e}), 跳过过滤。', MMLogger.get_current_instance(), logging.ERROR)
-            self._series_meta_cache = {}
+            raise RuntimeError('读取 meta.json 失败。') from e
 
         return self._series_meta_cache
 
