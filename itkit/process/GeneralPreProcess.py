@@ -1024,16 +1024,16 @@ class MONAINoise(BaseTransform):
     def __init__(self,
                  method: Literal['gibbs', 'gaussian', 'kspace', 'rician'],
                  prob: float = 0.5,
-                 *args, **kwargs):
+                 **kwargs):
         from monai.transforms import RandGaussianNoise, RandGibbsNoise, RandKSpaceSpikeNoise, RandRicianNoise
         if method == 'gibbs':
-            self.noise_fn = RandGibbsNoise(prob, *args, **kwargs)
+            self.noise_fn = RandGibbsNoise(prob, **kwargs)
         elif method == 'gaussian':
-            self.noise_fn = RandGaussianNoise(prob, *args, **kwargs)
+            self.noise_fn = RandGaussianNoise(prob, **kwargs)
         elif method == 'kspace':
-            self.noise_fn = RandKSpaceSpikeNoise(prob, *args, **kwargs)
+            self.noise_fn = RandKSpaceSpikeNoise(prob, **kwargs)
         elif method == 'rician':
-            self.noise_fn = RandRicianNoise(prob, *args, **kwargs)
+            self.noise_fn = RandRicianNoise(prob, **kwargs)
         else:
             raise NotImplementedError(f"Unsupported noise method: {method}")
 
