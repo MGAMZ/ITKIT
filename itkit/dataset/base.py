@@ -38,7 +38,7 @@ class ITKITBaseSegDataset(BaseSegDataset):
         #     f"img_suffix {self.img_suffix} and seg_map_suffix {self.seg_map_suffix} should be the same"
 
     def _update_palette(self) -> list[list[int]]:
-        """确保background为RGB全零"""
+        """Ensure the first color in palette is black for background."""
         new_palette = super()._update_palette()
 
         if new_palette and len(new_palette) > 0:
@@ -54,11 +54,11 @@ class ITKITBaseSegDataset(BaseSegDataset):
         """
         Sample Required Keys in mmseg:
 
-        - img_path: str, 图像路径
-        - seg_map_path: str, 分割标签路径
-        - label_map: str, 分割标签的类别映射，默认为空。它是矫正映射，如果map没有问题，则不需要矫正。
-        - reduce_zero_label: bool, 是否将分割标签中的0类别映射到-1(255), 默认为False
-        - seg_fields: list, 分割标签的字段名, 默认为空列表
+        - img_path: str
+        - seg_map_path: str
+        - label_map: str, label mapping for segmentation labels, default is empty. It is a correction mapping; if the map is correct, no correction is needed.
+        - reduce_zero_label: bool, whether to map the 0 class in segmentation labels to -1(255), default is False
+        - seg_fields: list, field names for segmentation labels, default is an empty list
         """
         data_list = []
         for image_path, anno_path in self.sample_iterator():
@@ -101,7 +101,7 @@ class SeriesVolumeDataset(ITKITBaseSegDataset):
         self.min_spacing = min_spacing
         self.min_size = min_size
         if len(self.min_spacing) != 3 or len(self.min_size) != 3:
-            raise ValueError('min_spacing 与 min_size 必须长度为 3, 对应 Z Y X. 可用 -1 忽略某维度。')
+            raise ValueError('min_spacing and min_size must have length 3, corresponding to Z Y X. Use -1 to ignore a dimension.')
         self._series_meta_cache = None  # lazy load
 
         data_root = kwargs.get("data_root")
@@ -146,7 +146,7 @@ class SeriesVolumeDataset(ITKITBaseSegDataset):
         meta_path = os.path.join(self.data_root_mha, "meta.json")
 
         if not os.path.isfile(meta_path):
-            print_log(f'meta.json 未找到: {meta_path}. 尝试自动生成...', MMLogger.get_current_instance(), logging.WARNING)
+            print_log(f'meta.json not found: {meta_path}. Trying to generate automatically...', MMLogger.get_current_instance(), logging.WARNING)
             empty_cfg = {
                 "min_size": None,
                 "max_size": None,
@@ -166,8 +166,8 @@ class SeriesVolumeDataset(ITKITBaseSegDataset):
             with open(meta_path) as f:
                 self._series_meta_cache = json.load(f)
         except Exception as e:
-            print_log(f'读取 meta.json 失败 ({e}), 跳过过滤。', MMLogger.get_current_instance(), logging.ERROR)
-            self._series_meta_cache = {}
+            print_log(f'Load `meta.json` Failed for ({e})。', MMLogger.get_current_instance(), logging.ERROR)
+            raise RuntimeError('Load `meta.json` Failed') from e
 
         return self._series_meta_cache
 
@@ -184,7 +184,7 @@ class SeriesVolumeDataset(ITKITBaseSegDataset):
         kept = []
         dropped = []
         for uid in series_uids:
-            key = uid + '.mha'  # meta 中包含扩展名
+            key = uid + '.mha'
             entry = meta.get(key)
 
             if entry is None:
@@ -212,7 +212,7 @@ class SeriesVolumeDataset(ITKITBaseSegDataset):
         if dropped:
             print_log(f'Series Filter: Abandon {len(dropped)}/{len(series_uids)}。', MMLogger.get_current_instance(), logging.INFO)
             preview = '\n'.join([f'  {u}: {r}' for u, r in dropped[:10]])
-            print_log(f'示例(前10条):\n{preview}', MMLogger.get_current_instance(), logging.DEBUG)
+            print_log(f'Filter reason (first 10):\n{preview}', MMLogger.get_current_instance(), logging.DEBUG)
 
         return kept
 

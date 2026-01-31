@@ -1018,3 +1018,26 @@ class RandomGamma(BaseTransform):
     def transform(self, results: dict):
         results["img"] = self.fn(image=results["img"])["image"]
         return results
+
+
+class MONAINoise(BaseTransform):
+    def __init__(self,
+                 method: Literal['gibbs', 'gaussian', 'kspace', 'rician'],
+                 prob: float = 0.5,
+                 **kwargs):
+        from monai.transforms import RandGaussianNoise, RandGibbsNoise, RandKSpaceSpikeNoise, RandRicianNoise
+        if method == 'gibbs':
+            self.noise_fn = RandGibbsNoise(prob, **kwargs)
+        elif method == 'gaussian':
+            self.noise_fn = RandGaussianNoise(prob, **kwargs)
+        elif method == 'kspace':
+            self.noise_fn = RandKSpaceSpikeNoise(prob, **kwargs)
+        elif method == 'rician':
+            self.noise_fn = RandRicianNoise(prob, **kwargs)
+        else:
+            raise NotImplementedError(f"Unsupported noise method: {method}")
+
+    def transform(self, results: dict):
+        min_HU = results["img"].min()
+        results["img"] = self.noise_fn(results["img"] - min_HU) + min_HU
+        return results
