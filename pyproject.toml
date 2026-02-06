@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "itkit"
-version = "4.0.0rc4"
+version = "4.0.0rc5"
 requires-python = ">= 3.10"
 description = "ITKIT: Feasible Medical Image Operation based on SimpleITK API"
 readme = "README.md"
@@ -109,7 +109,7 @@ itk_evaluate = "itkit.process.itk_evaluate:main"
 itk_combine = "itkit.process.itk_combine:main"
 itkit-app = "itkit.gui.app:main"
 itk_slicer = "SlicerITKIT.server.itkit_server:main"
-itk_infer = "itkit.inference.itk_infer:main"
+itk_infer = "itkit.process.itk_infer:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
