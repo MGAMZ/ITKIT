@@ -38,6 +38,12 @@ Welcome to the ITKIT documentation! ITKIT is a user-friendly toolkit built on `S
   - MMEngine and ONNX backend support
   - Sliding window inference for large volumes
 
+- **[Web Interface](web_interface.md)** - Browser-based GUI (`itkit-web`)
+  - Full-featured alternative to the PyQt desktop GUI
+  - Embedded file browser and per-tool parameter panels
+  - Real-time log streaming and progress display
+  - REST API for scripted access
+
 - **[Neural Network Models](models.md)** - State-of-the-art segmentation models
   - Transformer-based models (SegFormer, UNETR, DA-TransUNet)
   - State space models (VMamba, SwinUMamba, SegMamba)

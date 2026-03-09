@@ -70,6 +70,10 @@ dev = [
   "pre-commit",
   "pymarkdownlnt",
 ]
+web = [
+  "flask",
+  "flask_cors",
+]
 advanced = [
   "torchio",
   "onedl-mmcv[torch]",
@@ -108,6 +112,7 @@ itk_convert = "itkit.process.itk_convert:main"
 itk_evaluate = "itkit.process.itk_evaluate:main"
 itk_combine = "itkit.process.itk_combine:main"
 itkit-app = "itkit.gui.app:main"
+itkit-web = "itkit.web.app:main"
 itk_slicer = "SlicerITKIT.server.itkit_server:main"
 itk_infer = "itkit.process.itk_infer:main"
 
