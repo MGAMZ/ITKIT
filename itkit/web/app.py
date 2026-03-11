@@ -99,13 +99,24 @@ def browse():
                 is_dir = os.path.isdir(full)
             except OSError:
                 is_dir = False
-            entries.append({"name": name, "path": full, "is_dir": is_dir})
+            # Expose a path relative to the browse root instead of the absolute filesystem path.
+            rel_path = os.path.relpath(full, _BROWSE_ROOT)
+            entries.append({"name": name, "path": rel_path, "is_dir": is_dir})
 
-        parent = str(Path(candidate).parent)
-        if parent == candidate or parent == _BROWSE_ROOT:
+        # Compute the parent directory relative to the browse root. Do not expose paths
+        # above the browse root; represent the root itself with None.
+        parent_path = Path(candidate).parent
+        if str(parent_path) == _BROWSE_ROOT or str(parent_path) == candidate:
             parent = None
+        else:
+            parent = os.path.relpath(str(parent_path), _BROWSE_ROOT)
 
-        return jsonify({"path": candidate, "parent": parent, "entries": entries})
+        # Expose the current directory path relative to the browse root.
+        current_path = os.path.relpath(candidate, _BROWSE_ROOT)
+        if current_path == ".":
+            current_path = ""
+
+        return jsonify({"path": current_path, "parent": parent, "entries": entries})
     except PermissionError as exc:
         return jsonify({"error": str(exc)}), 403
 
