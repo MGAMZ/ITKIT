@@ -22,6 +22,11 @@ from flask import Flask, Response, jsonify, render_template, request, stream_wit
 
 app = Flask(__name__)
 
+# Root directory for the /api/browse endpoint. All browsed paths must remain
+# within this directory to prevent directory traversal and arbitrary
+# filesystem access.
+_BROWSE_ROOT = os.path.realpath(os.getcwd())
+
 # ── Job registry ─────────────────────────────────────────────────────────────
 # Maps job_id -> {"proc": subprocess.Popen | None, "queue": Queue[str | None]}
 _jobs: dict[str, dict] = {}
@@ -63,33 +68,44 @@ def browse():
         Directory path to list.  ``~`` is expanded to the user's home.
     """
     raw = request.args.get("path", "~")
-    path = os.path.normpath(os.path.expanduser(raw))
+    requested = os.path.normpath(os.path.expanduser(raw))
 
-    if not os.path.isdir(path):
-        return jsonify({"error": f"Not a directory: {path}"}), 400
+    # Resolve the requested path under the configured browse root and ensure
+    # that it does not escape this root directory.
+    candidate = os.path.realpath(os.path.join(_BROWSE_ROOT, requested.lstrip(os.sep)))
+    try:
+        common = os.path.commonpath([_BROWSE_ROOT, candidate])
+    except ValueError:
+        return jsonify({"error": "Invalid path"}), 400
+
+    if common != _BROWSE_ROOT:
+        return jsonify({"error": "Path not allowed"}), 400
+
+    if not os.path.isdir(candidate):
+        return jsonify({"error": f"Not a directory: {requested}"}), 400
 
     try:
         def _sort_key(name: str) -> tuple:
-            full = os.path.join(path, name)
+            full = os.path.join(candidate, name)
             try:
                 return (not os.path.isdir(full), name.lower())
             except OSError:
                 return (1, name.lower())
 
         entries = []
-        for name in sorted(os.listdir(path), key=_sort_key):
-            full = os.path.join(path, name)
+        for name in sorted(os.listdir(candidate), key=_sort_key):
+            full = os.path.join(candidate, name)
             try:
                 is_dir = os.path.isdir(full)
             except OSError:
                 is_dir = False
             entries.append({"name": name, "path": full, "is_dir": is_dir})
 
-        parent = str(Path(path).parent)
-        if parent == path:  # filesystem root (e.g. "/")
+        parent = str(Path(candidate).parent)
+        if parent == candidate or parent == _BROWSE_ROOT:
             parent = None
 
-        return jsonify({"path": path, "parent": parent, "entries": entries})
+        return jsonify({"path": candidate, "parent": parent, "entries": entries})
     except PermissionError as exc:
         return jsonify({"error": str(exc)}), 403
 
