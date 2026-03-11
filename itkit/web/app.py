@@ -25,7 +25,8 @@ app = Flask(__name__)
 # Root directory for the /api/browse endpoint. All browsed paths must remain
 # within this directory to prevent directory traversal and arbitrary
 # filesystem access.
-_BROWSE_ROOT = os.path.realpath(os.getcwd())
+_BROWSE_ROOT_PATH = Path.cwd().resolve()
+_BROWSE_ROOT = str(_BROWSE_ROOT_PATH)
 
 # ── Job registry ─────────────────────────────────────────────────────────────
 # Maps job_id -> {"proc": subprocess.Popen | None, "queue": Queue[str | None]}
@@ -72,14 +73,15 @@ def browse():
 
     # Resolve the requested path under the configured browse root and ensure
     # that it does not escape this root directory.
-    candidate = os.path.realpath(os.path.join(_BROWSE_ROOT, requested.lstrip(os.sep)))
+    # Strip any leading path separator so that user input cannot override the root.
+    candidate_path = (_BROWSE_ROOT_PATH / requested.lstrip(os.sep)).resolve(strict=False)
+    candidate = str(candidate_path)
     try:
-        common = os.path.commonpath([_BROWSE_ROOT, candidate])
+        # Ensure that the resolved candidate directory is inside the browse root.
+        if not (candidate == _BROWSE_ROOT or candidate.startswith(_BROWSE_ROOT + os.sep)):
+            return jsonify({"error": "Path not allowed"}), 400
     except ValueError:
         return jsonify({"error": "Invalid path"}), 400
-
-    if common != _BROWSE_ROOT:
-        return jsonify({"error": "Path not allowed"}), 400
 
     if not os.path.isdir(candidate):
         return jsonify({"error": f"Not a directory: {requested}"}), 400
@@ -105,7 +107,8 @@ def browse():
 
         # Compute the parent directory relative to the browse root. Do not expose paths
         # above the browse root; represent the root itself with None.
-        parent_path = Path(candidate).parent
+        parent_path = Path(candidate)
+        parent_path = parent_path.parent
         if str(parent_path) == _BROWSE_ROOT or str(parent_path) == candidate:
             parent = None
         else:
