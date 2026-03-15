@@ -1,8 +1,12 @@
-set(MODULE_NAME ITKITInference)
+set(MODULE_NAME ITKIT)
 
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}.py
+  ITKITClient.py
+  ITKITLogic.py
+  ITKITWidget.py
+  local_data_io.py
   )
 
 set(MODULE_PYTHON_RESOURCES

@@ -1,132 +1,57 @@
-# pyright: reportUndefinedVariable=false
-"""
-3D Slicer Extension for ITKIT Inference (Client)
-
-This module provides a lightweight 3D Slicer interface for running ITKIT inference.
-It communicates with an ITKIT Inference Server via REST API, eliminating the need
-to install ITKIT and PyTorch in Slicer's Python environment.
-
-Architecture:
-- This plugin is a lightweight client (only needs SimpleITK, requests)
-- ITKIT Server runs separately with all dependencies (PyTorch, ITKIT, etc.)
-- Communication via REST API over HTTP
-
-Usage:
-1. Start ITKIT Server: python SlicerITKIT/server/itkit_server.py
-2. Load this module in 3D Slicer
-3. Connect to server and run inference
-"""
-
 import logging
-import os
-import tempfile
-from typing import Optional
 
 import ctk
 import qt
-import requests
 import slicer
-from slicer.ScriptedLoadableModule import *
+from ITKITLogic import ITKITLogic
+from slicer.ScriptedLoadableModule import ScriptedLoadableModuleWidget
 from slicer.util import VTKObservationMixin
 
-# Module logger
 LOGGER = logging.getLogger(__name__)
-if not LOGGER.handlers:
-    logging.basicConfig(level=logging.INFO)
 
 
-class ITKITInference(ScriptedLoadableModule):
-    """Uses ScriptedLoadableModule base class."""
-
-    def __init__(self, parent):
-        ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = "ITKIT"
-        self.parent.categories = ["Segmentation"]
-        self.parent.dependencies = []
-        self.parent.contributors = ["ITKIT Team"]
-        self.parent.helpText = """
-This module provides a client interface for running ITKIT inference on 3D medical images.
-It communicates with an ITKIT Inference Server via REST API.
-
-Setup:
-1. Start ITKIT Server: python SlicerITKIT/server/itkit_server.py
-2. Enter server URL (default: http://localhost:8000)
-3. Load a model on the server
-4. Run inference on loaded volumes
-
-Architecture:
-- Lightweight client (no heavy dependencies in Slicer)
-- Server runs in separate Python environment
-- Clean separation via REST API
-"""
-        self.parent.acknowledgementText = """
-This module was developed using the ITKIT framework.
-For more information, visit: https://github.com/MGAMZ/ITKIT
-"""
-
-        # Add settings
-        slicer.app.connect("startupCompleted()", self.initializeAfterStartup)
-
-    def initializeAfterStartup(self):
-        """Initialize settings after application startup."""
-        if not slicer.app.commandOptions().noMainWindow:
-            # Register settings
-            settings = qt.QSettings()
-            if not settings.contains("ITKITInference/serverUrl"):
-                settings.setValue("ITKITInference/serverUrl", "http://localhost:8000")
-            LOGGER.info("ITKITInference settings initialized")
-
-
-class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
-    """Uses ScriptedLoadableModuleWidget base class."""
+class ITKITWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
+    """UI layer for ITKIT inference module."""
 
     def __init__(self, parent=None) -> None:
-        """Called when the user opens the module the first time and the widget is initialized."""
-        ScriptedLoadableModuleWidget.__init__(self, parent)
+        super().__init__(parent)
         VTKObservationMixin.__init__(self)
         self.logic = None
+        self.matchedSeriesPairs = []
 
     def setup(self) -> None:
-        """Called when the user opens the module the first time and the widget is initialized."""
-        ScriptedLoadableModuleWidget.setup(self)
+        super().setup()
 
-        # Create logic
-        self.logic = ITKITInferenceLogic()
-        LOGGER.info("ITKITInference UI setup started")
+        self.logic = ITKITLogic()
+        LOGGER.info("ITKIT UI setup started")
 
-        # Server Connection Section
         serverCollapsibleButton = ctk.ctkCollapsibleButton()
         serverCollapsibleButton.text = "Server Connection"
         self.layout.addWidget(serverCollapsibleButton)
         serverFormLayout = qt.QFormLayout(serverCollapsibleButton)
 
-        # Server URL
         self.serverUrlLineEdit = qt.QLineEdit()
         settings = qt.QSettings()
         self.serverUrlLineEdit.setText(
-            settings.value("ITKITInference/serverUrl", "http://localhost:8000")
+            settings.value("ITKIT/serverUrl", "http://localhost:8000")
         )
         self.serverUrlLineEdit.setToolTip("URL of the ITKIT Inference Server")
         serverFormLayout.addRow("Server URL:", self.serverUrlLineEdit)
 
-        # Connect button
         self.connectButton = qt.QPushButton("Connect to Server")
         self.connectButton.toolTip = "Test connection to ITKIT server"
         self.connectButton.clicked.connect(self.onConnectButton)
         serverFormLayout.addRow(self.connectButton)
 
-        # Server status
         self.serverStatusLabel = qt.QLabel("Not connected")
         self.serverStatusLabel.setStyleSheet("color: gray;")
         serverFormLayout.addRow("Status:", self.serverStatusLabel)
 
-        # Model Management Section
         modelCollapsibleButton = ctk.ctkCollapsibleButton()
         modelCollapsibleButton.text = "Model Configuration"
         self.layout.addWidget(modelCollapsibleButton)
         modelFormLayout = qt.QFormLayout(modelCollapsibleButton)
 
-        # Backend type selector
         self.backendSelector = qt.QComboBox()
         self.backendSelector.addItem("MMEngine")
         self.backendSelector.addItem("ONNX")
@@ -134,7 +59,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.backendSelector.currentIndexChanged.connect(self.onBackendChanged)
         modelFormLayout.addRow("Backend Type:", self.backendSelector)
 
-        # Config file path (for MMEngine)
         self.configPathLineEdit = qt.QLineEdit()
         self.configPathLineEdit.setToolTip("Path to the model configuration file (.py)")
         self.configBrowseButton = qt.QPushButton("Browse...")
@@ -144,7 +68,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         configLayout.addWidget(self.configBrowseButton)
         modelFormLayout.addRow("Config File:", configLayout)
 
-        # Model file path
         self.modelPathLineEdit = qt.QLineEdit()
         self.modelPathLineEdit.setToolTip(
             "Path to checkpoint (.pth) or ONNX model (.onnx)"
@@ -156,13 +79,11 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         modelLayout.addWidget(self.modelBrowseButton)
         modelFormLayout.addRow("Model File:", modelLayout)
 
-        # FP16 checkbox
         self.fp16CheckBox = qt.QCheckBox()
         self.fp16CheckBox.setToolTip("Use FP16 precision for inference")
         self.fp16CheckBox.setChecked(False)
         modelFormLayout.addRow("Use FP16:", self.fp16CheckBox)
 
-        # Load/Unload buttons
         buttonLayout = qt.QHBoxLayout()
         self.loadModelButton = qt.QPushButton("Load Model")
         self.loadModelButton.toolTip = (
@@ -179,18 +100,80 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         buttonLayout.addWidget(self.unloadModelButton)
         modelFormLayout.addRow(buttonLayout)
 
-        # Current model status
         self.modelStatusLabel = qt.QLabel("No model loaded")
         self.modelStatusLabel.setStyleSheet("color: gray;")
         modelFormLayout.addRow("Current Model:", self.modelStatusLabel)
 
-        # Inference Section
+        pairLoadingCollapsibleButton = ctk.ctkCollapsibleButton()
+        pairLoadingCollapsibleButton.text = "Load Image-Label Pairs"
+        self.layout.addWidget(pairLoadingCollapsibleButton)
+        pairLoadingFormLayout = qt.QFormLayout(pairLoadingCollapsibleButton)
+
+        self.imageFolderLineEdit = qt.QLineEdit()
+        self.imageFolderLineEdit.setText(settings.value("ITKIT/imageFolder", ""))
+        self.imageFolderLineEdit.setToolTip(
+            "Folder that contains image files following the ITKIT dataset structure"
+        )
+        self.imageFolderBrowseButton = qt.QPushButton("Browse...")
+        self.imageFolderBrowseButton.clicked.connect(self.onImageFolderBrowseClicked)
+        imageFolderLayout = qt.QHBoxLayout()
+        imageFolderLayout.addWidget(self.imageFolderLineEdit)
+        imageFolderLayout.addWidget(self.imageFolderBrowseButton)
+        pairLoadingFormLayout.addRow("Image Folder:", imageFolderLayout)
+
+        self.labelFolderLineEdit = qt.QLineEdit()
+        self.labelFolderLineEdit.setText(settings.value("ITKIT/labelFolder", ""))
+        self.labelFolderLineEdit.setToolTip(
+            "Folder that contains label files with filenames matching the image folder"
+        )
+        self.labelFolderBrowseButton = qt.QPushButton("Browse...")
+        self.labelFolderBrowseButton.clicked.connect(self.onLabelFolderBrowseClicked)
+        labelFolderLayout = qt.QHBoxLayout()
+        labelFolderLayout.addWidget(self.labelFolderLineEdit)
+        labelFolderLayout.addWidget(self.labelFolderBrowseButton)
+        pairLoadingFormLayout.addRow("Label Folder:", labelFolderLayout)
+
+        self.scanPairsButton = qt.QPushButton("Scan Pairs")
+        self.scanPairsButton.toolTip = (
+            "Find image-label pairs whose filenames match exactly in both folders"
+        )
+        self.scanPairsButton.clicked.connect(self.onScanPairsButton)
+        pairLoadingFormLayout.addRow(self.scanPairsButton)
+
+        self.pairSummaryLabel = qt.QLabel("No series scanned")
+        self.pairSummaryLabel.setStyleSheet("color: gray;")
+        pairLoadingFormLayout.addRow("Matched Series:", self.pairSummaryLabel)
+
+        self.seriesListWidget = qt.QListWidget()
+        self.seriesListWidget.setSelectionMode(qt.QAbstractItemView.SingleSelection)
+        self.seriesListWidget.setToolTip(
+            "Select one matched image-label pair to load into Slicer"
+        )
+        self.seriesListWidget.itemSelectionChanged.connect(
+            self.updatePairSelectionState
+        )
+        pairLoadingFormLayout.addRow("Series List:", self.seriesListWidget)
+
+        self.loadPairButton = qt.QPushButton("Load Selected Pair")
+        self.loadPairButton.toolTip = (
+            "Load the selected image volume and convert its label to a segmentation"
+        )
+        self.loadPairButton.clicked.connect(self.onLoadPairButton)
+        self.loadPairButton.enabled = False
+        pairLoadingFormLayout.addRow(self.loadPairButton)
+
+        self.pairStatusLabel = qt.QLabel()
+        self.pairStatusLabel.setWordWrap(True)
+        pairLoadingFormLayout.addRow(self.pairStatusLabel)
+
+        # Reorder sections so Load-related controls appear before Model Configuration.
+        self.layout.insertWidget(1, pairLoadingCollapsibleButton)
+
         inferenceCollapsibleButton = ctk.ctkCollapsibleButton()
         inferenceCollapsibleButton.text = "Run Inference"
         self.layout.addWidget(inferenceCollapsibleButton)
         inferenceFormLayout = qt.QFormLayout(inferenceCollapsibleButton)
 
-        # Input volume selector
         self.inputSelector = slicer.qMRMLNodeComboBox()
         self.inputSelector.nodeTypes = ["vtkMRMLScalarVolumeNode"]
         self.inputSelector.selectNodeUponCreation = True
@@ -203,7 +186,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.inputSelector.setToolTip("Pick the input volume for segmentation")
         inferenceFormLayout.addRow("Input Volume:", self.inputSelector)
 
-        # Patch parameters
         self.patchSizeLineEdit = qt.QLineEdit()
         self.patchSizeLineEdit.setPlaceholderText("e.g., 96,96,96 (optional)")
         self.patchSizeLineEdit.setToolTip("Sliding window patch size")
@@ -214,13 +196,11 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.patchStrideLineEdit.setToolTip("Sliding window stride")
         inferenceFormLayout.addRow("Patch Stride:", self.patchStrideLineEdit)
 
-        # Force CPU checkbox
         self.forceCpuCheckBox = qt.QCheckBox()
         self.forceCpuCheckBox.setToolTip("Force CPU accumulation on server")
         self.forceCpuCheckBox.setChecked(False)
         inferenceFormLayout.addRow("Force CPU:", self.forceCpuCheckBox)
 
-        # Windowing overrides
         self.windowLevelLineEdit = qt.QLineEdit()
         self.windowLevelLineEdit.setPlaceholderText("e.g., 50 (optional)")
         self.windowLevelLineEdit.setToolTip(
@@ -235,7 +215,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         )
         inferenceFormLayout.addRow("Window Width (WW):", self.windowWidthLineEdit)
 
-        # Output segmentation selector
         self.outputSelector = slicer.qMRMLNodeComboBox()
         self.outputSelector.nodeTypes = ["vtkMRMLSegmentationNode"]
         self.outputSelector.selectNodeUponCreation = True
@@ -249,53 +228,156 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.outputSelector.baseName = "ITKIT_Segmentation"
         inferenceFormLayout.addRow("Output Segmentation:", self.outputSelector)
 
-        # Apply Button
         self.applyButton = qt.QPushButton("Run Inference")
         self.applyButton.toolTip = "Run the inference on the server"
         self.applyButton.enabled = False
         inferenceFormLayout.addRow(self.applyButton)
 
-        # Progress bar
         self.progressBar = qt.QProgressBar()
         self.progressBar.setRange(0, 100)
         self.progressBar.setValue(0)
         self.progressBar.hide()
         inferenceFormLayout.addRow(self.progressBar)
 
-        # Status label
         self.statusLabel = qt.QLabel()
         inferenceFormLayout.addRow(self.statusLabel)
 
-        # Connections
         self.applyButton.connect("clicked(bool)", self.onApplyButton)
         self.serverUrlLineEdit.textChanged.connect(self.onServerUrlChanged)
 
-        # Add vertical spacer
         self.layout.addStretch(1)
 
-        # Initial state
         self.onBackendChanged()
-        LOGGER.info("ITKITInference UI setup completed")
+        self.updatePairSelectionState()
+        LOGGER.info("ITKIT UI setup completed")
+
+    def onImageFolderBrowseClicked(self):
+        folderPath = qt.QFileDialog.getExistingDirectory(
+            self.parent,
+            "Select Image Folder",
+            self.imageFolderLineEdit.text.strip(),
+        )
+        if folderPath:
+            settings = qt.QSettings()
+            settings.setValue("ITKIT/imageFolder", folderPath)
+            self.imageFolderLineEdit.setText(folderPath)
+
+    def onLabelFolderBrowseClicked(self):
+        folderPath = qt.QFileDialog.getExistingDirectory(
+            self.parent,
+            "Select Label Folder",
+            self.labelFolderLineEdit.text.strip(),
+        )
+        if folderPath:
+            settings = qt.QSettings()
+            settings.setValue("ITKIT/labelFolder", folderPath)
+            self.labelFolderLineEdit.setText(folderPath)
+
+    def currentPairRow(self) -> int:
+        currentItem = self.seriesListWidget.currentItem()
+        if currentItem is None:
+            return -1
+        return self.seriesListWidget.row(currentItem)
+
+    def onScanPairsButton(self):
+        image_folder = self.imageFolderLineEdit.text.strip()
+        label_folder = self.labelFolderLineEdit.text.strip()
+
+        settings = qt.QSettings()
+        settings.setValue("ITKIT/imageFolder", image_folder)
+        settings.setValue("ITKIT/labelFolder", label_folder)
+
+        try:
+            self.pairStatusLabel.setText("Scanning image-label pairs...")
+            slicer.app.processEvents()
+
+            matched_pairs = self.logic.scan_image_label_pairs(
+                image_folder=image_folder,
+                label_folder=label_folder,
+            )
+
+            self.matchedSeriesPairs = matched_pairs
+            self.seriesListWidget.clear()
+            for pair in matched_pairs:
+                item = qt.QListWidgetItem(pair["series_name"])
+                item.setToolTip(
+                    f"Image: {pair['image_path']}\nLabel: {pair['label_path']}"
+                )
+                self.seriesListWidget.addItem(item)
+
+            match_count = len(matched_pairs)
+            if match_count == 0:
+                self.pairSummaryLabel.setText("0 matched series")
+                self.pairSummaryLabel.setStyleSheet("color: orange;")
+                self.pairStatusLabel.setText(
+                    "No matched filenames were found between the two folders"
+                )
+            else:
+                self.pairSummaryLabel.setText(f"{match_count} matched series")
+                self.pairSummaryLabel.setStyleSheet("color: green;")
+                self.seriesListWidget.setCurrentRow(0)
+                self.pairStatusLabel.setText(
+                    "Select one matched series and click Load Selected Pair"
+                )
+
+            self.updatePairSelectionState()
+
+        except Exception as e:
+            LOGGER.exception("Pair scanning failed")
+            self.matchedSeriesPairs = []
+            self.seriesListWidget.clear()
+            self.pairSummaryLabel.setText("Scan failed")
+            self.pairSummaryLabel.setStyleSheet("color: red;")
+            self.pairStatusLabel.setText(f"Error: {str(e)}")
+            self.updatePairSelectionState()
+            slicer.util.errorDisplay(f"Failed to scan folders: {str(e)}")
+
+    def updatePairSelectionState(self):
+        self.loadPairButton.enabled = self.currentPairRow() >= 0
+
+    def onLoadPairButton(self):
+        selected_row = self.currentPairRow()
+        if selected_row < 0 or selected_row >= len(self.matchedSeriesPairs):
+            slicer.util.errorDisplay("Please select one matched series to load")
+            return
+
+        pair = self.matchedSeriesPairs[selected_row]
+        self.loadPairButton.enabled = False
+        self.pairStatusLabel.setText(f"Loading series: {pair['series_name']}")
+        slicer.app.processEvents()
+
+        try:
+            image_node, segmentation_node = self.logic.load_image_label_pair(
+                image_path=pair["image_path"],
+                label_path=pair["label_path"],
+                series_name=pair["series_name"],
+            )
+            self.inputSelector.setCurrentNode(image_node)
+            self.outputSelector.setCurrentNode(segmentation_node)
+            self.pairStatusLabel.setText(
+                f"Loaded {pair['series_name']} into volume and segmentation nodes"
+            )
+        except Exception as e:
+            LOGGER.exception("Pair loading failed")
+            self.pairStatusLabel.setText(f"Error: {str(e)}")
+            slicer.util.errorDisplay(f"Failed to load selected pair: {str(e)}")
+        finally:
+            self.updatePairSelectionState()
 
     def cleanup(self) -> None:
-        """Called when the application closes and the module widget is destroyed."""
         pass
 
     def onServerUrlChanged(self):
-        """Called when server URL changes."""
-        # Save to settings
         settings = qt.QSettings()
-        settings.setValue("ITKITInference/serverUrl", self.serverUrlLineEdit.text)
+        settings.setValue("ITKIT/serverUrl", self.serverUrlLineEdit.text)
         LOGGER.info("Server URL updated")
 
-        # Reset connection status
         self.serverStatusLabel.setText("Not connected")
         self.serverStatusLabel.setStyleSheet("color: gray;")
         self.loadModelButton.enabled = False
         self.applyButton.enabled = False
 
     def onConnectButton(self):
-        """Called when connect button is clicked."""
         server_url = self.serverUrlLineEdit.text.strip()
         LOGGER.info("Connecting to server: %s", server_url)
 
@@ -303,7 +385,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.statusLabel.setText("Connecting to server...")
             slicer.app.processEvents()
 
-            # Test connection
             info = self.logic.get_server_info(server_url)
 
             if info:
@@ -318,7 +399,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     f"Server: {info.get('name')}, CUDA: {info.get('cuda_available')}"
                 )
 
-                # Update model status
                 self.updateModelStatus(info.get("model"))
             else:
                 LOGGER.warning("Connection failed for server: %s", server_url)
@@ -334,7 +414,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             slicer.util.errorDisplay(f"Failed to connect to server: {str(e)}")
 
     def updateModelStatus(self, model_info):
-        """Update the current model status display."""
         LOGGER.debug("Updating model status: %s", model_info)
 
         if model_info and model_info.get("loaded"):
@@ -351,10 +430,8 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.applyButton.enabled = False
 
     def onBackendChanged(self):
-        """Called when backend type is changed."""
         backend = self.backendSelector.currentText
         LOGGER.info("Backend changed to: %s", backend)
-        # Config file is only needed for MMEngine
         if backend == "MMEngine":
             self.configPathLineEdit.setEnabled(True)
             self.configBrowseButton.setEnabled(True)
@@ -363,7 +440,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.configBrowseButton.setEnabled(False)
 
     def onConfigBrowseClicked(self):
-        """Called when config browse button is clicked."""
         LOGGER.debug("Opening config file dialog")
         filePath = qt.QFileDialog.getOpenFileName(
             self.parent,
@@ -376,7 +452,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.configPathLineEdit.setText(filePath)
 
     def onModelBrowseClicked(self):
-        """Called when model browse button is clicked."""
         backend = self.backendSelector.currentText
         LOGGER.debug("Opening model file dialog for backend: %s", backend)
         if backend == "MMEngine":
@@ -392,9 +467,7 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.modelPathLineEdit.setText(filePath)
 
     def onLoadModelButton(self):
-        """Load a model on the server."""
         try:
-            # Get parameters
             server_url = self.serverUrlLineEdit.text.strip()
             backend = self.backendSelector.currentText
             config_path = (
@@ -402,7 +475,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             )
             model_path = self.modelPathLineEdit.text.strip()
 
-            # Validate
             if not model_path:
                 LOGGER.warning("Model load aborted: empty model path")
                 slicer.util.errorDisplay("Please select a model file path")
@@ -415,7 +487,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 )
                 return
 
-            # Parse inference config
             inference_config = {"fp16": self.fp16CheckBox.isChecked()}
 
             LOGGER.info(
@@ -424,7 +495,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             LOGGER.debug("Model paths: config=%s model=%s", config_path, model_path)
             LOGGER.debug("Inference config: %s", inference_config)
 
-            # Load model on server
             self.statusLabel.setText("Loading model on server...")
             self.progressBar.show()
             self.progressBar.setValue(50)
@@ -444,7 +514,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if result:
                 LOGGER.info("Model loaded successfully")
                 self.statusLabel.setText("Model loaded successfully")
-                # Refresh model status
                 self.onConnectButton()
             else:
                 LOGGER.warning("Model load failed")
@@ -457,7 +526,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             slicer.util.errorDisplay(f"Failed to load model: {str(e)}")
 
     def onUnloadModelButton(self):
-        """Unload the current model from the server."""
         try:
             server_url = self.serverUrlLineEdit.text.strip()
 
@@ -466,7 +534,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if result:
                 LOGGER.info("Model unloaded")
                 self.statusLabel.setText("Model unloaded")
-                # Refresh model status
                 self.onConnectButton()
             else:
                 LOGGER.warning("Model unload failed")
@@ -477,13 +544,11 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             slicer.util.errorDisplay(f"Failed to unload model: {str(e)}")
 
     def onApplyButton(self):
-        """Run processing when user clicks "Apply" button."""
         self.applyButton.enabled = False
         self.progressBar.show()
         self.progressBar.setValue(10)
         self.statusLabel.setText("Preparing for inference...")
 
-        # Get parameters
         server_url = self.serverUrlLineEdit.text.strip()
         inputVolume = self.inputSelector.currentNode()
         force_cpu = self.forceCpuCheckBox.isChecked()
@@ -503,7 +568,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.progressBar.setValue(30)
         self.statusLabel.setText("Running inference on server...")
 
-        # Run inference asynchronously to avoid UI freeze
         def runInference():
             try:
                 LOGGER.info("Running inference: force_cpu=%s", force_cpu)
@@ -516,7 +580,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     window_width=window_width,
                 )
 
-                # Update UI in main thread
                 def onComplete():
                     self.progressBar.setValue(100)
                     self.statusLabel.setText("Inference completed successfully!")
@@ -527,7 +590,7 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
                 qt.QTimer.singleShot(0, onComplete)
 
-            except Exception:
+            except Exception as e:
                 LOGGER.exception("Inference failed")
 
                 def onError():
@@ -538,234 +601,4 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
                 qt.QTimer.singleShot(0, onError)
 
-        # Schedule async execution
         qt.QTimer.singleShot(100, runInference)
-
-
-class ITKITInferenceLogic(ScriptedLoadableModuleLogic):
-    """This class implements the client logic for communicating with ITKIT server."""
-
-    def __init__(self) -> None:
-        """Called when the logic class is instantiated."""
-        ScriptedLoadableModuleLogic.__init__(self)
-
-    def get_server_info(self, server_url: str) -> dict | None:
-        """Get server information.
-
-        Args:
-            server_url: URL of the ITKIT server
-
-        Returns:
-            Dictionary with server info or None if failed
-        """
-        try:
-            LOGGER.debug("GET %s/api/info", server_url)
-            response = requests.get(f"{server_url}/api/info", timeout=5)
-            response.raise_for_status()
-            LOGGER.info("Server info retrieved")
-            return response.json()
-        except Exception as e:
-            LOGGER.error("Failed to get server info: %s", e)
-            return None
-
-    def load_model(
-        self,
-        server_url: str,
-        backend_type: str,
-        config_path: Optional[str],
-        model_path: str,
-        inference_config: dict,
-    ) -> bool:
-        """Load a model on the server.
-
-        Args:
-            server_url: URL of the ITKIT server
-            backend_type: 'mmengine' or 'onnx'
-            config_path: Path to config file (optional)
-            model_path: Path to model/checkpoint file
-            inference_config: Inference configuration dictionary
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            data = {
-                "backend_type": backend_type,
-                "model_path": model_path,
-                "inference_config": inference_config,
-            }
-
-            if config_path:
-                data["config_path"] = config_path
-            LOGGER.debug(
-                "POST %s/api/model payload keys: %s", server_url, list(data.keys())
-            )
-            response = requests.post(f"{server_url}/api/model", json=data, timeout=120)
-            if not response.ok:
-                try:
-                    error_payload = response.json()
-                    error_msg = error_payload.get("error", response.text)
-                except Exception:
-                    error_msg = response.text
-                LOGGER.error(
-                    "Model load failed (%s): %s", response.status_code, error_msg
-                )
-                raise RuntimeError(f"Server error {response.status_code}: {error_msg}")
-
-            result = response.json()
-            LOGGER.info("Model load response: %s", result.get("status"))
-
-            return result.get("status") == "success"
-
-        except Exception as e:
-            LOGGER.error("Failed to load model: %s", e)
-            raise
-
-    def unload_model(self, server_url: str) -> bool:
-        """Unload the current model from the server.
-
-        Args:
-            server_url: URL of the ITKIT server
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            LOGGER.debug("DELETE %s/api/model", server_url)
-            response = requests.delete(f"{server_url}/api/model", timeout=10)
-            response.raise_for_status()
-            result = response.json()
-            LOGGER.info("Model unload response: %s", result.get("status"))
-
-            return result.get("status") == "success"
-
-        except Exception as e:
-            LOGGER.error("Failed to unload model: %s", e)
-            return False
-
-    def run_inference(
-        self,
-        server_url: str,
-        input_volume,
-        output_segmentation,
-        force_cpu: bool = False,
-        window_level: float | None = None,
-        window_width: float | None = None,
-    ) -> slicer.vtkMRMLSegmentationNode:
-        """Run inference on the server.
-
-        Args:
-            server_url: URL of the ITKIT server
-            input_volume: Input scalar volume node
-            output_segmentation: Output segmentation node (can be None)
-            force_cpu: Force CPU accumulation on server
-            window_level: Override window level
-            window_width: Override window width
-
-        Returns:
-            Output segmentation node
-        """
-        import time
-
-        startTime = time.time()
-
-        # Export input volume to temporary file
-        with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tmp:
-            tmp_input_path = tmp.name
-        LOGGER.debug("Temp input path: %s", tmp_input_path)
-
-        slicer.util.saveNode(input_volume, tmp_input_path)
-        LOGGER.info("Input volume saved to temp file")
-
-        try:
-            # Prepare request
-            with open(tmp_input_path, "rb") as f:
-                files = {"image": f}
-                data = {"force_cpu": str(force_cpu).lower()}
-                if window_level is not None:
-                    data["window_level"] = str(window_level)
-                if window_width is not None:
-                    data["window_width"] = str(window_width)
-                LOGGER.debug(
-                    "POST %s/api/infer with force_cpu=%s", server_url, force_cpu
-                )
-                # Send inference request
-                logging.info(f"Sending inference request to {server_url}")
-                response = requests.post(
-                    f"{server_url}/api/infer",
-                    files=files,
-                    data=data,
-                    timeout=600,  # 10 minutes timeout for inference
-                )
-                response.raise_for_status()
-            LOGGER.info("Inference response received: %d bytes", len(response.content))
-
-            # Save segmentation result to temporary file
-            with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tmp:
-                tmp_output_path = tmp.name
-                tmp.write(response.content)
-            LOGGER.debug("Temp output path: %s", tmp_output_path)
-
-            # Load segmentation
-            segLabelMapNode = slicer.util.loadLabelVolume(tmp_output_path)
-            LOGGER.info("Segmentation label volume loaded")
-
-            # Create or update output segmentation node
-            if output_segmentation is None:
-                output_segmentation = slicer.mrmlScene.AddNewNodeByClass(
-                    "vtkMRMLSegmentationNode"
-                )
-                output_segmentation.SetName(input_volume.GetName() + "_Segmentation")
-                LOGGER.info(
-                    "Created new segmentation node: %s", output_segmentation.GetName()
-                )
-
-            # Set reference to input volume
-            output_segmentation.SetReferenceImageGeometryParameterFromVolumeNode(
-                input_volume
-            )
-
-            # Import labelmap to segmentation
-            slicer.modules.segmentations.logic().ImportLabelmapToSegmentationNode(
-                segLabelMapNode, output_segmentation
-            )
-            LOGGER.info("Imported labelmap to segmentation node")
-
-            # Clean up temporary nodes and files
-            slicer.mrmlScene.RemoveNode(segLabelMapNode)
-            os.unlink(tmp_output_path)
-            LOGGER.debug("Cleaned up temporary output resources")
-
-            stopTime = time.time()
-            LOGGER.info("Inference completed in %.2f seconds", stopTime - startTime)
-
-            return output_segmentation
-
-        finally:
-            # Clean up input temporary file
-            if os.path.exists(tmp_input_path):
-                os.unlink(tmp_input_path)
-                LOGGER.debug("Cleaned up temporary input file")
-
-
-class ITKITInferenceTest(ScriptedLoadableModuleTest):
-    """Test case for the scripted module."""
-
-    def setUp(self):
-        """Do whatever is needed to reset the state."""
-        slicer.mrmlScene.Clear()
-
-    def runTest(self):
-        """Run as few or as many tests as needed here."""
-        self.setUp()
-        self.test_ITKITInference1()
-
-    def test_ITKITInference1(self):
-        """Test basic module loading."""
-        self.delayDisplay("Starting the test")
-
-        # Test that the logic can be instantiated
-        logic = ITKITInferenceLogic()
-        self.assertIsNotNone(logic)
-
-        self.delayDisplay("Test passed")

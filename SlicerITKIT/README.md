@@ -67,6 +67,41 @@ Module will appear: Modules → Segmentation → ITKIT
 
 ## Quick Start
 
+### Load Image-Label Pairs Locally
+
+The Slicer module can load ITKIT-style image-label pairs directly from disk without
+using the ITKIT Server.
+
+Recommended folder structure:
+
+```text
+dataset_root/
+    image/
+        case001.nii.gz
+        case002.nii.gz
+    label/
+        case001.nii.gz
+        case002.nii.gz
+```
+
+The plugin matches files only when the filenames are exactly the same in both folders.
+
+Usage in Slicer:
+
+1. Open the ITKIT module.
+2. Expand `Load Image-Label Pairs`.
+3. Select `Image Folder` and `Label Folder`.
+4. Click `Scan Pairs` to list all matched series.
+5. Select one series and click `Load Selected Pair`.
+
+Result:
+
+- The image is loaded as a scalar volume node.
+- The label is loaded and converted to a segmentation node.
+- The loaded nodes are assigned to the module's input and output selectors for follow-up processing.
+
+This feature is fully local and works even when the ITKIT Server is not connected.
+
 ### 1. Start Server
 
 ```bash
@@ -294,7 +329,7 @@ pip.main(['install', 'requests'])
 
 ### Implementation Details
 
-**Client (ITKITInference.py):**
+**Client (ITKIT.py + ITKITWidget.py + ITKITLogic.py):**
 
 - Qt-based UI in Slicer
 - REST API calls via `requests`
