@@ -71,13 +71,23 @@ Includes: opensdpc, openslide-python, openslide-bin.
 
 ### GUI Support
 
-For graphical user interface:
+For the PyQt desktop graphical user interface:
 
 ```bash
 pip install "itkit[gui]"
 ```
 
 Includes: PyQt6.
+
+### Web Interface
+
+For the browser-based web interface (`itkit-web`):
+
+```bash
+pip install "itkit[web]"
+```
+
+Includes: flask, flask-cors.
 
 ### ONNX Deployment
 

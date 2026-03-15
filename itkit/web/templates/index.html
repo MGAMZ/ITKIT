@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ITKIT Web</title>
+<style>
+/* ── Variables ───────────────────────────────────────────────────────── */
+:root {
+  --bg:       #2b2b2b;
+  --surface:  #353535;
+  --surface2: #404040;
+  --base:     #1e1e1e;
+  --text:     #e8e8e8;
+  --muted:    #909090;
+  --accent:   #9c4dcc;
+  --accent-h: #b06de0;
+  --border:   #555;
+  --bsoft:    #444;
+  --ok:       #4caf50;
+  --err:      #ef5350;
+  --sidebar-w: 260px;
+}
+
+/* ── Reset ───────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 'Segoe UI', system-ui, sans-serif;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--base); }
+::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #777; }
+
+/* ── Layout ──────────────────────────────────────────────────────────── */
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+#header {
+  height: 44px; min-height: 44px; flex-shrink: 0;
+  background: var(--base); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 12px; gap: 10px;
+  user-select: none;
+}
+.logo { font-size: 16px; font-weight: 700; color: var(--accent-h); letter-spacing: 1px; }
+.tagline { font-size: 12px; color: var(--muted); flex: 1; }
+
+.btn-icon {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; padding: 4px 7px; border-radius: 4px; font-size: 14px; line-height: 1;
+}
+.btn-icon:hover { color: var(--text); background: var(--surface2); }
+
+/* ── Body row ────────────────────────────────────────────────────────── */
+#body-row { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar-w); flex-shrink: 0; overflow: hidden;
+  background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  transition: width 0.2s ease;
+}
+#sidebar.collapsed { width: 0; }
+
+#sidebar-header {
+  height: 36px; min-height: 36px; flex-shrink: 0;
+  background: var(--surface2); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 8px; gap: 5px;
+}
+#sidebar-header .sb-title {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--muted); flex: 1; white-space: nowrap;
+}
+
+#sidebar-path {
+  padding: 4px 10px; font-size: 11px; color: var(--muted); flex-shrink: 0;
+  border-bottom: 1px solid var(--bsoft); min-height: 22px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+#file-tree {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 4px 0; list-style: none;
+}
+
+/* ── Tree nodes ──────────────────────────────────────────────────────── */
+.tree-item { list-style: none; }
+.tree-row {
+  display: flex; align-items: center; gap: 3px;
+  padding: 3px 8px; cursor: pointer; border-radius: 3px; margin: 0 4px;
+  white-space: nowrap; user-select: none;
+}
+.tree-row:hover   { background: var(--surface2); }
+.tree-row.sel     { background: #3c1d5a; }
+.tree-toggle      { width: 16px; text-align: center; font-size: 9px; color: var(--muted); flex-shrink: 0; }
+.tree-name        { font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.tree-children    { padding-left: 16px; list-style: none; }
+.tree-children.hidden { display: none; }
+.tree-msg         { padding: 4px 28px; font-size: 11px; color: var(--muted); font-style: italic; }
+
+/* ── Main panel ──────────────────────────────────────────────────────── */
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+/* ── Tab nav ─────────────────────────────────────────────────────────── */
+#tab-nav {
+  display: flex; flex-shrink: 0;
+  background: var(--surface); border-bottom: 2px solid var(--border);
+  padding: 0 6px; overflow-x: auto;
+}
+#tab-nav::-webkit-scrollbar { height: 0; }
+
+.tab-btn {
+  background: none; border: none; color: var(--muted);
+  padding: 10px 18px; cursor: pointer;
+  font: 13px 'Segoe UI', system-ui, sans-serif;
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+  white-space: nowrap; transition: color 0.15s;
+}
+.tab-btn:hover  { color: var(--text); }
+.tab-btn.active { color: var(--accent-h); border-bottom-color: var(--accent-h); font-weight: 500; }
+
+/* ── Tab content ─────────────────────────────────────────────────────── */
+#tab-content { flex: 1; overflow: hidden; display: flex; }
+.tab-pane { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+.tab-pane.active { display: flex; }
+.pane-scroll { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+/* ── Form grid ───────────────────────────────────────────────────────── */
+.fg {
+  display: grid; grid-template-columns: 210px 1fr;
+  gap: 11px 12px; align-items: center; max-width: 720px;
+}
+.fl { text-align: right; font-size: 12px; color: var(--muted); padding-right: 4px; line-height: 1.4; }
+
+/* Form controls */
+input.fc, select.fc, textarea.fc {
+  background: var(--base); border: 1px solid var(--border); color: var(--text);
+  border-radius: 4px; padding: 6px 8px;
+  font: 13px 'Segoe UI', system-ui, sans-serif; width: 100%;
+}
+input.fc:focus, select.fc:focus, textarea.fc:focus {
+  outline: none; border-color: var(--accent);
+}
+input.fc::placeholder, textarea.fc::placeholder { color: var(--muted); }
+textarea.fc { resize: vertical; min-height: 90px; }
+select.fc { cursor: pointer; }
+
+/* Path row (input + Browse button) */
+.pr { display: flex; gap: 6px; }
+.pr input.fc { flex: 1; }
+
+.btn-browse {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 4px; padding: 5px 12px; cursor: pointer;
+  font: 12px 'Segoe UI', system-ui, sans-serif; white-space: nowrap; flex-shrink: 0;
+}
+.btn-browse:hover { border-color: var(--accent); color: var(--accent-h); }
+
+/* Checkbox row */
+.cr { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+.cr input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+
+/* ── Action bar ──────────────────────────────────────────────────────── */
+.ab {
+  display: flex; align-items: center; gap: 10px; padding: 8px 20px;
+  background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0;
+}
+.btn-run {
+  background: var(--accent); color: #fff; border: none;
+  border-radius: 4px; padding: 7px 24px; cursor: pointer;
+  font: 500 13px 'Segoe UI', system-ui, sans-serif;
+}
+.btn-run:hover     { background: var(--accent-h); }
+.btn-run:disabled  { opacity: 0.4; cursor: not-allowed; }
+
+.btn-stop {
+  background: transparent; color: var(--err); border: 1px solid var(--err);
+  border-radius: 4px; padding: 6px 18px; cursor: pointer;
+  font: 13px 'Segoe UI', system-ui, sans-serif;
+}
+.btn-stop:hover:not(:disabled) { background: rgba(239,83,80,.12); }
+.btn-stop:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── Progress ────────────────────────────────────────────────────────── */
+.prow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 20px 7px; background: var(--surface); flex-shrink: 0;
+}
+.ptrack { flex: 1; height: 5px; background: var(--base); border-radius: 3px; overflow: hidden; }
+.pfill  { height: 100%; width: 0%; background: var(--accent); border-radius: 3px; transition: width 0.25s; }
+.ppct   { font-size: 11px; color: var(--muted); width: 36px; text-align: right; }
+
+/* ── Log output ──────────────────────────────────────────────────────── */
+.log-wrap {
+  height: 210px; display: flex; flex-direction: column;
+  border-top: 1px solid var(--border); background: var(--base); flex-shrink: 0;
+}
+.log-bar {
+  display: flex; align-items: center; padding: 3px 8px; gap: 6px;
+  background: var(--surface); border-bottom: 1px solid var(--bsoft); flex-shrink: 0;
+}
+.log-bar-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); flex: 1; }
+.log-out {
+  flex: 1; overflow-y: auto; padding: 6px 12px;
+  font: 12px/1.55 'JetBrains Mono','Fira Code','Cascadia Mono',monospace;
+  color: #c8c8c8; white-space: pre;
+}
+
+/* ── Modal ───────────────────────────────────────────────────────────── */
+#modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+}
+#modal-bg.hidden { display: none; }
+
+#modal-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  width: 560px; max-width: 94vw; max-height: 74vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 14px 48px rgba(0,0,0,.5);
+}
+.modal-title {
+  display: flex; align-items: center; padding: 12px 16px; gap: 10px;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.modal-title h3 { font-size: 14px; font-weight: 600; flex: 1; }
+
+.btn-mup {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 12px;
+}
+.btn-mup:hover { border-color: var(--accent); }
+
+.btn-mclose { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; }
+.btn-mclose:hover { color: var(--err); }
+
+#modal-crumb {
+  padding: 5px 16px; font-size: 11px; color: var(--muted);
+  background: var(--base); border-bottom: 1px solid var(--bsoft);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0;
+}
+#modal-list { flex: 1; overflow-y: auto; list-style: none; padding: 6px 0; }
+
+.me { display: flex; align-items: center; gap: 8px; padding: 5px 16px; cursor: pointer; font-size: 13px; user-select: none; }
+.me:hover { background: var(--surface2); }
+.me.mf  { color: var(--muted); cursor: default; }
+.me .ei { width: 18px; text-align: center; flex-shrink: 0; font-size: 13px; }
+
+#modal-footer {
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  border-top: 1px solid var(--border); flex-shrink: 0;
+}
+#modal-manual { flex: 1; }
+
+.btn-mok {
+  background: var(--accent); color: #fff; border: none;
+  border-radius: 4px; padding: 7px 18px; cursor: pointer;
+  font: 500 13px 'Segoe UI', system-ui, sans-serif; white-space: nowrap;
+}
+.btn-mok:hover { background: var(--accent-h); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Header ──────────────────────────────────────────── -->
+  <header id="header">
+    <button class="btn-icon" id="sidebar-toggle" title="Toggle file browser">☰</button>
+    <span class="logo">ITKIT</span>
+    <span class="tagline">Medical Image Preprocessing — Web Interface</span>
+  </header>
+
+  <div id="body-row">
+
+    <!-- ── Sidebar: File Browser ───────────────────────── -->
+    <aside id="sidebar">
+      <div id="sidebar-header">
+        <span class="sb-title">File Browser</span>
+        <button class="btn-icon" id="btn-home"    title="Go to home directory">⌂</button>
+        <button class="btn-icon" id="btn-refresh" title="Refresh">↺</button>
+      </div>
+      <div id="sidebar-path"></div>
+      <ul id="file-tree"></ul>
+    </aside>
+
+    <!-- ── Main ────────────────────────────────────────── -->
+    <main id="main">
+
+      <!-- Tab navigation -->
+      <nav id="tab-nav">
+        <button class="tab-btn active" data-tab="itk_check">itk_check</button>
+        <button class="tab-btn" data-tab="itk_resample">itk_resample</button>
+        <button class="tab-btn" data-tab="itk_orient">itk_orient</button>
+        <button class="tab-btn" data-tab="itk_patch">itk_patch</button>
+        <button class="tab-btn" data-tab="itk_aug">itk_aug</button>
+        <button class="tab-btn" data-tab="itk_extract">itk_extract</button>
+      </nav>
+
+      <div id="tab-content">
+
+        <!-- ════════════════════════════════════════════════
+             itk_check
+             ════════════════════════════════════════════════ -->
+        <div class="tab-pane active" id="pane-itk_check">
+          <div class="pane-scroll">
+            <div class="fg" id="form-itk_check">
+
+              <label class="fl">mode</label>
+              <select class="fc" name="mode">
+                <option value="check">check</option>
+                <option value="delete">delete</option>
+                <option value="copy">copy</option>
+                <option value="symlink">symlink</option>
+              </select>
+
+              <label class="fl">sample_folder</label>
+              <div class="pr">
+                <input class="fc" type="text" name="sample_folder" placeholder="/path/to/dataset">
+                <button class="btn-browse" data-form="itk_check" data-field="sample_folder">Browse</button>
+              </div>
+
+              <label class="fl">output (-o)</label>
+              <div class="pr">
+                <input class="fc" type="text" name="output" placeholder="(optional output folder)">
+                <button class="btn-browse" data-form="itk_check" data-field="output">Browse</button>
+              </div>
+
+              <label class="fl">min-size (Z Y X)</label>
+              <input class="fc" type="text" name="min_size"
+                     placeholder="e.g. 64 128 128  or  64  (−1 = ignore dim)">
+
+              <label class="fl">max-size (Z Y X)</label>
+              <input class="fc" type="text" name="max_size"
+                     placeholder="e.g. 512 512 512">
+
+              <label class="fl">min-spacing (Z Y X)</label>
+              <input class="fc" type="text" name="min_spacing"
+                     placeholder="e.g. 0.5 0.5 0.5">
+
+              <label class="fl">max-spacing (Z Y X)</label>
+              <input class="fc" type="text" name="max_spacing"
+                     placeholder="e.g. 3.0 3.0 3.0">
+
+              <label class="fl">same-spacing (axes)</label>
+              <input class="fc" type="text" name="same_spacing"
+                     placeholder="Two axis names, e.g. X Y">
+
+              <label class="fl">same-size (axes)</label>
+              <input class="fc" type="text" name="same_size"
+                     placeholder="Two axis names, e.g. X Y">
+
+              <label class="fl">Multi Processing</label>
+              <div class="cr">
+                <input type="checkbox" name="mp" id="mp-check">
+                <label for="mp-check">Enable multiprocessing</label>
+              </div>
+
+              <label class="fl">workers</label>
+              <input class="fc" type="number" name="workers" value="8" min="1" max="512" style="max-width:90px">
+
+            </div>
+          </div>
+
+          <div class="ab">
+            <button class="btn-run"  data-tool="itk_check">Process</button>
+            <button class="btn-stop" data-tool="itk_check" disabled>Stop</button>
+          </div>
+          <div class="prow">
+            <div class="ptrack"><div class="pfill" id="prog-itk_check"></div></div>
+            <span class="ppct" id="pct-itk_check">0%</span>
+          </div>
+          <div class="log-wrap">
+            <div class="log-bar">
+              <span class="log-bar-label">Output</span>
+              <button class="btn-icon" onclick="clearLog('itk_check')">✕ Clear</button>
+            </div>
+            <pre class="log-out" id="log-itk_check"></pre>
+          </div>
+        </div><!-- /pane-itk_check -->
+
+
+        <!-- ════════════════════════════════════════════════
+             itk_resample
+             ════════════════════════════════════════════════ -->
+        <div class="tab-pane" id="pane-itk_resample">
+          <div class="pane-scroll">
+            <div class="fg" id="form-itk_resample">
+
+              <label class="fl">mode</label>
+              <select class="fc" name="mode">
+                <option value="image">image</option>
+                <option value="label">label</option>
+                <option value="dataset">dataset (paired image + label)</option>
+              </select>
+
+              <label class="fl">source_folder</label>
+              <div class="pr">
+                <input class="fc" type="text" name="source_folder" placeholder="/path/to/source">
+                <button class="btn-browse" data-form="itk_resample" data-field="source_folder">Browse</button>
+              </div>
+
+              <label class="fl">dest_folder</label>
+              <div class="pr">
+                <input class="fc" type="text" name="dest_folder" placeholder="/path/to/destination">
+                <button class="btn-browse" data-form="itk_resample" data-field="dest_folder">Browse</button>
+              </div>
+
+              <label class="fl">spacing (Z Y X mm)</label>
+              <input class="fc" type="text" name="spacing"
+                     placeholder="e.g. 1.0  or  1.0 1.0 1.0">
+
+              <label class="fl">size (Z Y X voxels)</label>
+              <input class="fc" type="text" name="size"
+                     placeholder="e.g. 128 256 256">
+
+              <label class="fl">target-folder</label>
+              <div class="pr">
+                <input class="fc" type="text" name="target_folder"
+                       placeholder="(optional) align spacing/size to images in this folder">
+                <button class="btn-browse" data-form="itk_resample" data-field="target_folder">Browse</button>
+              </div>
+
+              <label class="fl">Recursive</label>
+              <div class="cr">
+                <input type="checkbox" name="recursive" id="rec-resample">
+                <label for="rec-resample">Recursively process all sub-samples</label>
+              </div>
+
+              <label class="fl">Multi Processing</label>
+              <div class="cr">
+                <input type="checkbox" name="mp" id="mp-resample">
+                <label for="mp-resample">Enable multiprocessing</label>
+              </div>
+
+              <label class="fl">workers</label>
+              <input class="fc" type="number" name="workers" value="8" min="1" max="512" style="max-width:90px">
+
+            </div>
+          </div>
+
+          <div class="ab">
+            <button class="btn-run"  data-tool="itk_resample">Process</button>
+            <button class="btn-stop" data-tool="itk_resample" disabled>Stop</button>
+          </div>
+          <div class="prow">
+            <div class="ptrack"><div class="pfill" id="prog-itk_resample"></div></div>
+            <span class="ppct" id="pct-itk_resample">0%</span>
+          </div>
+          <div class="log-wrap">
+            <div class="log-bar">
+              <span class="log-bar-label">Output</span>
+              <button class="btn-icon" onclick="clearLog('itk_resample')">✕ Clear</button>
+            </div>
+            <pre class="log-out" id="log-itk_resample"></pre>
+          </div>
+        </div><!-- /pane-itk_resample -->
+
+
+        <!-- ════════════════════════════════════════════════
+             itk_orient
+             ════════════════════════════════════════════════ -->
+        <div class="tab-pane" id="pane-itk_orient">
+          <div class="pane-scroll">
+            <div class="fg" id="form-itk_orient">
+
+              <label class="fl">src_dir</label>
+              <div class="pr">
+                <input class="fc" type="text" name="src_dir" placeholder="/path/to/source">
+                <button class="btn-browse" data-form="itk_orient" data-field="src_dir">Browse</button>
+              </div>
+
+              <label class="fl">dst_dir</label>
+              <div class="pr">
+                <input class="fc" type="text" name="dst_dir" placeholder="/path/to/destination">
+                <button class="btn-browse" data-form="itk_orient" data-field="dst_dir">Browse</button>
+              </div>
+
+              <label class="fl">orient</label>
+              <input class="fc" type="text" name="orient"
+                     placeholder="e.g. LPI  (Left-Posterior-Inferior)">
+
+              <label class="fl">field</label>
+              <select class="fc" name="field">
+                <option value="image">image</option>
+                <option value="label">label</option>
+                <option value="dataset">dataset (paired image + label)</option>
+              </select>
+
+              <label class="fl">Multi Processing</label>
+              <div class="cr">
+                <input type="checkbox" name="mp" id="mp-orient">
+                <label for="mp-orient">Enable multiprocessing</label>
+              </div>
+
+              <label class="fl">workers</label>
+              <input class="fc" type="number" name="workers" value="8" min="1" max="512" style="max-width:90px">
+
+            </div>
+          </div>
+
+          <div class="ab">
+            <button class="btn-run"  data-tool="itk_orient">Process</button>
+            <button class="btn-stop" data-tool="itk_orient" disabled>Stop</button>
+          </div>
+          <div class="prow">
+            <div class="ptrack"><div class="pfill" id="prog-itk_orient"></div></div>
+            <span class="ppct" id="pct-itk_orient">0%</span>
+          </div>
+          <div class="log-wrap">
+            <div class="log-bar">
+              <span class="log-bar-label">Output</span>
+              <button class="btn-icon" onclick="clearLog('itk_orient')">✕ Clear</button>
+            </div>
+            <pre class="log-out" id="log-itk_orient"></pre>
+          </div>
+        </div><!-- /pane-itk_orient -->
+
+
+        <!-- ════════════════════════════════════════════════
+             itk_patch
+             ════════════════════════════════════════════════ -->
+        <div class="tab-pane" id="pane-itk_patch">
+          <div class="pane-scroll">
+            <div class="fg" id="form-itk_patch">
+
+              <label class="fl">src_folder</label>
+              <div class="pr">
+                <input class="fc" type="text" name="src_folder" placeholder="/path/to/source">
+                <button class="btn-browse" data-form="itk_patch" data-field="src_folder">Browse</button>
+              </div>
+
+              <label class="fl">dst_folder</label>
+              <div class="pr">
+                <input class="fc" type="text" name="dst_folder" placeholder="/path/to/destination">
+                <button class="btn-browse" data-form="itk_patch" data-field="dst_folder">Browse</button>
+              </div>
+
+              <label class="fl">patch-size (PZ [PY PX])</label>
+              <input class="fc" type="text" name="patch_size"
+                     placeholder="e.g. 64  or  64 128 128">
+
+              <label class="fl">patch-stride (SZ [SY SX])</label>
+              <input class="fc" type="text" name="patch_stride"
+                     placeholder="e.g. 32  or  32 64 64">
+
+              <label class="fl">min-foreground-ratio</label>
+              <input class="fc" type="number" name="min_fg" value="0" min="0" max="1" step="0.01"
+                     style="max-width:110px" title="Minimum fraction of foreground voxels required (0–1)">
+
+              <label class="fl">keep-empty-label-prob</label>
+              <input class="fc" type="number" name="keep_empty_prob" value="1.0" min="0" max="1" step="0.01"
+                     style="max-width:110px" title="Probability to keep background-only patches (0–1)">
+
+              <label class="fl">Save without labels</label>
+              <div class="cr">
+                <input type="checkbox" name="still_save" id="still-save">
+                <label for="still-save">Save samples without a label file</label>
+              </div>
+
+              <label class="fl">Multi Processing</label>
+              <div class="cr">
+                <input type="checkbox" name="mp" id="mp-patch">
+                <label for="mp-patch">Enable multiprocessing</label>
+              </div>
+
+              <label class="fl">workers</label>
+              <input class="fc" type="number" name="workers" value="8" min="1" max="512" style="max-width:90px">
+
+            </div>
+          </div>
+
+          <div class="ab">
+            <button class="btn-run"  data-tool="itk_patch">Process</button>
+            <button class="btn-stop" data-tool="itk_patch" disabled>Stop</button>
+          </div>
+          <div class="prow">
+            <div class="ptrack"><div class="pfill" id="prog-itk_patch"></div></div>
+            <span class="ppct" id="pct-itk_patch">0%</span>
+          </div>
+          <div class="log-wrap">
+            <div class="log-bar">
+              <span class="log-bar-label">Output</span>
+              <button class="btn-icon" onclick="clearLog('itk_patch')">✕ Clear</button>
+            </div>
+            <pre class="log-out" id="log-itk_patch"></pre>
+          </div>
+        </div><!-- /pane-itk_patch -->
+
+
+        <!-- ════════════════════════════════════════════════
+             itk_aug
+             ════════════════════════════════════════════════ -->
+        <div class="tab-pane" id="pane-itk_aug">
+          <div class="pane-scroll">
+            <div class="fg" id="form-itk_aug">
+
+              <label class="fl">img_folder</label>
+              <div class="pr">
+                <input class="fc" type="text" name="img_folder" placeholder="/path/to/images">
+                <button class="btn-browse" data-form="itk_aug" data-field="img_folder">Browse</button>
+              </div>
+
+              <label class="fl">lbl_folder</label>
+              <div class="pr">
+                <input class="fc" type="text" name="lbl_folder" placeholder="/path/to/labels">
+                <button class="btn-browse" data-form="itk_aug" data-field="lbl_folder">Browse</button>
+              </div>
+
+              <label class="fl">out-img-folder (-oimg)</label>
+              <div class="pr">
+                <input class="fc" type="text" name="oimg" placeholder="(optional) augmented images output">
+                <button class="btn-browse" data-form="itk_aug" data-field="oimg">Browse</button>
+              </div>
+
+              <label class="fl">out-lbl-folder (-olbl)</label>
+              <div class="pr">
+                <input class="fc" type="text" name="olbl" placeholder="(optional) augmented labels output">
+                <button class="btn-browse" data-form="itk_aug" data-field="olbl">Browse</button>
+              </div>
+
+              <label class="fl">num (augmentations per sample)</label>
+              <input class="fc" type="number" name="num" value="5" min="1" max="1000" style="max-width:90px">
+
+              <label class="fl">random-rot angle (Z Y X °)</label>
+              <input class="fc" type="text" name="random_rot"
+                     placeholder="e.g. 30  or  30 30 30">
+
+              <label class="fl">Multi Processing</label>
+              <div class="cr">
+                <input type="checkbox" name="mp" id="mp-aug">
+                <label for="mp-aug">Enable multiprocessing</label>
+              </div>
+
+              <label class="fl">workers</label>
+              <input class="fc" type="number" name="workers" value="8" min="1" max="512" style="max-width:90px">
+
+            </div>
+          </div>
+
+          <div class="ab">
+            <button class="btn-run"  data-tool="itk_aug">Process</button>
+            <button class="btn-stop" data-tool="itk_aug" disabled>Stop</button>
+          </div>
+          <div class="prow">
+            <div class="ptrack"><div class="pfill" id="prog-itk_aug"></div></div>
+            <span class="ppct" id="pct-itk_aug">0%</span>
+          </div>
+          <div class="log-wrap">
+            <div class="log-bar">
+              <span class="log-bar-label">Output</span>
+              <button class="btn-icon" onclick="clearLog('itk_aug')">✕ Clear</button>
+            </div>
+            <pre class="log-out" id="log-itk_aug"></pre>
+          </div>
+        </div><!-- /pane-itk_aug -->
+
+
+        <!-- ════════════════════════════════════════════════
+             itk_extract
+             ════════════════════════════════════════════════ -->
+        <div class="tab-pane" id="pane-itk_extract">
+          <div class="pane-scroll">
+            <div class="fg" id="form-itk_extract">
+
+              <label class="fl">source_folder</label>
+              <div class="pr">
+                <input class="fc" type="text" name="source_folder" placeholder="/path/to/labels">
+                <button class="btn-browse" data-form="itk_extract" data-field="source_folder">Browse</button>
+              </div>
+
+              <label class="fl">dest_folder</label>
+              <div class="pr">
+                <input class="fc" type="text" name="dest_folder" placeholder="/path/to/output">
+                <button class="btn-browse" data-form="itk_extract" data-field="dest_folder">Browse</button>
+              </div>
+
+              <label class="fl">mappings</label>
+              <textarea class="fc" name="mappings"
+                        placeholder="One mapping per line:  source:target&#10;1:0&#10;5:1&#10;3:2"></textarea>
+
+              <label class="fl">Recursive</label>
+              <div class="cr">
+                <input type="checkbox" name="recursive" id="rec-extract">
+                <label for="rec-extract">Recursively process all sub-samples</label>
+              </div>
+
+              <label class="fl">Multi Processing</label>
+              <div class="cr">
+                <input type="checkbox" name="mp" id="mp-extract">
+                <label for="mp-extract">Enable multiprocessing</label>
+              </div>
+
+              <label class="fl">workers</label>
+              <input class="fc" type="number" name="workers" value="8" min="1" max="512" style="max-width:90px">
+
+            </div>
+          </div>
+
+          <div class="ab">
+            <button class="btn-run"  data-tool="itk_extract">Process</button>
+            <button class="btn-stop" data-tool="itk_extract" disabled>Stop</button>
+          </div>
+          <div class="prow">
+            <div class="ptrack"><div class="pfill" id="prog-itk_extract"></div></div>
+            <span class="ppct" id="pct-itk_extract">0%</span>
+          </div>
+          <div class="log-wrap">
+            <div class="log-bar">
+              <span class="log-bar-label">Output</span>
+              <button class="btn-icon" onclick="clearLog('itk_extract')">✕ Clear</button>
+            </div>
+            <pre class="log-out" id="log-itk_extract"></pre>
+          </div>
+        </div><!-- /pane-itk_extract -->
+
+      </div><!-- #tab-content -->
+    </main>
+  </div><!-- #body-row -->
+</div><!-- #app -->
+
+
+<!-- ── Directory Picker Modal ─────────────────────────────── -->
+<div id="modal-bg" class="hidden">
+  <div id="modal-box">
+    <div class="modal-title">
+      <h3>Select Directory</h3>
+      <button class="btn-mup" id="modal-up">↑ Up</button>
+      <button class="btn-mclose" id="modal-close">✕</button>
+    </div>
+    <div id="modal-crumb">/</div>
+    <ul id="modal-list"></ul>
+    <div id="modal-footer">
+      <input class="fc" type="text" id="modal-manual" placeholder="Type path manually and press Enter…">
+      <button class="btn-mok" id="modal-ok">Select This Folder</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+'use strict';
+
+/* ── State ──────────────────────────────────────────────────────────── */
+const _jobs   = {};      // tool → { job_id, es }
+let _picker   = null;    // <input> to fill after modal confirm
+let _mpath    = '';      // current path shown in modal
+let _sbpath   = '';      // last loaded sidebar root path
+
+/* ── Init ───────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  initTabs();
+  initSidebar();
+  initModal();
+  initBrowseBtns();
+  initRunStop();
+});
+
+/* ── Tabs ───────────────────────────────────────────────────────────── */
+function initTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn =>
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('pane-' + btn.dataset.tab).classList.add('active');
+    })
+  );
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+function initSidebar() {
+  document.getElementById('sidebar-toggle')
+    .addEventListener('click', () =>
+      document.getElementById('sidebar').classList.toggle('collapsed'));
+
+  document.getElementById('btn-home')
+    .addEventListener('click', () => loadTree('~'));
+
+  document.getElementById('btn-refresh')
+    .addEventListener('click', () => loadTree(_sbpath || '~'));
+
+  loadTree('~');
+}
+
+async function loadTree(path) {
+  const ul = document.getElementById('file-tree');
+  ul.innerHTML = '<li class="tree-msg">Loading…</li>';
+  try {
+    const d = await apiBrowse(path);
+    _sbpath = d.path;
+    document.getElementById('sidebar-path').textContent = d.path;
+    ul.innerHTML = '';
+    buildTreeNodes(d.entries, ul);
+  } catch (e) {
+    ul.innerHTML = '<li class="tree-msg" style="color:var(--err)">' + esc(e.message) + '</li>';
+  }
+}
+
+function buildTreeNodes(entries, ul) {
+  entries.forEach(entry => {
+    const li  = document.createElement('li');
+    li.className = 'tree-item';
+
+    const row = document.createElement('div');
+    row.className  = 'tree-row';
+    row.dataset.path = entry.path;
+
+    const tog  = document.createElement('span'); tog.className = 'tree-toggle';
+    const name = document.createElement('span'); name.className = 'tree-name';
+    name.textContent = (entry.is_dir ? '📁 ' : '📄 ') + entry.name;
+    tog.textContent  = entry.is_dir ? '▶' : ' ';
+
+    row.appendChild(tog);
+    row.appendChild(name);
+    li.appendChild(row);
+
+    if (entry.is_dir) {
+      const childUl = document.createElement('ul');
+      childUl.className = 'tree-children hidden';
+      li.appendChild(childUl);
+      let loaded = false;
+
+      row.addEventListener('click', async () => {
+        /* update path label and selection highlight */
+        document.getElementById('sidebar-path').textContent = entry.path;
+        document.querySelectorAll('.tree-row.sel').forEach(r => r.classList.remove('sel'));
+        row.classList.add('sel');
+
+        const open = !childUl.classList.contains('hidden');
+        if (open) {
+          tog.textContent = '▶';
+          childUl.classList.add('hidden');
+        } else {
+          tog.textContent = '▼';
+          childUl.classList.remove('hidden');
+          if (!loaded) {
+            loaded = true;
+            childUl.innerHTML = '<li class="tree-msg">Loading…</li>';
+            try {
+              const d = await apiBrowse(entry.path);
+              childUl.innerHTML = '';
+              buildTreeNodes(d.entries, childUl);
+            } catch (err) {
+              childUl.innerHTML =
+                '<li class="tree-msg" style="color:var(--err)">' + esc(err.message) + '</li>';
+            }
+          }
+        }
+      });
+    } else {
+      row.style.cursor = 'default';
+    }
+
+    ul.appendChild(li);
+  });
+}
+
+/* ── Directory Picker Modal ─────────────────────────────────────────── */
+function initModal() {
+  document.getElementById('modal-close')
+    .addEventListener('click', closeModal);
+
+  document.getElementById('modal-bg')
+    .addEventListener('click', e => {
+      if (e.target === document.getElementById('modal-bg')) closeModal();
+    });
+
+  document.getElementById('modal-up')
+    .addEventListener('click', async () => {
+      try {
+        const d = await apiBrowse(_mpath);
+        if (d.parent) await loadModalDir(d.parent);
+      } catch (_) { /* ignore */ }
+    });
+
+  document.getElementById('modal-ok')
+    .addEventListener('click', confirmModal);
+
+  document.getElementById('modal-manual')
+    .addEventListener('keydown', e => { if (e.key === 'Enter') confirmModal(); });
+}
+
+function openDirPicker(inp) {
+  _picker = inp;
+  loadModalDir(inp.value.trim() || '~').then(() => {
+    document.getElementById('modal-manual').value = '';
+    document.getElementById('modal-bg').classList.remove('hidden');
+    document.getElementById('modal-manual').focus();
+  });
+}
+
+function closeModal() {
+  document.getElementById('modal-bg').classList.add('hidden');
+  _picker = null;
+}
+
+function confirmModal() {
+  const manual = document.getElementById('modal-manual').value.trim();
+  if (_picker) _picker.value = manual || _mpath;
+  closeModal();
+}
+
+async function loadModalDir(path) {
+  document.getElementById('modal-crumb').textContent = 'Loading…';
+  document.getElementById('modal-list').innerHTML = '';
+  try {
+    const d = await apiBrowse(path);
+    _mpath = d.path;
+    document.getElementById('modal-crumb').textContent = d.path;
+    document.getElementById('modal-manual').placeholder = d.path;
+
+    const list = document.getElementById('modal-list');
+    d.entries.forEach(entry => {
+      const li   = document.createElement('li');
+      li.className = 'me' + (entry.is_dir ? '' : ' mf');
+      const icon = document.createElement('span'); icon.className = 'ei';
+      icon.textContent = entry.is_dir ? '📁' : '📄';
+      const nm   = document.createElement('span');
+      nm.textContent  = entry.name;
+      li.appendChild(icon); li.appendChild(nm);
+      if (entry.is_dir) li.addEventListener('click', () => loadModalDir(entry.path));
+      list.appendChild(li);
+    });
+  } catch (e) {
+    document.getElementById('modal-crumb').textContent = 'Error: ' + e.message;
+  }
+}
+
+/* ── Browse Buttons ─────────────────────────────────────────────────── */
+function initBrowseBtns() {
+  document.querySelectorAll('.btn-browse').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const inp = document.getElementById('form-' + btn.dataset.form)
+                          .querySelector('[name="' + btn.dataset.field + '"]');
+      openDirPicker(inp);
+    })
+  );
+}
+
+/* ── Run & Stop ─────────────────────────────────────────────────────── */
+function initRunStop() {
+  document.querySelectorAll('.btn-run').forEach(btn =>
+    btn.addEventListener('click', () => runTool(btn.dataset.tool)));
+  document.querySelectorAll('.btn-stop').forEach(btn =>
+    btn.addEventListener('click', () => stopTool(btn.dataset.tool)));
+}
+
+async function runTool(tool) {
+  let args;
+  try { args = buildArgs(tool); }
+  catch (e) { alert('Parameter Error:\n' + e.message); return; }
+
+  clearLog(tool);
+  setRunState(tool, true);
+  setProgress(tool, 0);
+
+  try {
+    const r = await fetch('/api/run/' + tool, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ args }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Failed to start job');
+    _jobs[tool] = { job_id: d.job_id, es: null };
+    startStream(tool, d.job_id);
+  } catch (e) {
+    appendLog(tool, '[Error] ' + e.message + '\n');
+    setRunState(tool, false);
+  }
+}
+
+async function stopTool(tool) {
+  const job = _jobs[tool];
+  if (!job) return;
+  if (job.es) { job.es.close(); job.es = null; }
+  try { await fetch('/api/kill/' + job.job_id, { method: 'POST' }); } catch (_) { /* ignore */ }
+  appendLog(tool, '\n[Stopped by user]\n');
+  setRunState(tool, false);
+}
+
+/* ── SSE Streaming ──────────────────────────────────────────────────── */
+function startStream(tool, jobId) {
+  const es = new EventSource('/api/stream/' + jobId);
+  if (_jobs[tool]) _jobs[tool].es = es;
+
+  es.onmessage = e => appendLog(tool, e.data + '\n');
+
+  es.addEventListener('progress', e => setProgress(tool, parseInt(e.data, 10)));
+
+  es.addEventListener('done', () => {
+    es.close();
+    if (_jobs[tool]) _jobs[tool].es = null;
+    setRunState(tool, false);
+    const cur = parseInt(document.getElementById('pct-' + tool).textContent, 10);
+    if (cur < 100) setProgress(tool, 100);
+  });
+
+  es.onerror = () => {
+    es.close();
+    if (_jobs[tool]) _jobs[tool].es = null;
+    appendLog(tool, '\n[Stream connection lost]\n');
+    setRunState(tool, false);
+  };
+}
+
+/* ── UI Helpers ─────────────────────────────────────────────────────── */
+function setRunState(tool, running) {
+  document.querySelector('.btn-run[data-tool="' + tool + '"]').disabled  =  running;
+  document.querySelector('.btn-stop[data-tool="' + tool + '"]').disabled = !running;
+}
+function setProgress(tool, pct) {
+  document.getElementById('prog-' + tool).style.width      = pct + '%';
+  document.getElementById('pct-'  + tool).textContent      = pct + '%';
+}
+function appendLog(tool, text) {
+  const el = document.getElementById('log-' + tool);
+  el.textContent += text;
+  el.scrollTop = el.scrollHeight;
+}
+function clearLog(tool) {
+  document.getElementById('log-' + tool).textContent = '';
+  setProgress(tool, 0);
+}
+
+/* ── API ────────────────────────────────────────────────────────────── */
+async function apiBrowse(path) {
+  const r = await fetch('/api/browse?path=' + encodeURIComponent(path));
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'Browse failed');
+  return d;
+}
+
+/* ── Form helpers ───────────────────────────────────────────────────── */
+function getFields(tool) {
+  const fd = {};
+  document.getElementById('form-' + tool)
+          .querySelectorAll('[name]')
+          .forEach(el => {
+            fd[el.name] = el.type === 'checkbox' ? el.checked : el.value.trim();
+          });
+  return fd;
+}
+
+/** Parse "64", "64 128 128", or "1,2,3" → array of integers (length 3). */
+function tripI(text) {
+  if (!text.trim()) return [];
+  const p = text.trim().replace(/,/g, ' ').split(/\s+/);
+  if (p.length !== 1 && p.length !== 3)
+    throw new Error('Expected 1 or 3 integers (got ' + p.length + ')');
+  const v = p.map(s => {
+    const n = parseInt(s, 10);
+    if (isNaN(n)) throw new Error('Not an integer: "' + s + '"');
+    return n;
+  });
+  return v.length === 1 ? [v[0], v[0], v[0]] : v;
+}
+
+/** Parse "1.0", "1.0 2.0 3.0" → array of floats (length 3). */
+function tripF(text) {
+  if (!text.trim()) return [];
+  const p = text.trim().replace(/,/g, ' ').split(/\s+/);
+  if (p.length !== 1 && p.length !== 3)
+    throw new Error('Expected 1 or 3 numbers (got ' + p.length + ')');
+  const v = p.map(s => {
+    const n = parseFloat(s);
+    if (isNaN(n)) throw new Error('Not a number: "' + s + '"');
+    return n;
+  });
+  return v.length === 1 ? [v[0], v[0], v[0]] : v;
+}
+
+/** HTML-escape a string (for use inside element text content). */
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ── CLI Arg Builders ───────────────────────────────────────────────── */
+function buildArgs(tool) {
+  const d = getFields(tool);
+
+  switch (tool) {
+
+    /* ── itk_check ────────────────────────────────────── */
+    case 'itk_check': {
+      if (!d.sample_folder) throw new Error('sample_folder is required');
+      const a = [d.mode, d.sample_folder];
+      if (d.output) a.push('-o', d.output);
+
+      const ms = tripI(d.min_size);    if (ms.length) a.push('--min-size',    ...ms.map(String));
+      const xs = tripI(d.max_size);    if (xs.length) a.push('--max-size',    ...xs.map(String));
+      const mp = tripF(d.min_spacing); if (mp.length) a.push('--min-spacing', ...mp.map(String));
+      const xp = tripF(d.max_spacing); if (xp.length) a.push('--max-spacing', ...xp.map(String));
+
+      if (d.same_spacing) {
+        const p = d.same_spacing.split(/\s+/).filter(Boolean);
+        if (p.length !== 2) throw new Error('same-spacing: provide exactly two axis names, e.g. "X Y"');
+        a.push('--same-spacing', ...p);
+      }
+      if (d.same_size) {
+        const p = d.same_size.split(/\s+/).filter(Boolean);
+        if (p.length !== 2) throw new Error('same-size: provide exactly two axis names, e.g. "X Y"');
+        a.push('--same-size', ...p);
+      }
+      if (d.mp) a.push('--mp');
+      a.push('--workers', d.workers);
+      return a;
+    }
+
+    /* ── itk_resample ─────────────────────────────────── */
+    case 'itk_resample': {
+      if (!d.source_folder) throw new Error('source_folder is required');
+      if (!d.dest_folder)   throw new Error('dest_folder is required');
+
+      /* The select option text may be "dataset (paired ...)", strip the suffix */
+      const mode = d.mode.split(' ')[0];
+      const a = [mode, d.source_folder, d.dest_folder];
+
+      const sp = tripF(d.spacing); if (sp.length) a.push('--spacing', ...sp.map(String));
+      const sz = tripI(d.size);    if (sz.length) a.push('--size',    ...sz.map(String));
+      if (d.target_folder) a.push('--target-folder', d.target_folder);
+      if (d.recursive) a.push('--recursive');
+      if (d.mp) a.push('--mp');
+      a.push('--workers', d.workers);
+      return a;
+    }
+
+    /* ── itk_orient ───────────────────────────────────── */
+    case 'itk_orient': {
+      if (!d.src_dir) throw new Error('src_dir is required');
+      if (!d.dst_dir) throw new Error('dst_dir is required');
+      if (!d.orient)  throw new Error('orient is required (e.g. LPI)');
+
+      const field = d.field.split(' ')[0];
+      const a = [d.src_dir, d.dst_dir, d.orient, '--field', field];
+      if (d.mp) a.push('--mp');
+      a.push('--workers', d.workers);
+      return a;
+    }
+
+    /* ── itk_patch ────────────────────────────────────── */
+    case 'itk_patch': {
+      if (!d.src_folder) throw new Error('src_folder is required');
+      if (!d.dst_folder) throw new Error('dst_folder is required');
+
+      const ps = tripI(d.patch_size);
+      if (!ps.length) throw new Error('patch-size is required (e.g. 64  or  64 128 128)');
+      const st = tripI(d.patch_stride);
+      if (!st.length) throw new Error('patch-stride is required (e.g. 32)');
+
+      const a = [
+        d.src_folder, d.dst_folder,
+        '--patch-size',   ...ps.map(String),
+        '--patch-stride', ...st.map(String),
+      ];
+
+      const mfg = parseFloat(d.min_fg);
+      if (mfg > 0) a.push('--minimum-foreground-ratio', String(mfg));
+
+      const kep = parseFloat(d.keep_empty_prob);
+      if (kep < 1.0) a.push('--keep-empty-label-prob', String(kep));
+
+      if (d.still_save) a.push('--still-save-when-no-label');
+      if (d.mp) a.push('--mp');
+      a.push('--workers', d.workers);
+      return a;
+    }
+
+    /* ── itk_aug ──────────────────────────────────────── */
+    case 'itk_aug': {
+      if (!d.img_folder) throw new Error('img_folder is required');
+      if (!d.lbl_folder) throw new Error('lbl_folder is required');
+
+      const a = [d.img_folder, d.lbl_folder];
+      if (d.oimg) a.push('-oimg', d.oimg);
+      if (d.olbl) a.push('-olbl', d.olbl);
+      a.push('-n', d.num);
+      if (d.mp) a.push('--mp');
+
+      const rot = tripI(d.random_rot);
+      if (rot.length) a.push('--random-rot', ...rot.map(String));
+      a.push('--workers', d.workers);
+      return a;
+    }
+
+    /* ── itk_extract ──────────────────────────────────── */
+    case 'itk_extract': {
+      if (!d.source_folder) throw new Error('source_folder is required');
+      if (!d.dest_folder)   throw new Error('dest_folder is required');
+
+      const lines = d.mappings.split('\n').map(l => l.trim()).filter(Boolean);
+      if (!lines.length)
+        throw new Error('At least one label mapping is required (e.g. "1:0")');
+
+      const a = [d.source_folder, d.dest_folder, ...lines];
+      if (d.recursive) a.push('--recursive');
+      if (d.mp) a.push('--mp');
+      a.push('--workers', d.workers);
+      return a;
+    }
+
+    default:
+      throw new Error('Unknown tool: ' + tool);
+  }
+}
+</script>
+</body>
+</html>

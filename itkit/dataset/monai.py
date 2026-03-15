@@ -15,9 +15,11 @@ class MONAI_PatchedDataset(SeriesVolumeDataset):
                  data_root: str,
                  samples_per_volume: int = 10,
                  patch_size: tuple = (96, 96, 96),
+                 orient_to: str | None = "LPI",
                  *args, **kwargs) -> None:
         self.samples_per_volume = samples_per_volume
         self.patch_size = patch_size
+        self.orient_to = orient_to
         self.patch_iter = None
         super().__init__(data_root=data_root, *args, **kwargs)
 
@@ -107,6 +109,8 @@ class MONAI_PatchedDataset(SeriesVolumeDataset):
     def _load_volume(self, data_dict):
         """Custom loader using SimpleITK instead of MONAI LoadImaged"""
         sitk_img = sitk.ReadImage(data_dict['image'])
+        if self.orient_to is not None:
+            sitk_img = sitk.DICOMOrient(sitk_img, self.orient_to)
         img_array = sitk.GetArrayFromImage(sitk_img)  # Returns (Z, Y, X)
         img_array = np.expand_dims(img_array, axis=0)  # Add channel dim -> (1, Z, Y, X)
 
@@ -114,6 +118,8 @@ class MONAI_PatchedDataset(SeriesVolumeDataset):
 
         if 'label' in data_dict:
             sitk_label = sitk.ReadImage(data_dict['label'])
+            if self.orient_to is not None:
+                sitk_label = sitk.DICOMOrient(sitk_label, self.orient_to)
             label_array = sitk.GetArrayFromImage(sitk_label)
             label_array = np.expand_dims(label_array, axis=0)
             result['label'] = torch.from_numpy(label_array)
