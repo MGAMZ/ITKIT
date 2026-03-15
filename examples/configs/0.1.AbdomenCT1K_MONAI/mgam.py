@@ -34,7 +34,7 @@ from itkit.mm.visualization import SegViser, BaseVisHook, LocalVisBackend
 # --------------------PARAMETERS-------------------- #
 
 # PyTorch
-debug = True
+debug = False
 use_AMP = True
 dist = False if not debug else False  # distribution
 MP_mode = "ddp"  # Literal[`"ddp", "fsdp", "deepspeed"]
