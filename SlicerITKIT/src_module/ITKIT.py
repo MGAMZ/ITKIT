@@ -12,6 +12,7 @@ import logging
 import qt
 import slicer
 from ITKITLogic import ITKITLogic
+from ITKITWidget import ITKITWidget
 from slicer.ScriptedLoadableModule import ScriptedLoadableModule, ScriptedLoadableModuleTest
 
 LOGGER = logging.getLogger(__name__)

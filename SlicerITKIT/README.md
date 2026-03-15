@@ -60,7 +60,7 @@ pip.main(['install', 'requests'])
 
 1. Edit → Application Settings → Modules
 2. Click "Add" in "Additional module paths"
-3. Select: `ITKIT/SlicerITKIT/ITKITInference`
+3. Select: `ITKIT/SlicerITKIT/src_module`
 4. Click OK and restart Slicer
 
 Module will appear: Modules → Segmentation → ITKIT
