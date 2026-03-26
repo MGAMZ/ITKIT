@@ -215,13 +215,20 @@ def parse_args():
                         help='Override inference patch stride (Z Y X)')
 
     # Other options
-    parser.add_argument('--num-proc', type=int, default=1, help='Number of processes to use')
-    parser.add_argument('--gpus', type=int, default=1, help='Number of GPUs to use')
+    parser.add_argument('--num-proc', type=int, default=1,
+                        help='Requested number of processes; actual process count is max(num_proc, gpus)')
+    parser.add_argument('--gpus', type=int, default=1,
+                        help='Number of GPUs to use for round-robin process assignment')
     parser.add_argument('--fp16', action='store_true', default=False, help='Use FP16 precision')
     parser.add_argument('--save-logits', action='store_true', default=False)
     parser.add_argument('--save-conf', action='store_true', default=False)
 
     args = parser.parse_args()
+
+    if args.num_proc < 1:
+        parser.error("--num-proc must be >= 1")
+    if args.gpus < 1:
+        parser.error("--gpus must be >= 1")
 
     if args.backend == 'mmengine':
         if not args.cfg_path or not args.ckpt_path:
@@ -229,6 +236,8 @@ def parse_args():
     elif args.backend == 'onnx':
         if not args.onnx:
             parser.error("--backend onnx requires --onnx")
+
+    args.num_proc = max(args.num_proc, args.gpus)
 
     return args
 
