@@ -1041,3 +1041,14 @@ class MONAINoise(BaseTransform):
         min_HU = results["img"].min()
         results["img"] = self.noise_fn(results["img"] - min_HU) + min_HU
         return results
+
+
+class RandomIntensity(BaseTransform):
+    def __init__(self, range: int, prob: float = 0.5):
+        self.range = range
+        self.prob = prob
+
+    def transform(self, results: dict):
+        if random.random() < self.prob:
+            results["img"] = results["img"] + random.randint(-self.range, self.range)
+        return results
