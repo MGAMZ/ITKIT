@@ -9,12 +9,7 @@ import SimpleITK as sitk
 from tqdm import tqdm
 
 from itkit.dataset.Totalsegmentator.meta import CLASS_INDEX_MAP as CLASS_INDEX_MAP_CT
-from itkit.dataset.Totalsegmentator.meta import (
-    CLASS_INDEX_MAP_MRI,
-    CLASS_MERGE,
-    SUBSETS,
-    generate_reduced_class_map_and_label_map,
-)
+from itkit.dataset.Totalsegmentator.meta import CLASS_INDEX_MAP_MRI, CLASS_MERGE, SUBSETS, generate_reduced_class_map_and_label_map
 from itkit.io.sitk_toolkit import (
     merge_masks,
     nii_to_sitk,
