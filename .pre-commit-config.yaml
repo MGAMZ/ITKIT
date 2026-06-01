@@ -11,7 +11,7 @@ repos:
         args: ["--py313-plus"]
         files: ^itkit/
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.13
+    rev: v0.15.15
     hooks:
       - id: ruff-check
         types_or: [ python, pyi ]
@@ -47,7 +47,7 @@ repos:
         args: [scan]
         files: ^(docs/|README\.md)
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.409
+    rev: v1.1.410
     hooks:
     - id: pyright
       args: ["--threads", "24"]
