@@ -44,7 +44,6 @@ class InferenceBackend(ABC):
         Returns:
             Output logits tensor.
         """
-        pass
 
     @abstractmethod
     def slide_inference(self, inputs: Tensor) -> Tensor:
@@ -56,7 +55,6 @@ class InferenceBackend(ABC):
         Returns:
             Segmentation logits tensor.
         """
-        pass
 
 
 class MMEngineInferBackend(InferenceBackend):
@@ -270,7 +268,6 @@ class Inferencer(ABC):
                 - seg_logits (Tensor): Segmentation logits tensor.
                 - sem_seg_map (Tensor): Segmentation map tensor.
         """
-        pass
 
 
 class Inferencer_Seg3D(Inferencer):

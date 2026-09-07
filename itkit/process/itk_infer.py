@@ -91,7 +91,11 @@ def process_gpu_task(process_id, file_list, args, pred_conf_shared_dict=None):
     # NOTE Local environment setup for each GPU process.
     gpu_id = process_id % args.gpus
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
-    from itkit.mm.inference import Inferencer_Seg3D, MMEngineInferBackend, ONNXInferBackend
+    from itkit.mm.inference import (
+        Inferencer_Seg3D,
+        MMEngineInferBackend,
+        ONNXInferBackend,
+    )
     from itkit.mm.sliding_window import InferenceConfig
     tqdm.write(f"Process {process_id} using GPU {gpu_id}, processing {len(file_list)} files")
 

@@ -1,17 +1,19 @@
-import pytest
 from unittest.mock import patch
+
+import pytest
 from mmengine.logging import MMLogger
 
 # Import dataset classes
 from itkit.dataset.AbdomenCT_1K.mm_dataset import AbdomenCT_1K_Mha
 from itkit.dataset.CT_ORG.mm_dataset import CT_ORG_Mha
-from itkit.dataset.KiTS23.mm_dataset import KiTS23_Mha
+from itkit.dataset.CTSpine1K.mm_dataset import CTSpine1K_Mha
 from itkit.dataset.FLARE_2022.mm_dataset import FLARE_2022_Mha
 from itkit.dataset.FLARE_2023.mm_dataset import FLARE_2023_Mha
-from itkit.dataset.CTSpine1K.mm_dataset import CTSpine1K_Mha
 from itkit.dataset.ImageTBAD.mm_dataset import TBAD_Mha
-from itkit.dataset.LUNA16.mm_dataset import LUNA16_Mha
+from itkit.dataset.KiTS23.mm_dataset import KiTS23_Mha
 from itkit.dataset.LiTS.mm_dataset import LiTS_Mha
+from itkit.dataset.LUNA16.mm_dataset import LUNA16_Mha
+
 
 @pytest.mark.parametrize("dataset_class, extra_kwargs", [
     (AbdomenCT_1K_Mha, {}),

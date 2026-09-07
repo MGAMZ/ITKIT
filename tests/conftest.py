@@ -1,6 +1,6 @@
+import json
 import os
 import random
-import json
 
 import numpy as np
 import pytest

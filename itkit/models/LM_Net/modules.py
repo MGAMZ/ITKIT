@@ -2,13 +2,13 @@ import math
 from collections import OrderedDict
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 
 #from depthwise_conv2d_implicit_gemm import DepthWiseConv2dImplicitGEMM
 #from .involution_cuda import involution
 from natten import NeighborhoodAttention2D
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+from torch import nn
 
 # from .nonlocal_block import NONLocalBlock2D
 #from carafe import CARAFEPack
@@ -17,7 +17,10 @@ from torchvision.ops.deform_conv import DeformConv2d  # type: ignore
 
 # Try to import optional dependencies
 try:
-    from .nattencuda import NeighborhoodAttention, NEWNeighborhoodAttention  # type: ignore
+    from .nattencuda import (  # type: ignore
+        NeighborhoodAttention,
+        NEWNeighborhoodAttention,
+    )
 except ImportError:
     NEWNeighborhoodAttention = None  # type: ignore
     NeighborhoodAttention = None  # type: ignore

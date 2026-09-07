@@ -14,7 +14,7 @@ from ..process.NDArray import unsafe_astype
 def convert_nii_sitk(nii_path:str,
                      nii_fdata_order:Literal['xyz','zyx'],
                      dtype=np.float32,
-                     value_offset:int|float|None=None
+                     value_offset:float | None=None
                      ) -> sitk.Image:
     # 加载并进行值域修正
     try:

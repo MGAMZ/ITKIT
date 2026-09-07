@@ -3,8 +3,8 @@ from collections.abc import Callable
 
 import timm
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 
 class EfficientFormerV2(torch.nn.Module):

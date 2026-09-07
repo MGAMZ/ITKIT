@@ -73,7 +73,7 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
             # Avoid device clash with OpenCV
             torch.cuda.set_device(cfg.pop("torch_cuda_id", -1))
             # Torch Compile
-            cfg.get("torch_logging_level", logging.WARN)
+            cfg.get("torch_logging_level", logging.WARNING)
             torch._logging.set_logs(all=self.str_to_log_level(cfg.pop("torch_logging_level", "WARN")),
                                     dynamo=self.str_to_log_level(cfg.pop("dynamo_logging_level", "WARN")))
             torch._dynamo.config.cache_size_limit = cfg.pop("dynamo_cache_size", 1)
@@ -102,7 +102,7 @@ def DynamicRunnerGenerator(cfg: ConfigType) -> Runner:
 
         def load_or_resume(self) -> None:
             if self._has_loaded:
-                return None
+                return
 
             # Resume has higher priority than `load_from`
             if self._resume:

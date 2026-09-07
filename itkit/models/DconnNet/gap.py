@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
 GlobalAvgPool2D = lambda: nn.AdaptiveAvgPool2d(1)
 

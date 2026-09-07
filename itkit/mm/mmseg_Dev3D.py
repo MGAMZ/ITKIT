@@ -16,7 +16,10 @@ from mmseg.models.data_preprocessor import SegDataPreProcessor
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
 from mmseg.models.losses.accuracy import accuracy
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
-from mmseg.structures.seg_data_sample import PixelData, SegDataSample  # pyright: ignore[reportAttributeAccessIssue]
+from mmseg.structures.seg_data_sample import (  # pyright: ignore[reportAttributeAccessIssue]
+    PixelData,
+    SegDataSample,
+)
 from mmseg.visualization.local_visualizer import SegLocalVisualizer
 from torch import Tensor
 from torch.nn import functional as F
@@ -395,8 +398,8 @@ class EncoderDecoder_3D(EncoderDecoder):
                 i_seg_pred = (i_seg_logits > self.decode_head.threshold).to(i_seg_logits)
             data_samples[i].set_data(
                 {
-                    "seg_logits": VolumeData(**{"data": i_seg_logits}),  # type: ignore
-                    "pred_sem_seg": VolumeData(**{"data": i_seg_pred}),  # type: ignore
+                    "seg_logits": VolumeData(data=i_seg_logits),  # type: ignore
+                    "pred_sem_seg": VolumeData(data=i_seg_pred),  # type: ignore
                 }
             )
 
@@ -848,8 +851,8 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         std: Sequence[float] | None = None,
         size: tuple | None = None,
         size_divisor: int | None = None,
-        pad_val: int | float = 0,
-        seg_pad_val: int | float = 255,
+        pad_val: float = 0,
+        seg_pad_val: float = 255,
         rot3D_angle: Sequence | None = None,
         test_cfg: dict | None = None,
         non_blocking: bool = True,
@@ -882,8 +885,8 @@ class Seg3DDataPreProcessor(SegDataPreProcessor):
         data_samples: list[Seg3DDataSample],
         size: tuple | None = None,
         size_divisor: int | None = None,
-        pad_val: int | float = 0,
-        seg_pad_val: int | float = 255,
+        pad_val: float = 0,
+        seg_pad_val: float = 255,
         training: bool = True,
     ):
         """Stack multiple 3D volume inputs to form a batch and pad the volumes and gt_sem_segs

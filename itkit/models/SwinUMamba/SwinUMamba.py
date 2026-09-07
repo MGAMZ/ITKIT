@@ -4,12 +4,12 @@ from collections.abc import Callable
 from functools import partial
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import torch.utils.checkpoint as checkpoint
 from einops import rearrange, repeat
 from mamba_ssm.ops.selective_scan_interface import selective_scan_fn
 from timm.models.layers import DropPath, trunc_normal_
+from torch import nn
+from torch.utils import checkpoint
 
 DropPath.__repr__ = lambda self: f"timm.DropPath({self.drop_prob})"
 

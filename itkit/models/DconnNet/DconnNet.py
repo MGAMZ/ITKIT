@@ -6,7 +6,7 @@ Created on Wed Apr 10 09:57:49 2019
 import math
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 # from resnet import resnet34
 # import resnet

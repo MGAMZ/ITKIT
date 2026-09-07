@@ -26,6 +26,7 @@ import SimpleITK as sitk
 import torch
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
+
 from itkit.mm.inference import (
     InferenceConfig,
     Inferencer_Seg3D,
@@ -54,9 +55,9 @@ class ModelConfig:
         self,
         name: str,
         backend_type: str,
-        config_path: Optional[str],
+        config_path: str | None,
         model_path: str,
-        inference_config: Optional[dict] = None,
+        inference_config: dict | None = None,
     ):
         self.name = name
         self.backend_type = backend_type  # 'mmengine' or 'onnx'
@@ -119,7 +120,7 @@ class ModelConfig:
 
 def _get_windowing_from_model(
     model: ModelConfig,
-) -> tuple[Optional[float], Optional[float]]:
+) -> tuple[float | None, float | None]:
     """Try to read window level/width from backend metadata or config."""
     if model.backend_type.lower() == "mmengine":
         cfg = getattr(model.backend, "cfg", None)

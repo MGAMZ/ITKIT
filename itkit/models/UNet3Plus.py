@@ -1,8 +1,8 @@
 from collections.abc import Sequence
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 from torch.utils.checkpoint import checkpoint
 
 

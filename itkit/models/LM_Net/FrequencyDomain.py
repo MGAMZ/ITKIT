@@ -1,6 +1,6 @@
 import torch
-import torch.nn as nn
 from resnet import resnet50
+from torch import nn
 
 
 #from torchvision.models import resnet50

@@ -1,9 +1,8 @@
 from typing import cast
 
 import torch
-import torch.nn as nn
-import torch.utils.checkpoint as checkpoint
-from torch import Tensor
+from torch import Tensor, nn
+from torch.utils import checkpoint
 
 from .blocks import *
 

@@ -37,8 +37,7 @@ class ExtractProcessor(SingleFolderProcessor):
 
         # Normalize extension to .mha
         base_name = os.path.splitext(os.path.basename(output_path))[0]
-        if base_name.endswith('.nii'):
-            base_name = base_name[:-4]
+        base_name = base_name.removesuffix('.nii')
         output_path = os.path.join(os.path.dirname(output_path), base_name + '.mha')
 
         return self._extract_one_sample(file_path, output_path)

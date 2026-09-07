@@ -19,7 +19,7 @@ def fix_nifti_file(input_path, output_path):
         nib.save(img, output_path)
         return True
     except Exception as e:
-        print(f"处理文件 {input_path} 时出错: {str(e)}")
+        print(f"处理文件 {input_path} 时出错: {e!s}")
         return False
 
 
@@ -39,7 +39,7 @@ def process_file(file_path, input_root, output_root):
         output_path = output_root / rel_path
         return fix_nifti_file(file_path, output_path)
     except ValueError as e:
-        print(f"计算相对路径时出错: {str(e)}")
+        print(f"计算相对路径时出错: {e!s}")
         return False
 
 

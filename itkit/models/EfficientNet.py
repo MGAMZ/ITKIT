@@ -1,8 +1,8 @@
 # pyright: reportCallIssue=false
 import timm
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 
 class EfficientNetV2(torch.nn.Module):

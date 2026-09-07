@@ -2,8 +2,8 @@
 
 import _depthwise_conv2d_implicit_gemm_C as _extension
 import torch
-import torch.nn as nn
 from depthwise_conv2d_implicit_gemm import *
+from torch import nn
 
 
 class _DepthWiseConv2dImplicitGEMMFP32(torch.autograd.Function):

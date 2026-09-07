@@ -186,7 +186,6 @@ class BaseITKProcessor:
 
         Subclasses should override this if they skip existing files.
         """
-        pass
 
     def _generate_metadata_for_folder(self, dest_folder: str, source_folder: str | None,
                                        source_files_set: set[str] | None = None) -> None:
@@ -244,8 +243,7 @@ class BaseITKProcessor:
     def _normalize_filename(self, filepath: str) -> str:
         base = os.path.splitext(filepath)[0]
         # Handle double extensions like .nii.gz
-        if base.endswith('.nii'):
-            base = base[:-4]
+        base = base.removesuffix('.nii')
         return base
 
     def _collect_results(self, results: list):

@@ -1,8 +1,8 @@
 from typing import Literal
 
 import torch
-import torch.nn as nn
-import torch.nn.init as init
+from torch import nn
+from torch.nn import init
 
 
 class ACBlock(nn.Module):

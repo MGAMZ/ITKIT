@@ -1,15 +1,17 @@
 import json
+
 import pytest
 
 try:
-    import torch
     import onnx
     import onnxruntime
+    import torch
     HAS_ORT = True
 except ImportError:
     HAS_ORT = False
 
 from itkit.mm.inference import ONNXInferBackend
+
 
 def create_dummy_onnx(path, inference_config_dict=None):
     # Create a simple model: y = x
