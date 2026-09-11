@@ -20,7 +20,6 @@ Usage:
 import logging
 import os
 import tempfile
-from typing import Optional
 
 import ctk
 import qt
@@ -279,7 +278,6 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
-        pass
 
     def onServerUrlChanged(self):
         """Called when server URL changes."""
@@ -330,8 +328,8 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             LOGGER.exception("Connect to server failed")
             self.serverStatusLabel.setText("Connection failed")
             self.serverStatusLabel.setStyleSheet("color: red;")
-            self.statusLabel.setText(f"Error: {str(e)}")
-            slicer.util.errorDisplay(f"Failed to connect to server: {str(e)}")
+            self.statusLabel.setText(f"Error: {e!s}")
+            slicer.util.errorDisplay(f"Failed to connect to server: {e!s}")
 
     def updateModelStatus(self, model_info):
         """Update the current model status display."""
@@ -453,8 +451,8 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         except Exception as e:
             LOGGER.exception("Load model failed")
             self.progressBar.hide()
-            self.statusLabel.setText(f"Error: {str(e)}")
-            slicer.util.errorDisplay(f"Failed to load model: {str(e)}")
+            self.statusLabel.setText(f"Error: {e!s}")
+            slicer.util.errorDisplay(f"Failed to load model: {e!s}")
 
     def onUnloadModelButton(self):
         """Unload the current model from the server."""
@@ -474,7 +472,7 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         except Exception as e:
             LOGGER.exception("Unload model failed")
-            slicer.util.errorDisplay(f"Failed to unload model: {str(e)}")
+            slicer.util.errorDisplay(f"Failed to unload model: {e!s}")
 
     def onApplyButton(self):
         """Run processing when user clicks "Apply" button."""
@@ -531,8 +529,8 @@ class ITKITInferenceWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 LOGGER.exception("Inference failed")
 
                 def onError():
-                    slicer.util.errorDisplay(f"Inference failed: {str(e)}")
-                    self.statusLabel.setText(f"Error: {str(e)}")
+                    slicer.util.errorDisplay(f"Inference failed: {e!s}")
+                    self.statusLabel.setText(f"Error: {e!s}")
                     self.applyButton.enabled = True
                     self.progressBar.hide()
 
@@ -572,7 +570,7 @@ class ITKITInferenceLogic(ScriptedLoadableModuleLogic):
         self,
         server_url: str,
         backend_type: str,
-        config_path: Optional[str],
+        config_path: str | None,
         model_path: str,
         inference_config: dict,
     ) -> bool:

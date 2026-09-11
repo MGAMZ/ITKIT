@@ -223,7 +223,7 @@ class DatasetCheckProcessor(DatasetProcessor, CheckMixin):
 
             return SeriesMetadata.from_sitk_image(lbl, name), res
         except Exception as e:
-            res = ValidationResult(name, False, [f"Failed to read: {str(e)}"], (img_path, lbl_path))
+            res = ValidationResult(name, False, [f"Failed to read: {e!s}"], (img_path, lbl_path))
             return None, res
 
     def _collect_results(self, results: list):
@@ -326,7 +326,7 @@ class SingleCheckProcessor(SingleFolderProcessor, CheckMixin):
             return SeriesMetadata.from_sitk_image(img, name), res
 
         except Exception as e:
-            res = ValidationResult(name, False, [f"Failed to read: {str(e)}"], img_path)
+            res = ValidationResult(name, False, [f"Failed to read: {e!s}"], img_path)
             return None, res
 
     def _collect_results(self, results: list):

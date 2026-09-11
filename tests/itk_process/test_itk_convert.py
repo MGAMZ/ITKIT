@@ -1,10 +1,10 @@
 """Tests for itk_convert module - ITKIT to MONAI and TorchIO format conversion."""
 
 import csv
+import importlib.util
 import json
 import os
 import tempfile
-import importlib.util
 
 import numpy as np
 import pytest

@@ -514,13 +514,12 @@ class RandomCrop3D(BaseTransform):
             # when pass all check
             return crop_bbox
 
-        else:
-            raise RuntimeError(
-                Fore.YELLOW + \
+        raise RuntimeError(
+            Fore.YELLOW + \
                 f"Cannot find a valid crop bbox after {self.CROP_RETRY+1} trials. " + \
                 f"Last check result: ccm_check={ccm_check_}, std_check={std_check_}." + \
                 Style.RESET_ALL
-            )
+        )
 
     def crop(self, img: np.ndarray, crop_bbox: tuple) -> np.ndarray:
         """Crop from ``img``
@@ -599,7 +598,7 @@ class RandomContinuousErase(BaseTransform):
     def __init__(
         self,
         max_size: list[int] | int,
-        pad_val: float | int,
+        pad_val: float,
         seg_pad_val=0,
         prob: float = 0.5,
     ):
@@ -1025,7 +1024,12 @@ class MONAINoise(BaseTransform):
                  method: Literal['gibbs', 'gaussian', 'kspace', 'rician'],
                  prob: float = 0.5,
                  **kwargs):
-        from monai.transforms import RandGaussianNoise, RandGibbsNoise, RandKSpaceSpikeNoise, RandRicianNoise
+        from monai.transforms import (
+            RandGaussianNoise,
+            RandGibbsNoise,
+            RandKSpaceSpikeNoise,
+            RandRicianNoise,
+        )
         if method == 'gibbs':
             self.noise_fn = RandGibbsNoise(prob, **kwargs)
         elif method == 'gaussian':

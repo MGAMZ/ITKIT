@@ -18,7 +18,14 @@ import threading
 import uuid
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, render_template, request, stream_with_context
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    render_template,
+    request,
+    stream_with_context,
+)
 
 app = Flask(__name__)
 

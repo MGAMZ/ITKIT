@@ -395,8 +395,8 @@ class SemSeg3D(SemanticSegment):
                     i_seg_pred = (i_seg_logits_sigmoid > self.binary_segment_threshold).to(i_seg_logits)
 
                 # Store results into data_samples
-                data_samples[i].seg_logits = VolumeData(**{"data": i_seg_logits})  # pyright: ignore[reportArgumentType]
-                data_samples[i].pred_sem_seg = VolumeData(**{"data": i_seg_pred})  # pyright: ignore[reportArgumentType]
+                data_samples[i].seg_logits = VolumeData(data=i_seg_logits)  # pyright: ignore[reportArgumentType]
+                data_samples[i].pred_sem_seg = VolumeData(data=i_seg_pred)  # pyright: ignore[reportArgumentType]
 
             return data_samples
 

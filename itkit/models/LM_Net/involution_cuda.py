@@ -3,7 +3,7 @@ from string import Template
 
 import cupy
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.autograd import Function
 from torch.nn.modules.utils import _pair
 

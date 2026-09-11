@@ -6,8 +6,8 @@ Created on Wed Apr 10 09:57:49 2019
 
 import math
 
-import torch.nn as nn
-import torch.utils.model_zoo as model_zoo
+from torch import nn
+from torch.utils import model_zoo
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
            'resnet152']

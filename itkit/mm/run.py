@@ -99,9 +99,8 @@ class auto_runner:
                     print(f"Found experiment by prefix: {exp_name} -> {exp}")
                     return exp
 
-        else:
-            print(f"No experiment found under {self.config_root} directory: {exp_name}")
-            return None
+        print(f"No experiment found under {self.config_root} directory: {exp_name}")
+        return None
 
     def experiment_queue(self):
         print("Experiment queue started, importing dependencies...")

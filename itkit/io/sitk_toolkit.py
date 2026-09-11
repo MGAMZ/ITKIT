@@ -159,7 +159,7 @@ def sitk_new_blank_image(size, spacing, direction, origin, default_value=0.0):
 def nii_to_sitk(
     nii_path: str,
     field: Literal["image", "label"],
-    value_offset: int | float | None = None,
+    value_offset: float | None = None,
 ) -> sitk.Image:
     try:
         sitk_img = sitk.ReadImage(nii_path, outputPixelType=sitk.sitkInt16 if field == "image" else sitk.sitkUInt8)

@@ -1,34 +1,35 @@
-from torch.optim.adamw import AdamW
-from torch.distributed.fsdp.api import ShardingStrategy
-
-from mmengine.runner import ValLoop
-from mmengine.runner import TestLoop
-from mmengine.hooks.iter_timer_hook import IterTimerHook
-from mmengine.hooks.param_scheduler_hook import ParamSchedulerHook
-from mmengine.hooks.checkpoint_hook import CheckpointHook
-from mmengine.hooks import DistSamplerSeedHook
-from mmengine.runner import IterBasedTrainLoop
-from mmengine.optim.scheduler import LinearLR, PolyLR
-from mmengine.optim import OptimWrapper, AmpOptimWrapper
-from mmengine.model.wrappers import MMFullyShardedDataParallel
 from mmengine._strategy.deepspeed import DeepSpeedOptimWrapper, DeepSpeedStrategy
 from mmengine.dataset.sampler import DefaultSampler, InfiniteSampler
 from mmengine.dataset.utils import default_collate
+from mmengine.hooks import DistSamplerSeedHook
+from mmengine.hooks.checkpoint_hook import CheckpointHook
+from mmengine.hooks.iter_timer_hook import IterTimerHook
+from mmengine.hooks.param_scheduler_hook import ParamSchedulerHook
+from mmengine.model.wrappers import MMFullyShardedDataParallel
+from mmengine.optim import AmpOptimWrapper, OptimWrapper
+from mmengine.optim.scheduler import LinearLR, PolyLR
+from mmengine.runner import IterBasedTrainLoop, TestLoop, ValLoop
 from mmengine.visualization import TensorboardVisBackend
+from torch.distributed.fsdp.api import ShardingStrategy
+from torch.optim.adamw import AdamW
+
+from itkit.dataset import ITKITConcatDataset
+from itkit.dataset.AbdomenCT_1K.mm_dataset import AbdomenCT_1K_Mha, AbdomenCT_1K_Patch
 
 # customize
 from itkit.mm.mmeng_PlugIn import (
-    RemasteredDDP, LoggerJSON, RuntimeInfoHook, multi_sample_collate,
-    RatioSampler, RemasteredFSDP_Strategy)
-from itkit.process.GeneralPreProcess import WindowSet, TypeConvert
-from itkit.process.LoadBiomedicalData import LoadImageFromMHA, LoadMaskFromMHA
+    LoggerJSON,
+    RatioSampler,
+    RemasteredDDP,
+    RemasteredFSDP_Strategy,
+    RuntimeInfoHook,
+    multi_sample_collate,
+)
 from itkit.mm.mmseg_Dev3D import PackSeg3DInputs, Seg3DDataPreProcessor
 from itkit.mm.mmseg_PlugIn import IoUMetric_PerClass
-from itkit.dataset import ITKITConcatDataset
-from itkit.dataset.AbdomenCT_1K.mm_dataset import AbdomenCT_1K_Mha, AbdomenCT_1K_Patch
-from itkit.mm.visualization import SegViser, BaseVisHook, LocalVisBackend
-
-
+from itkit.mm.visualization import BaseVisHook, LocalVisBackend, SegViser
+from itkit.process.GeneralPreProcess import TypeConvert, WindowSet
+from itkit.process.LoadBiomedicalData import LoadImageFromMHA, LoadMaskFromMHA
 
 # --------------------PARAMETERS-------------------- #
 

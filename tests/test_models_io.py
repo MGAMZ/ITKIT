@@ -472,8 +472,8 @@ def test_efficientformerv2_io():
 @pytest.mark.torch
 def test_datransunet_io():
     """Test DA-TransUNet IO (2D model)."""
-    from itkit.models.DA_TransUnet.DATransUNet import DA_Transformer
     from itkit.models.DA_TransUnet.configs import get_r50_b16_config
+    from itkit.models.DA_TransUnet.DATransUNet import DA_Transformer
 
     # Create model
     config = get_r50_b16_config()
@@ -575,7 +575,7 @@ def test_swinumamba_io():
 def test_volumevssm_io():
     """Test VolumeVSSM IO."""
     pytest.importorskip("mamba_ssm", reason="mamba_ssm not installed")
-    from itkit.models.VMamba.volume_mamba import VolumeVSSM, MambaAggregator1D
+    from itkit.models.VMamba.volume_mamba import MambaAggregator1D, VolumeVSSM
 
     # Mock backbone
     class MockBackbone(torch.nn.Module):

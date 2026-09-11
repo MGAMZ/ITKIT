@@ -7,8 +7,8 @@ from os.path import join as pjoin
 
 import numpy as np
 import torch
-import torch.nn as nn
 from scipy import ndimage
+from torch import nn
 from torch.nn import (
     Conv2d,
     Dropout,

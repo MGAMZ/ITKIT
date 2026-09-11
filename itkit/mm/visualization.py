@@ -317,7 +317,7 @@ class SegViser(BaseViser):
         if gt_seg_map is None:
             print_log(f"When visualizing `{name}` with img_path `{img_path}`, "
                       "gt_seg_map is None. So the gt_seg_map will not be empty.",
-                      MMLogger.get_current_instance(), logging.WARN)
+                      MMLogger.get_current_instance(), logging.WARNING)
 
         # draw fig and save
         image_array = self._draw_fig(img_path, image_cpu, gt_seg_map, pred_seg_map, pred_seg_logits)

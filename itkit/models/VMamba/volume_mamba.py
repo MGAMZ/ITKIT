@@ -13,9 +13,9 @@ This file is intentionally light-touch and does not modify vmamba.py.
 import math
 
 import torch
-import torch.nn as nn
 import torch.utils.checkpoint
 from selective_scan import selective_scan_fn
+from torch import nn
 from vmamba import mamba_init  # pyright: ignore[reportMissingImports]
 
 

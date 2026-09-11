@@ -223,7 +223,7 @@ class SeriesVolumeDataset(ITKITBaseSegDataset):
             if not os.path.exists(image_mha_path):
                 print_log(f"{series} image mha file not found.\nFullPath: {image_mha_path}",
                           MMLogger.get_current_instance(),
-                          logging.WARN)
+                          logging.WARNING)
                 continue
             yield (image_mha_path, label_mha_path)
 
@@ -253,11 +253,11 @@ class PatchedDataset(SeriesVolumeDataset):
             # List all image files that match the current series UID
             # Files are in format: <seriesUID>_<patchID>.mha (e.g., 1.3.6.1.4.1.9328.50.4.0095_p0.mha)
             if not os.path.exists(image_folder):
-                print_log(f"Image folder not found: {image_folder}", MMLogger.get_current_instance(), logging.WARN)
+                print_log(f"Image folder not found: {image_folder}", MMLogger.get_current_instance(), logging.WARNING)
                 continue
 
             if series not in self.precrop_meta["patch_meta"]:
-                print_log(f"Series {series} not found in patch metadata", MMLogger.get_current_instance(), logging.WARN)
+                print_log(f"Series {series} not found in patch metadata", MMLogger.get_current_instance(), logging.WARNING)
                 continue
             series_patch_files = self.precrop_meta["patch_meta"][series]["class_within_patch"].keys()
 
